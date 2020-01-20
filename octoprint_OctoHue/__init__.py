@@ -17,6 +17,9 @@ class OctohuePlugin(octoprint.plugin.SettingsPlugin,
                     octoprint.plugin.TemplatePlugin,
 					octoprint.plugin.EventHandlerPlugin):
 
+	def on_after_startup(self):
+		self._logger.info("Octohue is alive!")
+
 	##~~ SettingsPlugin mixin
 
 	def get_settings_defaults(self):
