@@ -23,10 +23,8 @@ class HuePrinterLight(Bridge):
         self.pbridge = Bridge(self.bridgeaddress, self.husername)
 
     def rgb(self, red, green=None, blue=None, transitiontime=5, bri=128):
-        """This is all someones prior art, but I should understand it
-
-        This function takes RGB as either numerically as a set of a R,G and B value, or as a hex string
-        """
+        state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
+        
         if isinstance(red, basestring):
             # If Red is a string or unicode assume a hex string is passed and convert it to numberic 
             rstring = red
@@ -49,26 +47,13 @@ class HuePrinterLight(Bridge):
         print("XYZ: %s " % xyz)
         xyz = colormodels.xyz_normalize(xyz)
         print("Normalised XYZ: %s" % xyz)
-        
-        #return self.set_state([xyz[0], xyz[1]], transitiontime=transitiontime, bri=bri)
-        return self.set_state(
-            {"on": True, "xy": [xyz[0], xyz[1]], "transitiontime": transitiontime, "bri": bri }
-        )
+        state['xy'] = [xyz[0], xyz[1]]
+
+        return self.set_state(state)
         
     def set_state(self, state):
-        print("Bridge %s" % self.bridgeaddress)
-        print("U %s" % self.husername)
-        print("Light %i" % self.plightID)
-        print("PBridge: %s" % self.pbridge)
-
-        #newstate = ''.join([('%s=%s,' % x) for x in kwargs.iteritems()])
-        #state = newstate[:-1]
-        #print("State"+ json.dumps(state))
-        self.pbridge.lights[self.plightID].state(transitiontime=5,on=True,xy=[0.37949361297741163, 0.4599316758104256])
+        self.pbridge.lights[self.plightID].state(**state)
 
 pl = HuePrinterLight(lightID, bridgeaddress, husername)
 pl.rgb(lcolour)
 
-
-#b = Bridge(bridgeaddress, husername)
-#b.lights[9].state(transitiontime=5,on=True,xy=[0.37949361297741163, 0.4599316758104256])
