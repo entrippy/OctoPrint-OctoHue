@@ -22,13 +22,31 @@ class OctohuePlugin(octoprint.plugin.SettingsPlugin,
 	def get_settings_defaults(self):
 		return dict(
 			bridgeaddr="",
+			husername="",
 			lampID="",
-			defaultb="",
+			defaultbri="",
 			onc="#FFFFFF",
 			completec="#33FF36",
 			errorc="#FF0000",
 			warningc="#FFC300"
 		)
+
+	def get_template_vars(self):
+		return dict(
+			bridgeaddr=self._settings.get(["bridgeaddr"]),
+			husername=self._settings.get({"husername"}),
+			lampID=self._settings.get(["lampID"]),
+			defaultbri=self._settings.get(["defaultbri"]),
+			onc=self._settings.get(["onc"]),
+			completec=self._settings.get(["completec"]),
+			errorc=self._settings.get(["errorc"]),
+			warningc=self._settings.get(["warningc"])
+		)
+	
+	def get_template_configs(self):
+		return [
+			dict(type="settings", custom_bindings=False)
+		]
 
 	##~~ AssetPlugin mixin
 
