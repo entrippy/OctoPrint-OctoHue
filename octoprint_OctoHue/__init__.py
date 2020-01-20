@@ -37,7 +37,7 @@ class OctohuePlugin(octoprint.plugin.SettingsPlugin,
 	def get_template_vars(self):
 		return dict(
 			bridgeaddr=self._settings.get(["bridgeaddr"]),
-			husername=self._settings.get({"husername"}),
+			husername=self._settings.get(["husername"]),
 			lampID=self._settings.get(["lampID"]),
 			defaultbri=self._settings.get(["defaultbri"]),
 			onc=self._settings.get(["onc"]),
@@ -48,7 +48,6 @@ class OctohuePlugin(octoprint.plugin.SettingsPlugin,
 	
 	def get_template_configs(self):
 		return [
-			dict(type="navbar", custom_bindings=False),
 			dict(type="settings", custom_bindings=False)
 		]
 
