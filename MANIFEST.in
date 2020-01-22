@@ -1,4 +1,4 @@
 include README.md
-recursive-include octoprint_OctoHue/templates *
-recursive-include octoprint_OctoHue/translations *
-recursive-include octoprint_OctoHue/static *
+recursive-include octoprint_octohue/templates *
+recursive-include octoprint_octohue/translations *
+recursive-include octoprint_octohue/static *
