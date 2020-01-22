@@ -1,5 +1,7 @@
 # coding=utf-8
 from __future__ import absolute_import
+from qhue import Bridge, QhueException
+from colorpy import colormodels
 import octoprint.plugin
 
 
@@ -9,10 +11,59 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
                     octoprint.plugin.TemplatePlugin,
 					octoprint.plugin.EventHandlerPlugin):
 
+	# Hue Functions
+	pbridge=''
+
+	def rgb(self, red, green=None, blue=None, transitiontime=5, bri=255):
+		state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
+        
+		if isinstance(red, basestring):
+		# If Red is a string or unicode assume a hex string is passed and convert it to numberic 
+			rstring = red
+			red = int(rstring[1:3], 16)
+			green = int(rstring[3:5], 16)
+			blue = int(rstring[5:], 16)
+
+		# We need to convert the RGB value to Yxy.
+		redScale = float(red) / 255.0
+		greenScale = float(green) / 255.0
+		blueScale = float(blue) / 255.0
+		colormodels.init(
+			phosphor_red=colormodels.xyz_color(0.64843, 0.33086),
+			phosphor_green=colormodels.xyz_color(0.4091, 0.518),
+			phosphor_blue=colormodels.xyz_color(0.167, 0.04))
+		print("%s, %s, %s" % (redScale, greenScale, blueScale))
+		xyz = colormodels.irgb_color(red, green, blue)
+		print("Irgb: %s" % xyz)
+		xyz = colormodels.xyz_from_rgb(xyz)
+		print("XYZ: %s " % xyz)
+		xyz = colormodels.xyz_normalize(xyz)
+		print("Normalised XYZ: %s" % xyz)
+		state['xy'] = [xyz[0], xyz[1]]
+
+		return self.set_state(state)
+
+	def set_state(self, state):
+		self.pbridge.lights[self._settings.get(['plightID'])].state(**state)
+
+	
+
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
+		self._logger.info("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
+		self._logger.info("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
+		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 
-	##~~ SettingsPlugin mixin
+	# State to Light mappings
+	def on_event(self, event, payload):
+		self._logger.debug("Received Event: %s" % event)
+		if event == "Connected":
+			self.rgb(self._settings.get(['connectedc']))
+		if event == "PrinterStateChanged":
+			self._logger.debug("New State: %s" % payload['state_id'])
+			if payload['state_id'] == "PRINTING":
+				self.rgb(self._settings.get(['connectedc']))
+
 
 	def get_settings_defaults(self):
 		return dict(
@@ -20,7 +71,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			husername="",
 			lampID="",
 			defaultbri="",
-			onc="#FFFFFF",
+			connectedc="#FFFFFF",
+			printingc="#FFFFFF",
 			completec="#33FF36",
 			errorc="#FF0000",
 			warningc="#FFC300"
@@ -32,7 +84,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			husername=self._settings.get(["husername"]),
 			lampID=self._settings.get(["lampID"]),
 			defaultbri=self._settings.get(["defaultbri"]),
-			onc=self._settings.get(["onc"]),
+			connectedc=self._settings.get(["connectedc"]),
+			printingc=self._settings.get(["printingc"]),
 			completec=self._settings.get(["completec"]),
 			errorc=self._settings.get(["errorc"]),
 			warningc=self._settings.get(["warningc"])
