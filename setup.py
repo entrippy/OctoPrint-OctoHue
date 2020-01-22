@@ -4,14 +4,14 @@
 ### Do not forget to adjust the following variables to your own plugin.
 
 # The plugin's identifier, has to be unique
-plugin_identifier = "OctoHue"
+plugin_identifier = "octoHue"
 
 # The plugin's python package, should be "octoprint_<plugin identifier>", has to be unique
-plugin_package = "octoprint_OctoHue"
+plugin_package = "octoprint_octoHue"
 
 # The plugin's human readable name. Can be overwritten within OctoPrint's internal data via __plugin_name__ in the
 # plugin module
-plugin_name = "OctoPrint-OctoHue"
+plugin_name = "OctoHue"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
 plugin_version = "0.1.0"
@@ -21,7 +21,7 @@ plugin_version = "0.1.0"
 plugin_description = """Illuminate your printer and signal its status using Phillips Hue lights"""
 
 # The plugin's author. Can be overwritten within OctoPrint's internal data via __plugin_author__ in the plugin module
-plugin_author = "Entrippy"
+plugin_author = "Simon Beckett"
 
 # The plugin's author's mail address.
 plugin_author_email = "sirsimonbeckett@gmail.com"
