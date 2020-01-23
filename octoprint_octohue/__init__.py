@@ -44,7 +44,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self.set_state(state)
 
 	def set_state(self, state):
-		self._logger.info("Setting lampid: %s with State: %s" % (self._settings.get(['lampid']), state))
+		self._logger.debug("Setting lampid: %s with State: %s" % (self._settings.get(['lampid']), state))
 		self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
 
 	
@@ -54,7 +54,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.info("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
 		self._logger.info("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-		self._logger.info("Bridge established at: %s" % self.pbridge.url)
+		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
 
 	# State to Light mappings
 	def on_event(self, event, payload):
