@@ -44,7 +44,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self.set_state(state)
 
 	def set_state(self, state):
-		self._logger.info("Setting lampID: %s with State: %s" % (self._settings.get(['lampid']), state))
+		self._logger.debug("Setting lampid: %s with State: %s" % (self._settings.get(['lampid']), state))
 		self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
 
 	
@@ -60,12 +60,17 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_event(self, event, payload):
 		self._logger.info("Received Event: %s" % event)
 		if event == "Connected":
-			self.rgb(self._settings.get(['connectedc']))
+			self.rgb(self._settings.get(['connectedc']),bri=128)
+		if event == "Diconnected":
+			self.set_state({"on": False})
 		if event == "PrinterStateChanged":
 			self._logger.info("New State: %s" % payload['state_id'])
 			if payload['state_id'] == "PRINTING":
 				self.rgb(self._settings.get(['connectedc']))
-
+		if event == "PrintDone":
+			self.rgb(self._settings.get(["completec"]))
+		if event == "PrintFailed":
+			self.rgb(self._settings.get(["errorc"]))
 
 	def get_settings_defaults(self):
 		return dict(
