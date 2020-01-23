@@ -32,15 +32,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			phosphor_red=colormodels.xyz_color(0.64843, 0.33086),
 			phosphor_green=colormodels.xyz_color(0.4091, 0.518),
 			phosphor_blue=colormodels.xyz_color(0.167, 0.04))
-		print("%s, %s, %s" % (redScale, greenScale, blueScale))
+		self._logger.debug("%s, %s, %s" % (redScale, greenScale, blueScale))
 		xyz = colormodels.irgb_color(red, green, blue)
-		print("Irgb: %s" % xyz)
+		self._logger.debug("Irgb: %s" % xyz)
 		xyz = colormodels.xyz_from_rgb(xyz)
-		print("XYZ: %s " % xyz)
+		self._logger.debug("XYZ: %s " % xyz)
 		xyz = colormodels.xyz_normalize(xyz)
-		print("Normalised XYZ: %s" % xyz)
+		self._logger.debug("Normalised XYZ: %s" % xyz)
 		state['xy'] = [xyz[0], xyz[1]]
-
+		self._logger.info("State Payload")
 		return self.set_state(state)
 
 	def set_state(self, state):
