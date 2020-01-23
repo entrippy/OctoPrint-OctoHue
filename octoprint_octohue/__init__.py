@@ -44,8 +44,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self.set_state(state)
 
 	def set_state(self, state):
-		self._logger.info("Setting lightID: %s with State: %s" % (self._settings.get(["lampID"]), state))
-		self.pbridge.lights[self._settings.get(["lampID"])].state(**state)
+		self._logger.info("Setting lampID: %s with State: %s" % (self._settings.get(['lampid']), state))
+		self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
 
 	
 
@@ -71,7 +71,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return dict(
 			bridgeaddr="",
 			husername="",
-			lampID="",
+			lampid="",
 			defaultbri="",
 			connectedc="#FFFFFF",
 			printingc="#FFFFFF",
@@ -84,7 +84,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return dict(
 			bridgeaddr=self._settings.get(["bridgeaddr"]),
 			husername=self._settings.get(["husername"]),
-			lampID=self._settings.get(["lampID"]),
+			lampid=self._settings.get(["lampid"]),
 			defaultbri=self._settings.get(["defaultbri"]),
 			connectedc=self._settings.get(["connectedc"]),
 			printingc=self._settings.get(["printingc"]),
