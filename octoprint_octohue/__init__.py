@@ -44,7 +44,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self.set_state(state)
 
 	def set_state(self, state):
-		self.pbridge.lights[self._settings.get(['lampID'])].state(**state)
+		self.pbridge.lights[self._settings.get(["lampID"])].state(**state)
 
 	
 
