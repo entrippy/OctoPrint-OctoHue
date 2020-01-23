@@ -40,7 +40,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		xyz = colormodels.xyz_normalize(xyz)
 		self._logger.debug("Normalised XYZ: %s" % xyz)
 		state['xy'] = [xyz[0], xyz[1]]
-		self._logger.info("State Payload")
+		self._logger.info("State Payload %s" % state)
 		return self.set_state(state)
 
 	def set_state(self, state):
