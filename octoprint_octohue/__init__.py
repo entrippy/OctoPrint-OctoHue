@@ -16,7 +16,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def rgb(self, red, green=None, blue=None, transitiontime=5, bri=255):
 		state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
-        
+		self._logger.info("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
+
 		if isinstance(red, basestring):
 		# If Red is a string or unicode assume a hex string is passed and convert it to numberic 
 			rstring = red
