@@ -61,7 +61,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_event(self, event, payload):
 		self._logger.info("Received Event: %s" % event)
 		if event == "Connected":
-			self.rgb(self._settings.get(['connectedc']),bri=128)
+			self.rgb(self._settings.get(['connectedc']),bri=255)
 		if event == "Disconnected":
 			self.set_state({"on": False})
 		if event == "PrinterStateChanged":
