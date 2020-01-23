@@ -40,10 +40,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		xyz = colormodels.xyz_normalize(xyz)
 		self._logger.debug("Normalised XYZ: %s" % xyz)
 		state['xy'] = [xyz[0], xyz[1]]
-		self._logger.info("State Payload %s" % state)
+		
 		return self.set_state(state)
 
 	def set_state(self, state):
+		self._logger.info("Setting lightID: %s with State: %s" % (self._settings.get(["lampID"]), state))
 		self.pbridge.lights[self._settings.get(["lampID"])].state(**state)
 
 	
