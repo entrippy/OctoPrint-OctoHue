@@ -2,6 +2,16 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
+## Features
+* Light on and off in coordination with the connection between Octoprint and your printer
+* Configure "Connected" light colour using colour picker or HTML hex colour codes
+* Customisable default brightness
+* Available Statuses:
+⋅⋅* Connected - White (Customisable)
+⋅⋅* Error - Red (Hard Coded)
+
+See the TODO list at the end of this page for features on the roadmap
+
 ## Setup
 
 Install via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager)
@@ -21,3 +31,12 @@ Steps to find or configure these can be found in [How to Develop for Hue - Getti
 ## Configuration
 
 Once you have the Hue IP, Username, and Light ID, enter these into the appropriate field in Octohues menu in settings.
+
+![Screenshot](https://github.com/entrippy/OctoPrint-OctoHue/blob/master/Settings-Screenshot.png)
+
+## TODO
+* Make all available statuses customisable
+* Per status brightness
+* LightID Discovery
+
+
