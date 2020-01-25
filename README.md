@@ -10,6 +10,7 @@ or manually using this URL:
     https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip
 
 **Hue Bridge Configuration** 
+
 Octohue requires 3 settings to function
 1. The IP Address of you Hue Bridge
 2. A User for octoprint to use when contacting your bridge
