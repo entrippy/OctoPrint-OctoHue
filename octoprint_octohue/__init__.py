@@ -33,8 +33,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		
 		rgb = sRGBColor(redScale, greenScale, blueScale)
 		xyz = convert_color(rgb, XYZColor)
+
+		#To use only X and Y, we need to noralise using Z i.e value = value / ( X + Y + Z)
+		normx = xyz.get_value_tuple()[0] / ( xyz.get_value_tuple()[0] + xyz.get_value_tuple()[1] + xyz.get_value_tuple()[2])
+		normy = xyz.get_value_tuple()[1] / ( xyz.get_value_tuple()[0] + xyz.get_value_tuple()[1] + xyz.get_value_tuple()[2]) 
 		
-		state['xy'] = [xyz.get_value_tuple()[0], xyz.get_value_tuple()[1]]
+		state['xy'] = [normx, normy]
 		
 		return self.set_state(state)
 
