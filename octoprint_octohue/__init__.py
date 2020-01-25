@@ -1,7 +1,8 @@
 # coding=utf-8
 from __future__ import absolute_import
 from qhue import Bridge, QhueException
-from colorpy import colormodels
+from colormath.color_objects import XYZColor, sRGBColor
+from colormath.color_conversions import convert_color
 import octoprint.plugin
 
 
@@ -18,7 +19,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
 		self._logger.info("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
 
-		if isinstance(red, basestring):
+		if isinstance(red, str):
 		# If Red is a string or unicode assume a hex string is passed and convert it to numberic 
 			rstring = red
 			red = int(rstring[1:3], 16)
@@ -29,18 +30,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		redScale = float(red) / 255.0
 		greenScale = float(green) / 255.0
 		blueScale = float(blue) / 255.0
-		colormodels.init(
-			phosphor_red=colormodels.xyz_color(0.64843, 0.33086),
-			phosphor_green=colormodels.xyz_color(0.4091, 0.518),
-			phosphor_blue=colormodels.xyz_color(0.167, 0.04))
-		self._logger.debug("%s, %s, %s" % (redScale, greenScale, blueScale))
-		xyz = colormodels.irgb_color(red, green, blue)
-		self._logger.debug("Irgb: %s" % xyz)
-		xyz = colormodels.xyz_from_rgb(xyz)
-		self._logger.debug("XYZ: %s " % xyz)
-		xyz = colormodels.xyz_normalize(xyz)
-		self._logger.debug("Normalised XYZ: %s" % xyz)
-		state['xy'] = [xyz[0], xyz[1]]
+		
+		rgb = sRGBColor(redScale, greenScale, blueScale)
+		xyz = convert_color(rgb, XYZColor)
+		
+		state['xy'] = [xyz.get_value_tuple()[0], xyz.get_value_tuple()[1]]
 		
 		return self.set_state(state)
 
@@ -137,11 +131,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			)
 		)
 
-
-
-# If you want your plugin to be registered within OctoPrint under a different name than what you defined in setup.py
-# ("OctoPrint-PluginSkeleton"), you may define that here. Same goes for the other metadata derived from setup.py that
-# can be overwritten via __plugin_xyz__ control properties. See the documentation for that.
 __plugin_name__ = "Octohue"
 
 # Starting with OctoPrint 1.4.0 OctoPrint will also support to run under Python 3 in addition to the deprecated
