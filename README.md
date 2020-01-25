@@ -7,8 +7,8 @@ Illuminate your print job and signal its status using a Philips Hue light.
 * Configure "Connected" light colour using colour picker or HTML hex colour codes
 * Customisable default brightness
 * Available Statuses:
-⋅⋅* Connected - White (Customisable)
-⋅⋅* Error - Red (Hard Coded)
+  * Connected - White (Customisable)
+  * Error - Red (Hard Coded)
 
 See the TODO list at the end of this page for features on the roadmap
 
