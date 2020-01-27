@@ -60,7 +60,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	# State to Light mappings
 	def on_event(self, event, payload):
-		
 		if event == "Connected":
 			self._logger.info("Received Event: %s" % event)
 			self.rgb(self._settings.get(['connectedc']),bri=255)
