@@ -60,18 +60,22 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	# State to Light mappings
 	def on_event(self, event, payload):
-		self._logger.info("Received Event: %s" % event)
+		
 		if event == "Connected":
+			self._logger.info("Received Event: %s" % event)
 			self.rgb(self._settings.get(['connectedc']),bri=255)
 		if event == "Disconnected":
+			self._logger.info("Received Event: %s" % event)
 			self.set_state({"on": False})
 		if event == "PrinterStateChanged":
-			self._logger.info("New State: %s" % payload['state_id'])
 			if payload['state_id'] == "PRINTING":
+				self._logger.info("New State: %s" % payload['state_id'])
 				self.rgb(self._settings.get(['connectedc']),bri=255)
 		if event == "PrintDone":
+			self._logger.info("Received Event: %s" % event)
 			self.rgb(self._settings.get(["completec"]))
 		if event == "PrintFailed":
+			self._logger.info("Received Event: %s" % event)
 			self.rgb(self._settings.get(["errorc"]))
 
 	def get_settings_defaults(self):
