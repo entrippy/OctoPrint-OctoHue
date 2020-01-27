@@ -8,6 +8,7 @@ Illuminate your print job and signal its status using a Philips Hue light.
 * Customisable default brightness
 * Available Statuses:
   * Connected - White (Customisable)
+  * Print Finished - Green (Currently hard coded)
   * Error - Red (Currently hard coded)
 
 See the TODO list at the end of this page for features on the roadmap
