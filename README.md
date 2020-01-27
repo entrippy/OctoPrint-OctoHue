@@ -6,10 +6,10 @@ Illuminate your print job and signal its status using a Philips Hue light.
 * Light on and off in coordination with the connection between Octoprint and your printer
 * Configure "Connected" light colour using colour picker or HTML hex colour codes
 * Customisable default brightness
-* Available Statuses:
-  * Connected - White (Customisable)
-  * Print Finished - Green (Currently hard coded)
-  * Error - Red (Currently hard coded)
+* Available Customisable Statuses:
+  * Connected -  Default White
+  * Print Finished - Default Green
+  * Error - Default Red
 
 See the TODO list at the end of this page for features on the roadmap
 
