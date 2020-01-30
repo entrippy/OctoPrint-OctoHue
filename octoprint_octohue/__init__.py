@@ -60,7 +60,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	# State to Light mappings
 	def on_event(self, event, payload):
-		
 		if event == "Connected":
 			self._logger.info("Received Event: %s" % event)
 			self.rgb(self._settings.get(['connectedc']),bri=255)
@@ -90,6 +89,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			errorc="#FF0000",
 			warningc="#FFC300"
 		)
+
+	def get_settings_restricted_paths(self):
+		return dict(admin=[["bridgeaddr"],["husername"]])
 
 	def get_template_vars(self):
 		return dict(

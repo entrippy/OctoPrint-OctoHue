@@ -40,7 +40,7 @@ featuredimage: /assets/img/plugins/octohue/Featured-Image.png
 
 compatibility:
   
-  python: ">=2.7,<3"
+  python: ">=2.7,<4"
 
 ---
 
