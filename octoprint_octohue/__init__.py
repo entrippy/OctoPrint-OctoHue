@@ -90,6 +90,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			warningc="#FFC300"
 		)
 
+	def get_settings_restricted_paths(self):
+		return dict(admin=[["bridgeaddr"],["husername"]])
+
 	def get_template_vars(self):
 		return dict(
 			bridgeaddr=self._settings.get(["bridgeaddr"]),
