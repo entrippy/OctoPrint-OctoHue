@@ -62,7 +62,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_shutdown(self):
 		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
-		self.set_state({"on": False})
+		if self._settings.get(['offonshutdown']) == True:
+			self.set_state({"on": False})
 
 	# State to Light mappings
 	def on_event(self, event, payload):
@@ -90,6 +91,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			lampid="",
 			lampisgroup="",
 			defaultbri="",
+			offonshutdown=True,
 			connectedc="#FFFFFF",
 			printingc="#FFFFFF",
 			completec="#33FF36",
@@ -107,6 +109,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			lampid=self._settings.get(["lampid"]),
 			lampisgroup=self._settings.get(["lampisgroup"]),
 			defaultbri=self._settings.get(["defaultbri"]),
+			offonshutdown=self._settings.get(["offonshutdown"]),
 			connectedc=self._settings.get(["connectedc"]),
 			printingc=self._settings.get(["printingc"]),
 			completec=self._settings.get(["completec"]),
