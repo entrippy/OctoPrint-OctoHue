@@ -17,7 +17,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def rgb(self, red, green=None, blue=None, transitiontime=5, bri=255):
 		state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
-		self._logger.info("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
+		self._logger.debug("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
 
 		if isinstance(red, str):
 		# If Red is a string or unicode assume a hex string is passed and convert it to numberic 
@@ -46,10 +46,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self.set_state(state)
 
 	def set_state(self, state):
-		self._logger.debug("Setting lampid: %s with State: %s" % (self._settings.get(['lampid']), state))
-		self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
-
-	
+		self._logger.info("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
+		if self._settings.get(['lampisgroup']) == True:
+			self.pbridge.groups[self._settings.get(['lampid'])].action(**state)
+		else:
+			self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
