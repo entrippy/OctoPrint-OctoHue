@@ -61,7 +61,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
 
 	def on_shutdown(self):
-		self._logger.info("Ladies and Gentlemen, thankyou and goodnight")
+		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
 		self.set_state({"on": False})
 
 	# State to Light mappings

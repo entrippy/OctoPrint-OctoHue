@@ -2,6 +2,10 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
+## New in 0.3.0
+* Added the ability to control Rooms and Zones.
+* Lights will now turn off when Octoprint quits
+
 ## Features
 * Light on and off in coordination with the connection between Octoprint and your printer
 * Configure "Connected" light colour using colour picker or HTML hex colour codes
