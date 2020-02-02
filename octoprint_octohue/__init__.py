@@ -7,6 +7,7 @@ import octoprint.plugin
 
 
 class OctohuePlugin(octoprint.plugin.StartupPlugin,
+					octoprint.plugin.ShutdownPlugin,
 					octoprint.plugin.SettingsPlugin,
                     octoprint.plugin.AssetPlugin,
                     octoprint.plugin.TemplatePlugin,
@@ -58,6 +59,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.info("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
+
+	def on_shutdown(self):
+		self._logger.info("Ladies and Gentlemen, thankyou and goodnight")
+		self.set_state({"on": False})
 
 	# State to Light mappings
 	def on_event(self, event, payload):
