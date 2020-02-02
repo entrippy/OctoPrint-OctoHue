@@ -7,6 +7,7 @@ import octoprint.plugin
 
 
 class OctohuePlugin(octoprint.plugin.StartupPlugin,
+					octoprint.plugin.ShutdownPlugin,
 					octoprint.plugin.SettingsPlugin,
                     octoprint.plugin.AssetPlugin,
                     octoprint.plugin.TemplatePlugin,
@@ -17,7 +18,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def rgb(self, red, green=None, blue=None, transitiontime=5, bri=255):
 		state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
-		self._logger.info("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
+		self._logger.debug("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
 
 		if isinstance(red, str):
 		# If Red is a string or unicode assume a hex string is passed and convert it to numberic 
@@ -46,10 +47,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self.set_state(state)
 
 	def set_state(self, state):
-		self._logger.debug("Setting lampid: %s with State: %s" % (self._settings.get(['lampid']), state))
-		self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
-
-	
+		self._logger.info("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
+		if self._settings.get(['lampisgroup']) == True:
+			self.pbridge.groups[self._settings.get(['lampid'])].action(**state)
+		else:
+			self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
@@ -57,6 +59,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.info("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
+
+	def on_shutdown(self):
+		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
+		self.set_state({"on": False})
 
 	# State to Light mappings
 	def on_event(self, event, payload):
@@ -82,6 +88,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			bridgeaddr="",
 			husername="",
 			lampid="",
+			lampisgroup="",
 			defaultbri="",
 			connectedc="#FFFFFF",
 			printingc="#FFFFFF",
@@ -98,6 +105,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			bridgeaddr=self._settings.get(["bridgeaddr"]),
 			husername=self._settings.get(["husername"]),
 			lampid=self._settings.get(["lampid"]),
+			lampisgroup=self._settings.get(["lampisgroup"]),
 			defaultbri=self._settings.get(["defaultbri"]),
 			connectedc=self._settings.get(["connectedc"]),
 			printingc=self._settings.get(["printingc"]),
@@ -145,13 +153,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		)
 
 __plugin_name__ = "Octohue"
-
-# Starting with OctoPrint 1.4.0 OctoPrint will also support to run under Python 3 in addition to the deprecated
-# Python 2. New plugins should make sure to run under both versions for now. Uncomment one of the following
-# compatibility flags according to what Python versions your plugin supports!
-#__plugin_pythoncompat__ = ">=2.7,<3" # only python 2
-#__plugin_pythoncompat__ = ">=3,<4" # only python 3
-__plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
+__plugin_pythoncompat__ = ">=2.7,<4" # Compatible with python 2 and 3
 
 def __plugin_load__():
 	global __plugin_implementation__
