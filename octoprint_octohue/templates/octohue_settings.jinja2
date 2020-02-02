@@ -8,15 +8,18 @@
         <div class="controls">
             <input type="text" class="input-block-level" data-bind="value: settings.plugins.octohue.husername">
         </div>
-        <label class="control-label">{{ _('Hue Lamp ID') }}</label>
+        <label class="control-label">{{ _('Hue Lamp or Group ID') }}</label>
         <div class="controls">
-            <input type="text" class="input-block-level" data-bind="value: settings.plugins.octohue.lampid">
+            <input type="text" class="input-mini" data-bind="value: settings.plugins.octohue.lampid">
+            <label class="checkbox">
+                    <input type="checkbox" data-bind="checked: settings.plugins.octohue.lampisgroup">Use group instead of single lamp
+            </label>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('Brightness') }}</label>
         <div class="controls">
-            <input type="text" class="input-block-level" data-bind="value: settings.plugins.octohue.defaultbri">
+            <input type="text" class="input-mini" data-bind="value: settings.plugins.octohue.defaultbri">
         </div>
     </div> 
     <div class="control-group">
