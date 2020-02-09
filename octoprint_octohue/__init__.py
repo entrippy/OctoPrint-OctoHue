@@ -4,11 +4,13 @@ from qhue import Bridge, QhueException
 from colormath.color_objects import XYZColor, sRGBColor
 from colormath.color_conversions import convert_color
 import octoprint.plugin
+import flask
 
 
 class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.plugin.ShutdownPlugin,
 					octoprint.plugin.SettingsPlugin,
+					octoprint.plugin.SimpleApiPlugin,
                     octoprint.plugin.AssetPlugin,
                     octoprint.plugin.TemplatePlugin,
 					octoprint.plugin.EventHandlerPlugin):
@@ -65,6 +67,16 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._settings.get(['offonshutdown']) == True:
 			self.set_state({"on": False})
 
+	def get_api_commands(self):
+		return dict(
+			togglehue=[]
+		)
+	
+	def on_api_command(self, command, data):
+		if command == 'togglehue':
+			self._logger.info("Lights on... Lights off")
+
+
 	# State to Light mappings
 	def on_event(self, event, payload):
 		if event == "Connected":
@@ -119,7 +131,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def get_template_configs(self):
 		return [
-			dict(type="settings", custom_bindings=False)
+			dict(type="settings", custom_bindings=False),
+			dict(type="navbar", custom_bindings=False)
 		]
 
 	##~~ AssetPlugin mixin
@@ -128,9 +141,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		# Define your plugin's asset files to automatically include in the
 		# core UI here.
 		return dict(
-			js=["js/OctoHue.js"],
-			css=["css/OctoHue.css"],
-			less=["less/OctoHue.less"]
+			js=["js/octohue.js"],
+			css=["css/octohue.css"],
+			less=["less/octohue.less"]
 		)
 
 	##~~ Softwareupdate hook

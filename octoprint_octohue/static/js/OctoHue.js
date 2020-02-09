@@ -12,7 +12,9 @@ $(function() {
         // self.loginStateViewModel = parameters[0];
         // self.settingsViewModel = parameters[1];
 
-        // TODO: Implement your plugin's view model here.
+        self.togglehue = function() {
+            OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
+        };
     }
 
     /* view model class, parameters for constructor, container to bind to
@@ -23,7 +25,8 @@ $(function() {
         construct: OctohueViewModel,
         // ViewModels your plugin depends on, e.g. loginStateViewModel, settingsViewModel, ...
         dependencies: [ /* "loginStateViewModel", "settingsViewModel" */ ],
+        // dependencies: [ NavigationViewModel ],
         // Elements to bind to, e.g. #settings_plugin_OctoHue, #tab_plugin_OctoHue, ...
-        elements: [ /* ... */ ]
+        elements: [ "#navbar_plugin_octohue" ]
     });
 });
