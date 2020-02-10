@@ -48,12 +48,26 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		
 		return self.set_state(state)
 
+	def get_state(self):
+		if self._settings.get(['lampisgroup']) == True:
+			self._state = self.pbridge.groups[self._settings.get(['lampid'])]().get("action")['on']
+		else:
+			self._state = self.pbridge.lights[self._settings.get(['lampid'])]().get("state")['on']
+		self._logger.debug("Get State is %s" % self._state )
+		return self._state
+
 	def set_state(self, state):
-		self._logger.info("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
+		self._logger.debug("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
 		if self._settings.get(['lampisgroup']) == True:
 			self.pbridge.groups[self._settings.get(['lampid'])].action(**state)
 		else:
 			self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
+
+	def toggle_state(self):
+		if self.get_state():
+			self.set_state({"on": False})
+		else:
+			self.set_state({"on": True})
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
@@ -74,8 +88,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def on_api_command(self, command, data):
 		if command == 'togglehue':
-			self._logger.info("Lights on... Lights off")
-
+			self.toggle_state()
 
 	# State to Light mappings
 	def on_event(self, event, payload):
