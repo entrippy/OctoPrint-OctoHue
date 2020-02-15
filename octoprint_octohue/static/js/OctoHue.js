@@ -7,9 +7,16 @@
 $(function() {
     function OctohueViewModel(parameters) {
         var self = this;
+      
+        self.settingsViewModel = parameters[0];
 
         self.togglehue = function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
+        };
+ 
+        self.onBeforeBinding = function () {
+            self.settings = self.settingsViewModel.settings.plugins.octohue;
+            // From server-settings to client-settings
         };
     }
 
@@ -19,7 +26,7 @@ $(function() {
      */
     OCTOPRINT_VIEWMODELS.push({
         construct: OctohueViewModel,
-        dependencies: [ /* "loginStateViewModel", "settingsViewModel" */ ],
+        dependencies: [ "settingsViewModel" ],
         elements: [ "#navbar_plugin_octohue" ]
     });
 });

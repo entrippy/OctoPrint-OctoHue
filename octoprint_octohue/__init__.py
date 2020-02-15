@@ -29,7 +29,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			green = int(rstring[3:5], 16)
 			blue = int(rstring[5:], 16)
 
-		# We need to convert the RGB value to Yxy.
+		# We need to convert the RGB value to Yxz.
 		redScale = float(red) / 255.0
 		greenScale = float(green) / 255.0
 		blueScale = float(blue) / 255.0
@@ -71,8 +71,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
-		self._logger.info("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
-		self._logger.info("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
+		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
+		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
 
@@ -109,6 +109,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.info("Received Event: %s" % event)
 			self.rgb(self._settings.get(["errorc"]))
 
+# General Octoprint Hooks Below
+
 	def get_settings_defaults(self):
 		return dict(
 			bridgeaddr="",
@@ -117,6 +119,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			lampisgroup="",
 			defaultbri="",
 			offonshutdown=True,
+			showhuetoggle=True,
 			connectedc="#FFFFFF",
 			printingc="#FFFFFF",
 			completec="#33FF36",
@@ -135,6 +138,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			lampisgroup=self._settings.get(["lampisgroup"]),
 			defaultbri=self._settings.get(["defaultbri"]),
 			offonshutdown=self._settings.get(["offonshutdown"]),
+			showhuetoggle=self._settings.get(["showhuetoggle"]),
 			connectedc=self._settings.get(["connectedc"]),
 			printingc=self._settings.get(["printingc"]),
 			completec=self._settings.get(["completec"]),
@@ -144,8 +148,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def get_template_configs(self):
 		return [
-			dict(type="settings", custom_bindings=False),
-			dict(type="navbar", custom_bindings=False)
+			dict(type="settings", custom_bindings=False)
 		]
 
 	##~~ AssetPlugin mixin
