@@ -90,24 +90,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if command == 'togglehue':
 			self.toggle_state()
 
-	# State to Light mappings
+	# Trigger state on Status match
 	def on_event(self, event, payload):
-		if event == "Connected":
+		if event in self._settings.get(["customstatus"]):
 			self._logger.info("Received Event: %s" % event)
-			self.rgb(self._settings.get(['connectedc']),bri=255)
-		if event == "Disconnected":
-			self._logger.info("Received Event: %s" % event)
-			self.set_state({"on": False})
-		if event == "PrinterStateChanged":
-			if payload['state_id'] == "PRINTING":
-				self._logger.info("New State: %s" % payload['state_id'])
-				self.rgb(self._settings.get(['connectedc']),bri=255)
-		if event == "PrintDone":
-			self._logger.info("Received Event: %s" % event)
-			self.rgb(self._settings.get(["completec"]))
-		if event == "PrintFailed":
-			self._logger.info("Received Event: %s" % event)
-			self.rgb(self._settings.get(["errorc"]))
+			if self._settings.get(['customstatus'])[event]['turnoff'] == False:
+				self.rgb(self._settings.get(['customstatus'])[event]['colour'],self._settings.get(['customstatus'])[event]['brightness'])
+			else:
+				self.set_state({"on": False})
 
 # General Octoprint Hooks Below
 
@@ -117,9 +107,41 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			husername="",
 			lampid="",
 			lampisgroup="",
-			defaultbri="",
+			defaultbri=255,
 			offonshutdown=True,
 			showhuetoggle=True,
+			customstatus={
+				'Connected' : {
+					'colour':'#FFFFFF',
+					'brightness':'255',
+					'turnoff':False
+				},
+				'Disconnected': {
+					'colour':'',
+					'brightness':"",
+					'turnoff':True
+				},
+				'PrintStarted' : {
+					'colour':'#FFFFFF',
+					'brightness':'255',
+					'turnoff':False
+				},
+				'PrintResumed' : {
+					'colour':'#FFFFFF',
+					'brightness':'255',
+					'turnoff':False
+				},
+				'PrintDone': {
+					'colour':'#33FF36',
+					'brightness':'255',
+					'turnoff':False
+				},
+				'PrintFailed':{
+					'colour':'#FF0000',
+					'brightness':'255',
+					'turnoff':False
+				}
+			},
 			connectedc="#FFFFFF",
 			printingc="#FFFFFF",
 			completec="#33FF36",
@@ -139,6 +161,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			defaultbri=self._settings.get(["defaultbri"]),
 			offonshutdown=self._settings.get(["offonshutdown"]),
 			showhuetoggle=self._settings.get(["showhuetoggle"]),
+			customstatus=self._settings.get(["customstatus"]),
 			connectedc=self._settings.get(["connectedc"]),
 			printingc=self._settings.get(["printingc"]),
 			completec=self._settings.get(["completec"]),
@@ -148,7 +171,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def get_template_configs(self):
 		return [
-			dict(type="settings", custom_bindings=False)
+#			dict(type="navbar", custom_bindings=False),
+			dict(type="settings", custom_bindings=True)
 		]
 
 	##~~ AssetPlugin mixin
