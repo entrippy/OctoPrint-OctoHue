@@ -92,10 +92,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	# Trigger state on Status match
 	def on_event(self, event, payload):
-		if event in self._settings.get(["customstatus"]):
+		if event in self._settings.get(["statusDict"]):
 			self._logger.info("Received Event: %s" % event)
-			if self._settings.get(['customstatus'])[event]['turnoff'] == False:
-				self.rgb(self._settings.get(['customstatus'])[event]['colour'],self._settings.get(['customstatus'])[event]['brightness'])
+			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
+				self.rgb(self._settings.get(['statusDict'])[event]['colour'],self._settings.get(['statusDict'])[event]['brightness'])
 			else:
 				self.set_state({"on": False})
 
@@ -110,7 +110,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			defaultbri=255,
 			offonshutdown=True,
 			showhuetoggle=True,
-			customstatus={
+			statusDict={
 				'Connected' : {
 					'colour':'#FFFFFF',
 					'brightness':'255',
@@ -141,12 +141,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					'brightness':'255',
 					'turnoff':False
 				}
-			},
-			connectedc="#FFFFFF",
-			printingc="#FFFFFF",
-			completec="#33FF36",
-			errorc="#FF0000",
-			warningc="#FFC300"
+			}
 		)
 
 	def get_settings_restricted_paths(self):
@@ -161,12 +156,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			defaultbri=self._settings.get(["defaultbri"]),
 			offonshutdown=self._settings.get(["offonshutdown"]),
 			showhuetoggle=self._settings.get(["showhuetoggle"]),
-			customstatus=self._settings.get(["customstatus"]),
-			connectedc=self._settings.get(["connectedc"]),
-			printingc=self._settings.get(["printingc"]),
-			completec=self._settings.get(["completec"]),
-			errorc=self._settings.get(["errorc"]),
-			warningc=self._settings.get(["warningc"])
+			statusDict=self._settings.get(["statusDict"])
 		)
 	
 	def get_template_configs(self):

@@ -61,7 +61,7 @@
                         </th>
                     </tr>
                 </thead>
-                <tbody class="control-group" data-bind="foreach: obsstatus">
+                <tbody class="control-group" data-bind="foreach: flatStatus">
                     <tr>
                         <td>
                             <input type="text" value="Status" data-bind="value: status">
@@ -76,7 +76,10 @@
                             <input type="text" class="input-mini" data-bind="value: brightness">
                         </td>
                         <td>
-                            <input type="checkbox" data-bind="checked: turnoff">
+                            <i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i>
+                        </td>
+                        <td>
+                            <i class="fa fa-trash-o" data-bind="click: $parent.onStatusDictDelete"></i>
                         </td>
                     </tr>
                 </tbody>
