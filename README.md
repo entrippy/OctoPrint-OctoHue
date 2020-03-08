@@ -2,22 +2,24 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
-## New in 0.3.0
-* Added the ability to control Rooms and Zones.
-* Lights will now turn off when Octoprint quits
+## New in 0.4.0
+* Optional Navbar Icon allowing the user to toggle On/Off
+* User configurable Statuses and colour/brightness/state configurations.
+* Added turning lights off as an option for printer statuses.
 
 ## Features
-* Light on and off in coordination with the connection between Octoprint and your printer
-* Configure "Connected" light colour using colour picker or HTML hex colour codes
+* Set Colour, Brightness, and On/Off state for any Octoprint state event e.g Connected, Printing, PrintCompleted.
+* Optional Navbar Icon allowing the user to toggle On/Off
+* Configure light colour using colour picker or HTML hex colour codes
+* Control individual lights, or Rooms/Zones
+* Support to switch off lights when OctoPrint quits.
 * Customisable default brightness
-* Available Customisable Statuses:
-  * Connected -  Default White
-  * Print Finished - Default Green
-  * Error - Default Red
 
 See the TODO list at the end of this page for features on the roadmap
 
 ## Setup
+
+### For install troubleshooting please see the "Known Issues" section at the bottom of this Readme.
 
 Install via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager)
 or manually using this URL:
@@ -54,9 +56,21 @@ Once you have the Hue IP, Username, and Light ID, enter these into the appropria
 
 ![Screenshot](https://github.com/entrippy/OctoPrint-OctoHue/blob/master/Settings-Screenshot.png)
 
+## Known Issues
+* Octohue uses numpy, which reportedly can take a long time to install, occasionally timing out. This can be rectified by reinstalling octohue once numpy completes, or alternatively manually installing Octohue using pip.
+* Octohue will log an error as a result of sending xy colour coordinates to non-rbg bulbs. however ther bulb will still illuminate.
+
+### Manual pip (re)installation instructions
+1. Log into you Octohue server via the command line.
+2. Activate OctoPrints python virtualenv e.g in octopi:
+
+    ```source ~/oprint/bin/activate```
+3. Reinstall Octohue using pip:
+
+    ```pip install --upgrade --force-reinstall https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip```
+
 ## TODO
-* Make all available statuses customisable
-* Per status brightness
 * LightID Discovery
+* Light Capability Discovery
 
 
