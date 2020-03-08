@@ -57,7 +57,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self._state
 
 	def set_state(self, state):
-		self._logger.info("Sending to Bridge %s" % self.pbridge.url)
 		self._logger.debug("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
 		if self._settings.get(['lampisgroup']) == True:
 			self.pbridge.groups[self._settings.get(['lampid'])].action(**state)
