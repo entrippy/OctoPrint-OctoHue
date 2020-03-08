@@ -4,11 +4,13 @@ from qhue import Bridge, QhueException
 from colormath.color_objects import XYZColor, sRGBColor
 from colormath.color_conversions import convert_color
 import octoprint.plugin
+import flask
 
 
 class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.plugin.ShutdownPlugin,
 					octoprint.plugin.SettingsPlugin,
+					octoprint.plugin.SimpleApiPlugin,
                     octoprint.plugin.AssetPlugin,
                     octoprint.plugin.TemplatePlugin,
 					octoprint.plugin.EventHandlerPlugin):
@@ -27,7 +29,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			green = int(rstring[3:5], 16)
 			blue = int(rstring[5:], 16)
 
-		# We need to convert the RGB value to Yxy.
+		# We need to convert the RGB value to Yxz.
 		redScale = float(red) / 255.0
 		greenScale = float(green) / 255.0
 		blueScale = float(blue) / 255.0
@@ -46,17 +48,68 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		
 		return self.set_state(state)
 
+	def get_state(self):
+		if self._settings.get(['lampisgroup']) == True:
+			self._state = self.pbridge.groups[self._settings.get(['lampid'])]().get("action")['on']
+		else:
+			self._state = self.pbridge.lights[self._settings.get(['lampid'])]().get("state")['on']
+		self._logger.debug("Get State is %s" % self._state )
+		return self._state
+
 	def set_state(self, state):
-		self._logger.info("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
+		self._logger.info("Sending to Bridge %s" % self.pbridge.url)
+		self._logger.debug("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
 		if self._settings.get(['lampisgroup']) == True:
 			self.pbridge.groups[self._settings.get(['lampid'])].action(**state)
 		else:
 			self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
 
+	def toggle_state(self):
+		if self.get_state():
+			self.set_state({"on": False})
+		else:
+			self.set_state({"on": True})
+
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
-		self._logger.info("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
-		self._logger.info("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
+		if self._settings.get(["statusDict"]) == '': 
+				self._logger.info("Bootstrapping Octohue Status Defaults")
+				self._settings.set(["statusDict"], {
+					'Connected' : {
+						'colour':'#FFFFFF',
+						'brightness':'255',
+						'turnoff':False
+					},
+					'Disconnected': {
+						'colour':'',
+						'brightness':"",
+						'turnoff':True
+					},
+					'PrintStarted' : {
+						'colour':'#FFFFFF',
+						'brightness':'255',
+						'turnoff':False
+					},
+					'PrintResumed' : {
+						'colour':'#FFFFFF',
+						'brightness':'255',
+						'turnoff':False
+					},
+					'PrintDone': {
+						'colour':'#33FF36',
+						'brightness':'255',
+						'turnoff':False
+					},
+					'PrintFailed':{
+						'colour':'#FF0000',
+						'brightness':'255',
+						'turnoff':False
+					}
+				})
+				self._settings.save()
+
+		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
+		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
 
@@ -65,24 +118,25 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._settings.get(['offonshutdown']) == True:
 			self.set_state({"on": False})
 
-	# State to Light mappings
+	def get_api_commands(self):
+		return dict(
+			togglehue=[]
+		)
+	
+	def on_api_command(self, command, data):
+		if command == 'togglehue':
+			self.toggle_state()
+
+	# Trigger state on Status match
 	def on_event(self, event, payload):
-		if event == "Connected":
-			self._logger.info("Received Event: %s" % event)
-			self.rgb(self._settings.get(['connectedc']),bri=255)
-		if event == "Disconnected":
-			self._logger.info("Received Event: %s" % event)
-			self.set_state({"on": False})
-		if event == "PrinterStateChanged":
-			if payload['state_id'] == "PRINTING":
-				self._logger.info("New State: %s" % payload['state_id'])
-				self.rgb(self._settings.get(['connectedc']),bri=255)
-		if event == "PrintDone":
-			self._logger.info("Received Event: %s" % event)
-			self.rgb(self._settings.get(["completec"]))
-		if event == "PrintFailed":
-			self._logger.info("Received Event: %s" % event)
-			self.rgb(self._settings.get(["errorc"]))
+		if event in self._settings.get(["statusDict"]):
+			self._logger.info("Received Status Event: %s" % event)
+			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
+				self.rgb(self._settings.get(['statusDict'])[event]['colour'],self._settings.get(['statusDict'])[event]['brightness'])
+			else:
+				self.set_state({"on": False})
+
+	# General Octoprint Hooks Below
 
 	def get_settings_defaults(self):
 		return dict(
@@ -90,18 +144,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			husername="",
 			lampid="",
 			lampisgroup="",
-			defaultbri="",
+			defaultbri=255,
 			offonshutdown=True,
-			connectedc="#FFFFFF",
-			printingc="#FFFFFF",
-			completec="#33FF36",
-			errorc="#FF0000",
-			warningc="#FFC300"
+			showhuetoggle=True,
+			statusDict=""
 		)
 
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
-
+		
 	def get_template_vars(self):
 		return dict(
 			bridgeaddr=self._settings.get(["bridgeaddr"]),
@@ -110,16 +161,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			lampisgroup=self._settings.get(["lampisgroup"]),
 			defaultbri=self._settings.get(["defaultbri"]),
 			offonshutdown=self._settings.get(["offonshutdown"]),
-			connectedc=self._settings.get(["connectedc"]),
-			printingc=self._settings.get(["printingc"]),
-			completec=self._settings.get(["completec"]),
-			errorc=self._settings.get(["errorc"]),
-			warningc=self._settings.get(["warningc"])
+			showhuetoggle=self._settings.get(["showhuetoggle"]),
+			statusDict=self._settings.get(["statusDict"])
 		)
 	
 	def get_template_configs(self):
 		return [
-			dict(type="settings", custom_bindings=False)
+#			dict(type="navbar", custom_bindings=False),
+			dict(type="settings", custom_bindings=True)
 		]
 
 	##~~ AssetPlugin mixin
