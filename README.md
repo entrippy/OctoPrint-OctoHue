@@ -66,12 +66,12 @@ Once you have the Hue IP, Username, and Light ID, enter these into the appropria
 ### Manual pip (re)installation instructions
 1. Log into you Octohue server via the command line.
 2. Activate OctoPrints python virtualenv e.g in octopi:
+
     ```source ~/oprint/bin/activate```
 3. Reinstall Octohue using pip:
+
     ```pip install --upgrade --force-reinstall https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip```
 
 ## TODO
 * LightID Discovery
 * Light Capability Discovery
-
-
