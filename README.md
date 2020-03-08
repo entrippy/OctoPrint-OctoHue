@@ -54,6 +54,17 @@ Once you have the Hue IP, Username, and Light ID, enter these into the appropria
 
 ![Screenshot](https://github.com/entrippy/OctoPrint-OctoHue/blob/master/Settings-Screenshot.png)
 
+## Known Issues
+* Octohue uses numpy, which reportedly can take a long time to install, occasionally timing out. This can be rectified by reinstalling octohue once numpy completes, or alternatively manually installing Octohue using pip.
+* Octohue will log an error as a result of sending xy colour coordinates to non-rbg bulbs. however ther bulb will still illuminate.
+
+### Manual pip (re)installation instructions
+1. Log into you Octohue server via the command line.
+2. Activate OctoPrints python virtualenv e.g in octopi:
+    ```source ~/oprint/bin/activate```
+3. Reinstall Octohue using pip:
+    ```pip install --upgrade --force-reinstall https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip```
+
 ## TODO
 * Make all available statuses customisable
 * Per status brightness
