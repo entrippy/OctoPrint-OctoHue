@@ -135,7 +135,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			else:
 				self.set_state({"on": False})
 
-# General Octoprint Hooks Below
+	# General Octoprint Hooks Below
 
 	def get_settings_defaults(self):
 		return dict(
