@@ -71,6 +71,42 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
+		if self._settings.get(["statusDict"]) == '': 
+				self._logger.info("Bootstrapping Octohue Status Defaults")
+				self._settings.set(["statusDict"], {
+					'Connected' : {
+						'colour':'#FFFFFF',
+						'brightness':'255',
+						'turnoff':False
+					},
+					'Disconnected': {
+						'colour':'',
+						'brightness':"",
+						'turnoff':True
+					},
+					'PrintStarted' : {
+						'colour':'#FFFFFF',
+						'brightness':'255',
+						'turnoff':False
+					},
+					'PrintResumed' : {
+						'colour':'#FFFFFF',
+						'brightness':'255',
+						'turnoff':False
+					},
+					'PrintDone': {
+						'colour':'#33FF36',
+						'brightness':'255',
+						'turnoff':False
+					},
+					'PrintFailed':{
+						'colour':'#FF0000',
+						'brightness':'255',
+						'turnoff':False
+					}
+				})
+				self._settings.save()
+
 		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
 		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
@@ -93,7 +129,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Trigger state on Status match
 	def on_event(self, event, payload):
 		if event in self._settings.get(["statusDict"]):
-			self._logger.info("Received Event: %s" % event)
+			self._logger.info("Received Status Event: %s" % event)
 			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
 				self.rgb(self._settings.get(['statusDict'])[event]['colour'],self._settings.get(['statusDict'])[event]['brightness'])
 			else:
@@ -110,43 +146,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			defaultbri=255,
 			offonshutdown=True,
 			showhuetoggle=True,
-			statusDict={
-				'Connected' : {
-					'colour':'#FFFFFF',
-					'brightness':'255',
-					'turnoff':False
-				},
-				'Disconnected': {
-					'colour':'',
-					'brightness':"",
-					'turnoff':True
-				},
-				'PrintStarted' : {
-					'colour':'#FFFFFF',
-					'brightness':'255',
-					'turnoff':False
-				},
-				'PrintResumed' : {
-					'colour':'#FFFFFF',
-					'brightness':'255',
-					'turnoff':False
-				},
-				'PrintDone': {
-					'colour':'#33FF36',
-					'brightness':'255',
-					'turnoff':False
-				},
-				'PrintFailed':{
-					'colour':'#FF0000',
-					'brightness':'255',
-					'turnoff':False
-				}
-			}
+			statusDict=""
 		)
 
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
-
+		
 	def get_template_vars(self):
 		return dict(
 			bridgeaddr=self._settings.get(["bridgeaddr"]),
