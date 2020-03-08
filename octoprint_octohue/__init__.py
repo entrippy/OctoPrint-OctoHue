@@ -176,9 +176,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		# Define your plugin's asset files to automatically include in the
 		# core UI here.
 		return dict(
-			js=["js/octohue.js"],
-			css=["css/octohue.css"],
-			less=["less/octohue.less"]
+			js=["js/OctoHue.js"],
+			css=["css/OctoHue.css"],
+			less=["less/OctoHue.less"]
 		)
 
 	##~~ Softwareupdate hook
