@@ -2,10 +2,13 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
-## New in 0.4.0
+## Added in 0.4.1
 * Optional Navbar Icon allowing the user to toggle On/Off
-* User configurable Statuses and colour/brightness/state configurations.
+* Reworked settings allows user configurable Statuses and colour/brightness/state configurations.
 * Added turning lights off as an option for printer statuses.
+
+## Fixed in 0.4.1
+* Fixed bug in 0.4.0 (release removed) where static files were not referenced in a case sensitive manner.
 
 ## Features
 * Set Colour, Brightness, and On/Off state for any Octoprint state event e.g Connected, Printing, PrintCompleted.
