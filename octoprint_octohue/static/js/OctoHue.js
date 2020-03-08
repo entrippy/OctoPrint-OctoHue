@@ -93,7 +93,6 @@ $(function() {
             self.flatStatus.extend({
                 rateLimit: 50,
             });
-	    console.log("fS: " + Object.entries(self.flatStatus()))
         }
         
         self.onSettingsBeforeSave = function () {
