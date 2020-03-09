@@ -9,7 +9,7 @@ Illuminate your print job and signal its status using a Philips Hue light.
 * Added debug logging option to allow logging or raw status events to aid configuration
 
 ## Fixed in 0.4.2
-* Fixed bug in 0.4.0 (release removed) where static files were not r
+* Fixed bug in 0.4.0 (release removed) where static files were not referenced in a case sensitive manner
 
 ## Features
 * Set Colour, Brightness, and On/Off state for any Octoprint state event e.g Connected, Printing, PrintCompleted.
