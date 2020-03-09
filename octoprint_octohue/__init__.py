@@ -128,8 +128,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	# Trigger state on Status match
 	def on_event(self, event, payload):
+		self._logger.debug("Recieved Status: %s from Printer" % event)
 		if event in self._settings.get(["statusDict"]):
-			self._logger.info("Received Status Event: %s" % event)
+			self._logger.info("Received Configured Status Event: %s" % event)
 			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
 				self.rgb(self._settings.get(['statusDict'])[event]['colour'],self._settings.get(['statusDict'])[event]['brightness'])
 			else:
