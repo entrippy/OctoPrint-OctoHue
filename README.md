@@ -2,13 +2,14 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
-## Added in 0.4.1
+## Added in 0.4.2
 * Optional Navbar Icon allowing the user to toggle On/Off
 * Reworked settings allows user configurable Statuses and colour/brightness/state configurations.
 * Added turning lights off as an option for printer statuses.
+* Added debug logging option to allow logging or raw status events to aid configuration
 
-## Fixed in 0.4.1
-* Fixed bug in 0.4.0 (release removed) where static files were not referenced in a case sensitive manner.
+## Fixed in 0.4.2
+* Fixed bug in 0.4.0 (release removed) where static files were not r
 
 ## Features
 * Set Colour, Brightness, and On/Off state for any Octoprint state event e.g Connected, Printing, PrintCompleted.
@@ -58,6 +59,9 @@ Once done, the list of available Group ID's can be found at:
 Once you have the Hue IP, Username, and Light ID, enter these into the appropriate field in Octohues menu in settings.
 
 ![Screenshot](https://github.com/entrippy/OctoPrint-OctoHue/blob/master/Settings-Screenshot.png)
+
+## Compatible Events
+For a list of events compatible for triggering light changes see the [OctoPrint Events Documentation](https://docs.octoprint.org/en/master/events/index.html)
 
 ## Known Issues
 * Octohue uses numpy, which reportedly can take a long time to install, occasionally timing out. This can be rectified by reinstalling octohue once numpy completes, or alternatively manually installing Octohue using pip.
