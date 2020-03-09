@@ -61,7 +61,7 @@ Once you have the Hue IP, Username, and Light ID, enter these into the appropria
 ![Screenshot](https://github.com/entrippy/OctoPrint-OctoHue/blob/master/Settings-Screenshot.png)
 
 ## Compatible Events
-For a list of events compatible for triggering light changes see the [OctoPrint Events Documentation](https://docs.octoprint.org/en/master/events/index.htm)
+For a list of events compatible for triggering light changes see the [OctoPrint Events Documentation](https://docs.octoprint.org/en/master/events/index.html)
 
 ## Known Issues
 * Octohue uses numpy, which reportedly can take a long time to install, occasionally timing out. This can be rectified by reinstalling octohue once numpy completes, or alternatively manually installing Octohue using pip.
