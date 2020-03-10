@@ -18,7 +18,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Hue Functions
 	pbridge=''
 
-	def rgb(self, red, green=None, blue=None, transitiontime=5, bri=255):
+	def build_state(self, red, green=None, blue=None, transitiontime=5, bri=255):
 		state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
 		self._logger.debug("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
 
@@ -133,7 +133,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.info("Received Configured Status Event: %s" % event)
 			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
 				brightness = self._settings.get(['statusDict'])[event]['brightness'] if self._settings.get(['statusDict'])[event]['brightness'] else self._settings.get(['defaultbri'])
-				self.rgb(self._settings.get(['statusDict'])[event]['colour'],bri=int(brightness))
+				self.build_state(self._settings.get(['statusDict'])[event]['colour'],bri=int(brightness))
 			else:
 				self.set_state({"on": False})
 

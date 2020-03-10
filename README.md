@@ -2,14 +2,17 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
+## Fixed in 0.4.3
+* Renamed rgb() to build_state() as it better describes its function
+* Fixed brightness not being passed properly to build_state meaning it always defaulted to 255
+* Fixed bridge object not being reinitialised on settings save, requiring a restart to pickup bridge and user changes.
+* Default brightness now works as planned and sets the brightness when it is not defined for a particular status. 
+
 ## Added in 0.4.2
 * Optional Navbar Icon allowing the user to toggle On/Off
 * Reworked settings allows user configurable Statuses and colour/brightness/state configurations.
 * Added turning lights off as an option for printer statuses.
 * Added debug logging option to allow logging or raw status events to aid configuration
-
-## Fixed in 0.4.2
-* Fixed bug in 0.4.0 (release removed) where static files were not referenced in a case sensitive manner
 
 ## Features
 * Light on and off in coordination with the connection between Octoprint and your printer
