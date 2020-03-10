@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from qhue import Bridge, QhueException
 from colormath.color_objects import XYZColor, sRGBColor
 from colormath.color_conversions import convert_color
+from octoprint.util import ResettableTimer
 import octoprint.plugin
 import flask
 
@@ -77,31 +78,37 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					'Connected' : {
 						'colour':'#FFFFFF',
 						'brightness':255,
+						'delay': '',
 						'turnoff':False
 					},
 					'Disconnected': {
 						'colour':'',
-						'brightness':"",
+						'brightness':'',
+						'delay': '',
 						'turnoff':True
 					},
 					'PrintStarted' : {
 						'colour':'#FFFFFF',
 						'brightness':255,
+						'delay': '',
 						'turnoff':False
 					},
 					'PrintResumed' : {
 						'colour':'#FFFFFF',
 						'brightness':255,
+						'delay': '',
 						'turnoff':False
 					},
 					'PrintDone': {
 						'colour':'#33FF36',
 						'brightness':255,
+						'delay': '',
 						'turnoff':False
 					},
 					'PrintFailed':{
 						'colour':'#FF0000',
 						'brightness':255,
+						'delay': '',
 						'turnoff':False
 					}
 				})
@@ -133,7 +140,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.info("Received Configured Status Event: %s" % event)
 			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
 				brightness = self._settings.get(['statusDict'])[event]['brightness'] if self._settings.get(['statusDict'])[event]['brightness'] else self._settings.get(['defaultbri'])
-				self.build_state(self._settings.get(['statusDict'])[event]['colour'],bri=int(brightness))
+				colour = self._settings.get(['statusDict'])[event]['colour']
+				if self._settings.get(['statusDict'])[event]['delay']:
+					delay = int(self._settings.get(['statusDict'])[event]['delay'])
+					delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
+					delayedtask.start()
+				else:
+					self.build_state(self._settings.get(['statusDict'])[event]['colour'],bri=int(brightness))
 			else:
 				self.set_state({"on": False})
 
