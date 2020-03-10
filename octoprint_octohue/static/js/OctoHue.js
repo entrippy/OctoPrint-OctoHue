@@ -48,12 +48,14 @@ $(function() {
                     self.nestedStatus[newStatuses()[i].status()] = {
                         colour: newStatuses()[i].colour(),
                         brightness: newStatuses()[i].brightness().extend({ stripQuotes: true}),
+                        delay: newStatuses()[i].delay().extend({ stripQuotes: true}),
                         turnoff: newStatuses()[i].turnoff()
                     }
                 } else { 
                     self.nestedStatus[newStatuses()[i].status] = {
                         colour: newStatuses()[i].colour,
                         brightness: newStatuses()[i].brightness,
+                        delay: newStatuses()[i].delay,
                         turnoff: newStatuses()[i].turnoff
                     }
                 }
@@ -66,6 +68,7 @@ $(function() {
                 status: ko.observable(''),
                 colour: ko.observable(''),
                 brightness: ko.observable(''),
+                delay: ko.observable(''),
                 turnoff: ko.observable('')
             };
 
