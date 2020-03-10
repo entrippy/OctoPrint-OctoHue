@@ -18,7 +18,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Hue Functions
 	pbridge=''
 
-	def rgb(self, red, green=None, blue=None, transitiontime=5, bri=255):
+	def build_state(self, red, green=None, blue=None, transitiontime=5, bri=255):
 		state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
 		self._logger.debug("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
 
@@ -76,7 +76,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				self._settings.set(["statusDict"], {
 					'Connected' : {
 						'colour':'#FFFFFF',
-						'brightness':'255',
+						'brightness':255,
 						'turnoff':False
 					},
 					'Disconnected': {
@@ -86,22 +86,22 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					},
 					'PrintStarted' : {
 						'colour':'#FFFFFF',
-						'brightness':'255',
+						'brightness':255,
 						'turnoff':False
 					},
 					'PrintResumed' : {
 						'colour':'#FFFFFF',
-						'brightness':'255',
+						'brightness':255,
 						'turnoff':False
 					},
 					'PrintDone': {
 						'colour':'#33FF36',
-						'brightness':'255',
+						'brightness':255,
 						'turnoff':False
 					},
 					'PrintFailed':{
 						'colour':'#FF0000',
-						'brightness':'255',
+						'brightness':255,
 						'turnoff':False
 					}
 				})
@@ -132,7 +132,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if event in self._settings.get(["statusDict"]):
 			self._logger.info("Received Configured Status Event: %s" % event)
 			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
-				self.rgb(self._settings.get(['statusDict'])[event]['colour'],self._settings.get(['statusDict'])[event]['brightness'])
+				brightness = self._settings.get(['statusDict'])[event]['brightness'] if self._settings.get(['statusDict'])[event]['brightness'] else self._settings.get(['defaultbri'])
+				self.build_state(self._settings.get(['statusDict'])[event]['colour'],bri=int(brightness))
 			else:
 				self.set_state({"on": False})
 
@@ -152,6 +153,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
+	
+	def on_settings_save(self, data):
+		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
+		self._logger.debug("Saved Bridge Address: %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
+		self._logger.debug("Saved Hue Username: %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
+		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+		self._logger.debug("New Bridge established at: %s" % self.pbridge.url)
 		
 	def get_template_vars(self):
 		return dict(
@@ -167,7 +175,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def get_template_configs(self):
 		return [
-#			dict(type="navbar", custom_bindings=False),
 			dict(type="settings", custom_bindings=True)
 		]
 
