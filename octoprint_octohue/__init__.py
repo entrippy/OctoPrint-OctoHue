@@ -107,10 +107,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				})
 				self._settings.save()
 
-		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
-		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
+		self._logger.info("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
+		self._logger.info("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
+		self._logger.info("Bridge established at: %s" % self.pbridge.url)
 
 	def on_shutdown(self):
 		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
@@ -131,7 +131,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if event in self._settings.get(["statusDict"]):
 			self._logger.info("Received Status Event: %s" % event)
 			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
-				self.rgb(self._settings.get(['statusDict'])[event]['colour'],self._settings.get(['statusDict'])[event]['brightness'])
+				self.rgb(self._settings.get(['statusDict'])[event]['colour'],bri=self._settings.get(['statusDict'])[event]['brightness'])
 			else:
 				self.set_state({"on": False})
 
@@ -151,6 +151,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
+	
+	def on_settings_save(self, data):
+		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
+		self._logger.debug("Saved Bridge Address: %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
+		self._logger.debug("Saved Hue Username: %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
+		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+		self._logger.debug("New Bridge established at: %s" % self.pbridge.url)
 		
 	def get_template_vars(self):
 		return dict(
