@@ -19,8 +19,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Hue Functions
 	pbridge=''
 
-	def build_state(self, red, green=None, blue=None, transitiontime=5, bri=255):
-		state = {"on": True, "xy": None, "transitiontime": transitiontime, "bri": bri }
+	def build_state(self, red=None, green=None, blue=None, transitiontime=5, bri=None, turnon=True):
+
+		if bri == None:
+			bri = int(self._settings.get(['defaultbri']))
+
+		state = {"on": turnon, "xy": None, "transitiontime": transitiontime, "bri": bri }
 		self._logger.debug("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
 
 		if isinstance(red, str):
@@ -68,7 +72,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self.get_state():
 			self.set_state({"on": False})
 		else:
-			self.set_state({"on": True})
+			self.set_state({"on": True, "bri": int(self._settings.get(['defaultbri']))})
+
+	def get_settings_version(self):
+		return 1
+
+	def on_settings_migrate(self, target, current=None):
+		if current is None or current < self.get_settings_version():
+			self._logger.info("Migrating Settings: Adding delay key to Status Dict")
+			statusDict = self._settings.get(['statusDict'])
+			for key in statusDict:
+				statusDict[key]['delay'] = ''
+			self._settings.set(['statusDict'], statusDict )
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
@@ -146,9 +161,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
 					delayedtask.start()
 				else:
-					self.build_state(self._settings.get(['statusDict'])[event]['colour'],bri=int(brightness))
+					self.build_state(red=self._settings.get(['statusDict'])[event]['colour'],bri=int(brightness))
 			else:
-				self.set_state({"on": False})
+				if self._settings.get(['statusDict'])[event]['delay']:
+					delay = int(self._settings.get(['statusDict'])[event]['delay'])
+					delayedtask = ResettableTimer(delay, self.build_state, kwargs={'red':'#FFFFFF','turnon':False})
+					delayedtask.start()
+				else:
+					self.set_state({"on": False})
 
 	# General Octoprint Hooks Below
 
