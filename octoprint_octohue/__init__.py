@@ -130,44 +130,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_settings_defaults(self):
 		settings = {
-			"statusDict": {
-				"Connected" : {
-					"colour":"#FFFFFF",
-					"brightness":255,
-					"delay": None,
-					"turnoff":False
-				},
-				"Disconnected": {
-						"colour":"",
-						"brightness": None,
-						"delay": None,
-						"turnoff":True
-				},
-				"PrintStarted" : {
-						"colour":"#FFFFFF",
-						"brightness":255,
-						"delay": None,
-						"turnoff":False
-					},
-				"PrintResumed" : {
-						"colour": "#FFFFFF",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				},
-				"PrintDone": {
-						"colour": "#33FF36",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				},
-				"PrintFailed":{
-						"colour": "#FF0000",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				}
-			},
+			"statusDict": {},
 			"bridgeaddr": "",
 			"husername": "",
 			"lampid": "",
@@ -187,6 +150,44 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_settings_migrate(self, target, current):
 		if current is None:
 			self._logger.info("Creating Default Settings")
+			statusDict = self._settings.get(["statusDict"])
+			statusDict["Connected"] = {
+				"colour":"#FFFFFF",
+				"brightness":255,
+				"delay": None,
+				"turnoff":False
+			}
+			statusDict["Disconnected"] = {
+				"colour":"",
+				"brightness": None,
+				"delay": None,
+				"turnoff":True
+			}
+			statusDict["PrintStarted"] = {
+				"colour":"#FFFFFF",
+				"brightness":255,
+				"delay": None,
+				"turnoff":False
+			}
+			statusDict["PrintResumed"] = {
+				"colour": "#FFFFFF",
+				"brightness": 255,
+				"delay": None,
+				"turnoff": False
+			}
+			statusDict["PrintDone"] = {
+				"colour": "#33FF36",
+				"brightness": 255,
+				"delay": None,
+				"turnoff": False
+			}
+			statusDict["PrintFailed"] = {
+				"colour": "#FF0000",
+				"brightness": 255,
+				"delay": None,
+				"turnoff": False
+			}
+		statusDict = self._settings.set(["statusDict"])
 
 		if current is not None and current < self.get_settings_version():
 			self._logger.info("Updating Settings")
