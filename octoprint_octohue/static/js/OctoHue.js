@@ -47,8 +47,8 @@ $(function() {
                 if (ko.isObservable(newStatuses()[i].status)) {
                     self.nestedStatus[newStatuses()[i].status()] = {
                         colour: newStatuses()[i].colour(),
-                        brightness: newStatuses()[i].brightness().extend({ stripQuotes: true}),
-                        delay: newStatuses()[i].delay().extend({ stripQuotes: true}),
+                        brightness: newStatuses()[i].brightness(),
+                        delay: newStatuses()[i].delay(),
                         turnoff: newStatuses()[i].turnoff()
                     }
                 } else { 

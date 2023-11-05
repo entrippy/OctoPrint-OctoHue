@@ -12,20 +12,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.plugin.ShutdownPlugin,
 					octoprint.plugin.SettingsPlugin,
 					octoprint.plugin.SimpleApiPlugin,
-                    octoprint.plugin.AssetPlugin,
-                    octoprint.plugin.TemplatePlugin,
+					octoprint.plugin.AssetPlugin,
+					octoprint.plugin.TemplatePlugin,
 					octoprint.plugin.EventHandlerPlugin):
 
 	# Hue Functions
 	pbridge=''
 
-	def build_state(self, red=None, green=None, blue=None, transitiontime=5, bri=None, turnon=True):
-
-		if bri == None:
-			bri = int(self._settings.get(['defaultbri']))
-
-		state = {"on": turnon, "xy": None, "transitiontime": transitiontime, "bri": bri }
-		self._logger.debug("RGB Input - R:%s G:%s B:%s Bri:%s" % (red, green, blue, bri))
+	def rgb_to_xy(self, red, green=None, blue=None):
+		self._logger.debug("RGB Input - R:%s G:%s B:%s" % (red, green, blue))
 
 		if isinstance(red, str):
 		# If Red is a string or unicode assume a hex string is passed and convert it to numberic 
@@ -49,8 +44,25 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		normx = x / ( x + y + z)
 		normy = y / ( x + y + z) 
 		
-		state['xy'] = [normx, normy]
+		xy = [normx, normy]
 		
+		return xy
+
+	def build_state(self, colour=None, transitiontime=5, bri=None, illuminate=True):
+
+		state = {}
+		state['on'] = illuminate
+		
+		if illuminate == True:
+			if bri is None:
+				bri = int(self._settings.get(['defaultbri']))
+			state['bri'] = bri
+			
+			if colour is not None:
+				state['xy'] = self.rgb_to_xy(colour)
+
+		state['transitiontime'] = transitiontime
+
 		return self.set_state(state)
 
 	def get_state(self):
@@ -70,12 +82,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def toggle_state(self):
 		if self.get_state():
-			self.set_state({"on": False})
+			self.build_state(illuminate=False)
 		else:
-			self.set_state({"on": True, "bri": int(self._settings.get(['defaultbri']))})
+			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
 
 	def get_settings_version(self):
-		return 1
+		return 2
 
 	def on_settings_migrate(self, target, current=None):
 		if current is None or current < self.get_settings_version():
@@ -87,48 +99,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
-		if self._settings.get(["statusDict"]) == '': 
-				self._logger.info("Bootstrapping Octohue Status Defaults")
-				self._settings.set(["statusDict"], {
-					'Connected' : {
-						'colour':'#FFFFFF',
-						'brightness':255,
-						'delay': '',
-						'turnoff':False
-					},
-					'Disconnected': {
-						'colour':'',
-						'brightness':'',
-						'delay': '',
-						'turnoff':True
-					},
-					'PrintStarted' : {
-						'colour':'#FFFFFF',
-						'brightness':255,
-						'delay': '',
-						'turnoff':False
-					},
-					'PrintResumed' : {
-						'colour':'#FFFFFF',
-						'brightness':255,
-						'delay': '',
-						'turnoff':False
-					},
-					'PrintDone': {
-						'colour':'#33FF36',
-						'brightness':255,
-						'delay': '',
-						'turnoff':False
-					},
-					'PrintFailed':{
-						'colour':'#FF0000',
-						'brightness':255,
-						'delay': '',
-						'turnoff':False
-					}
-				})
-				self._settings.save()
-
 		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
 		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
@@ -153,44 +123,77 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug("Recieved Status: %s from Printer" % event)
 		if event in self._settings.get(["statusDict"]):
 			self._logger.info("Received Configured Status Event: %s" % event)
-			if self._settings.get(['statusDict'])[event]['turnoff'] == False:
-				brightness = self._settings.get(['statusDict'])[event]['brightness'] if self._settings.get(['statusDict'])[event]['brightness'] else self._settings.get(['defaultbri'])
-				colour = self._settings.get(['statusDict'])[event]['colour']
-				if self._settings.get(['statusDict'])[event]['delay']:
-					delay = int(self._settings.get(['statusDict'])[event]['delay'])
-					delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
-					delayedtask.start()
-				else:
-					self.build_state(red=self._settings.get(['statusDict'])[event]['colour'],bri=int(brightness))
+			delay = self._settings.get(['statusDict']).get(event).get('delay') or 0
+
+			if self._settings.get(['statusDict']).get(event).get('turnoff', False) == False:
+				brightness = self._settings.get(['statusDict']).get(event).get('brightness',  self._settings.get(['defaultbri']))
+				colour = self._settings.get(['statusDict']).get(event).get('colour')
+
+				delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
+
 			else:
-				if self._settings.get(['statusDict'])[event]['delay']:
-					delay = int(self._settings.get(['statusDict'])[event]['delay'])
-					delayedtask = ResettableTimer(delay, self.build_state, kwargs={'red':'#FFFFFF','turnon':False})
-					delayedtask.start()
-				else:
-					self.set_state({"on": False})
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'illuminate':False})
+			
+			delayedtask.start()
 
 	# General Octoprint Hooks Below
 
 	def get_settings_defaults(self):
-		return dict(
-			bridgeaddr="",
-			husername="",
-			lampid="",
-			lampisgroup="",
-			defaultbri=255,
-			offonshutdown=True,
-			showhuetoggle=True,
-			statusDict=""
-		)
+		settings = {
+			"statusdict": {
+				"Connected" : {
+					"colour":"#FFFFFF",
+					"brightness":255,
+					"delay": None,
+					"turnoff":False
+				},
+				"Disconnected": {
+						"colour":"",
+						"brightness": None,
+						"delay": None,
+						"turnoff":True
+				},
+				"PrintStarted" : {
+						"colour":"#FFFFFF",
+						"brightness":255,
+						"delay": None,
+						"turnoff":False
+					},
+				"PrintResumed" : {
+						"colour": "#FFFFFF",
+						"brightness": 255,
+						"delay": None,
+						"turnoff": False
+				},
+				"PrintDone": {
+						"colour": "#33FF36",
+						"brightness": 255,
+						"delay": None,
+						"turnoff": False
+				},
+				"PrintFailed":{
+						"colour": "#FF0000",
+						"brightness": 255,
+						"delay": None,
+						"turnoff": False
+				}
+			},
+			"bridgeaddr": "",
+			"husername": "",
+			"lampid": "",
+			"lampisgroup": "",
+			"defaultbri": 255,
+			"offonshutdown": True,
+			"showhuetoggle": True,
+		}
+		return settings
 
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
 	
 	def on_settings_save(self, data):
+		self._logger.info("Saving: %s" % data) 
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-		self._logger.debug("Saved Bridge Address: %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
-		self._logger.debug("Saved Hue Username: %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		self._logger.debug("New Bridge established at: %s" % self.pbridge.url)
 		
