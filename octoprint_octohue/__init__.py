@@ -86,16 +86,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		else:
 			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
 
-	def get_settings_version(self):
-		return 2
-
-	def on_settings_migrate(self, target, current=None):
-		if current is None or current < self.get_settings_version():
-			self._logger.info("Migrating Settings: Adding delay key to Status Dict")
-			statusDict = self._settings.get(['statusDict'])
-			for key in statusDict:
-				statusDict[key]['delay'] = ''
-			self._settings.set(['statusDict'], statusDict )
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
@@ -140,7 +130,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_settings_defaults(self):
 		settings = {
-			"statusdict": {
+			"statusDict": {
 				"Connected" : {
 					"colour":"#FFFFFF",
 					"brightness":255,
@@ -191,6 +181,17 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
 	
+	def get_settings_version(self):
+		return 1
+
+	def on_settings_migrate(self, target, current):
+		if current is None:
+			self._logger.info("Creating Default Settings")
+
+		if current is not None and current < self.get_settings_version():
+			self._logger.info("Updating Settings")
+
+
 	def on_settings_save(self, data):
 		self._logger.info("Saving: %s" % data) 
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
