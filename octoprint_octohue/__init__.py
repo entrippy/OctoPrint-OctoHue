@@ -187,7 +187,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				"delay": None,
 				"turnoff": False
 			}
-		statusDict = self._settings.set(["statusDict"])
+		statusDict = self._settings.set(statusDict)
 
 		if current is not None and current < self.get_settings_version():
 			self._logger.info("Updating Settings")
