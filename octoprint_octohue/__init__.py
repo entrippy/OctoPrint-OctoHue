@@ -191,6 +191,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		if current is not None and current < self.get_settings_version():
 			self._logger.info("Updating Settings")
+			
+		self._settings.save()
 
 
 	def on_settings_save(self, data):
