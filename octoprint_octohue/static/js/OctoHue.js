@@ -76,8 +76,10 @@ $(function() {
         }
 
         self.onStatusDictDelete = function (status) {
-            console.log('object: %O', self.flatStatus)
+            str = JSON.stringify(self.flatStatus)
+            console.log(self.flatStatus)
             self.flatStatus.remove(status)
+            str = JSON.stringify(self.flatStatus)
             console.log('object: %O', self.flatStatus)
         }
 
