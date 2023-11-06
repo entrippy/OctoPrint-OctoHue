@@ -76,11 +76,7 @@ $(function() {
         }
 
         self.onStatusDictDelete = function (status) {
-            str = JSON.stringify(self.flatStatus)
-            console.log(self.flatStatus)
             self.flatStatus.remove(status)
-            str = JSON.stringify(self.flatStatus)
-            console.log('object: %O', self.flatStatus)
         }
 
         self.setSwitchOff = function(status) {
@@ -103,7 +99,11 @@ $(function() {
         }
 
         self.onSettingsBeforeSave = function () {
+            str = JSON.stringify(self.flatStatus)
+            console.log(self.flatStatus)
             self.ownSettings.statusDict = self.nestStatus(self.flatStatus);
+            str = JSON.stringify(self.ownSettings.statusDict)
+            console.log(self.ownSettings.statusDict)
         }
         
     }
