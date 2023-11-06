@@ -76,7 +76,9 @@ $(function() {
         }
 
         self.onStatusDictDelete = function (status) {
+            console.table(self.flatStatus)
             self.flatStatus.remove(status)
+            console.table(self.flatStatus)
         }
 
         self.setSwitchOff = function(status) {
@@ -97,7 +99,7 @@ $(function() {
                 rateLimit: 50,
             });
         }
-        
+
         self.onSettingsBeforeSave = function () {
             self.ownSettings.statusDict = self.nestStatus(self.flatStatus);
         }
