@@ -76,9 +76,9 @@ $(function() {
         }
 
         self.onStatusDictDelete = function (status) {
-            console.table(self.flatStatus)
+            console.log('object: %O', self.flatStatus)
             self.flatStatus.remove(status)
-            console.table(self.flatStatus)
+            console.log('object: %O', self.flatStatus)
         }
 
         self.setSwitchOff = function(status) {
