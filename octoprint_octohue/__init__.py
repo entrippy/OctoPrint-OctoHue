@@ -212,11 +212,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_settings_save(self, data):
 		self._logger.info("Saving: %s" % data) 
+		del data['availableEvents']
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-		if type(data.get("statusDict")) == list;
-			self._settings.set(
-				["statusDict"], data.get("statusDict")
-		)
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		self._logger.debug("New Bridge established at: %s" % self.pbridge.url)
 		
