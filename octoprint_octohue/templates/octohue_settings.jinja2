@@ -96,3 +96,50 @@
         </div>
     </div>
 </form>
+
+<div id="StatusManagerEditor" data-bind="with: selectedStatus" class="modal hide fade-in">
+    <div class="modal-header">
+        <a href="#" class="close" data-dismiss="modal" aria-hidden="true">&times;</a>
+        <h3>{{ _('Status Editor') }}</h3>
+    </div>
+    <div class="modal-body">
+        <div class="control-group">
+            <label class="control-label">{{ _('Status') }}</label>
+            <div class="controls">
+                <select class="input-block-level" data-bind="value: event, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="control-label">{{ _('Colour') }}</label>
+            <div class="controls">
+                <input type="text" class="input-block-level" data-bind="value: colour" />
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="control-label">{{ _('Brightness') }}</label>
+            <div class="controls">
+                <input type="text" class="input-block-level: data-bind="value: brightness" />
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="control-label">{{ _('Delay') }}</label>
+            <div class="controls">
+                <input type="text" class="input-block-level: data-bind="value: delay" />
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="control-label">{{ _('Turn Off') }}</label>
+            <div class="controls">
+                <input type="checkbox" data-bind="checked: turnoff" />
+            </div>
+        </div>
+        <p><small>
+            {{ _('Please note that any event handlers you define here will be processed <em>asynchronously</em> to OctoPrint\'s own processing of the event. You cannot stall, block or otherwise influence internal execution with event handlers.') }}
+        </small></p>
+    </div>
+    <div class="modal-footer">
+        <div class="row-fluid">
+            {{ _('Do not forget to save in main settings.') }} <button type="button" class="btn" data-dismiss="modal">{{ _('Close') }}</button>
+        </div>
+    </div>
+</div>
