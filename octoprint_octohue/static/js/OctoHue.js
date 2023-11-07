@@ -119,13 +119,13 @@ $(function() {
             //self.statusDict = self.ownSettings.statusDict
         }
 
-        self.onSettingsBeforeSave = function () {
+        /*self.onSettingsBeforeSave = function () {
             str = JSON.stringify(self.flatStatus, null, 4)
             console.log(self.flatStatus)
             self.ownSettings.statusDict = self.nestStatus(self.flatStatus);
             str = JSON.stringify(self.ownSettings.statusDict)
             console.log(self.ownSettings.statusDict)
-        }
+        }*/
         
     }
 
