@@ -6,26 +6,61 @@
  */
 $(function() {
     function OctohueViewModel(parameters) {
-        ko.extenders.stripQuotes = function(target, opts) {
-            const result = ko.pureComputed({
-                read: target,
-                write: function(newVal) {
-                    const stripped = newVal.replace(/['"]+/g, '')
-                    target(stripped)
-                }
-            }).extend({ notify: 'always' });
-            result(target())
-            return result;
-        }
-
         var self = this;
   
         self.settingsViewModel = parameters[0];
-
-
+        self.selectedStatus = ko.observable();
         self.ownSettings = {}
+
+        self.statusDetails = function (data) {
+            if (data === false) {
+                return {
+                    status: ko.observable(""),
+                    colour: ko.observable(""),
+                    brightness: ko.observable(""),
+                    delay: ko.observable(""),
+                    turnoff: ko.observable(false)
+                };
+            
+            } else {
+                if (!data.hasOwnProperty("turnoff")) {
+                    data["turnoff"] = ko.observable(true);
+                }
+                return data;
+            }
+        };
+
         self.statusDict = {}
         self.nestedStatus = {}
+
+        self.addStatus = function () {
+            self.selectedStatus(self.statusDetails(false));
+            self.settingsViewModel.settings.plugins.octohue.statusDict.push(
+                self.selectedStatus()
+            );
+        };
+
+        self.editStatus = function (data) {
+            self.selectedStatus(self.statusDetails(data));
+        };
+
+        self.removeStatus = function (data) {
+            self.settingsViewModel.settings.plugins.octohue.statusDict.remove(
+                data
+            );
+        };
+
+        self.addNewStatus = function() {
+            var statusObj = {
+                status: ko.observable(''),
+                colour: ko.observable(''),
+                brightness: ko.observable(''),
+                delay: ko.observable(''),
+                turnoff: ko.observable('')
+            };
+
+            self.flatStatus.push(statusObj)
+        }
 
         self.flatStatus = ko.observableArray()
         
@@ -63,17 +98,7 @@ $(function() {
             return self.nestedStatus
         }
 
-        self.addNewStatus = function() {
-            var statusObj = {
-                status: ko.observable(''),
-                colour: ko.observable(''),
-                brightness: ko.observable(''),
-                delay: ko.observable(''),
-                turnoff: ko.observable('')
-            };
 
-            self.flatStatus.push(statusObj)
-        }
 
         self.onStatusDictDelete = function (status) {
             self.flatStatus.remove(status)
@@ -99,7 +124,7 @@ $(function() {
         }
 
         self.onSettingsBeforeSave = function () {
-            str = JSON.stringify(self.flatStatus)
+            str = JSON.stringify(self.flatStatus, null, 4)
             console.log(self.flatStatus)
             self.ownSettings.statusDict = self.nestStatus(self.flatStatus);
             str = JSON.stringify(self.ownSettings.statusDict)

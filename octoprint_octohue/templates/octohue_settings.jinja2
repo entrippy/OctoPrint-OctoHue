@@ -64,7 +64,7 @@
                         </th>
                     </tr>
                 </thead>
-                <tbody class="control-group" data-bind="foreach: flatStatus">
+                <tbody class="control-group" data-bind="foreach: settingsViewModel.settings.plugins.octohue.statusDict">
                     <tr>
                         <td>
                             <input type="text" value="Status" data-bind="value: status">
@@ -85,7 +85,7 @@
                             <i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i>
                         </td>
                         <td>
-                            <i class="fa fa-trash-o" data-bind="click: $parent.onStatusDictDelete"></i>
+                            <i class="fa fa-trash-o" data-bind="click: $root.removeStatus"></i>
                         </td>
                     </tr>
                 </tbody>
