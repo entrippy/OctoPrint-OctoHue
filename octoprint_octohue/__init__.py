@@ -208,6 +208,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
             "availableEvents": octoprint.events.all_events(),
 			"statusDict": [],
 		}
+		return my_settings
+		
 	def on_settings_save(self, data):
 		self._logger.info("Saving: %s" % data) 
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
