@@ -38,6 +38,7 @@ $(function() {
             self.settingsViewModel.settings.plugins.octohue.statusDict.push(
                 self.selectedStatus()
             );
+            $("#StatusManagerEditor").modal("show");
         };
 
         self.editStatus = function (data) {
