@@ -188,21 +188,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		}
 		return settings
 
-	def create_status(self, status, colour=None, brightness=None, delay=None, turnoff=False):
-		self._settings.set(
-			["statusDict", status, "colour"], colour
-		)
-		self._settings.set(
-			["statusDict", status, "brightness"], brightness
-		)
-		self._settings.set(
-			["statusDict", status, "delay"], delay
-		)
-		self._settings.set(
-			["statusDict", status, "turnoff"], turnoff
-		)
-		self._settings.save()
-
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
 	
@@ -218,7 +203,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			
 		self._settings.save()
 
-
+	def on_settings_load(self):
+		my_settings = {
+            "availableEvents": octoprint.events.all_events()
+		}
 	def on_settings_save(self, data):
 		self._logger.info("Saving: %s" % data) 
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
