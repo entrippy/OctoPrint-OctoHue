@@ -211,7 +211,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return my_settings
 
 	def on_settings_save(self, data):
-		del data['availableEvents']
 		self._logger.info("Saving: %s" % data) 
 		#octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		if type(data.get("statusDict")) == list;
