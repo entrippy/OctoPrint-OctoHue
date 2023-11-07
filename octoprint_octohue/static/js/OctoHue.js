@@ -113,7 +113,7 @@ $(function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
         }
  
-        self.onBeforeBinding = function () {
+        /*self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.ownSettings.statusDict
@@ -130,7 +130,7 @@ $(function() {
             self.ownSettings.statusDict = self.nestStatus(self.flatStatus);
             str = JSON.stringify(self.ownSettings.statusDict)
             console.log(self.ownSettings.statusDict)
-        }
+        }*/
         
     }
 
