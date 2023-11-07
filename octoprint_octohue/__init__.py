@@ -211,7 +211,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return my_settings
 
 	def on_settings_save(self, data):
-		del data['availableEvents']
+		data.pop("availableEvents", None)
 		self._logger.info("Saving: %s" % data) 
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
