@@ -207,6 +207,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		my_settings = {
             "availableEvents": octoprint.events.all_events(),
 			"statusDict": self._settings.get(["statusDict"]),
+			"bridgeaddr": self._settings.get(["bridgeaddr"]),
+			"husername": self._settings.get(["husername"]),
+			"lampid": self._settings.get(["lampid"]),
+			"lampisgroup": self._settings.get(["lampisgroup"]),
+			"defaultbri": self._settings.get(["defaultbri"]),
+			"offonshutdown": self._settings.get(["offonshutdown"]),
+			"showhuetoggle": self._settings.get(["showhuetoggle"])
 		}
 		return my_settings
 
