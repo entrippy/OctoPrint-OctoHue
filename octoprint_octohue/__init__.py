@@ -206,7 +206,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_settings_load(self):
 		my_settings = {
             "availableEvents": octoprint.events.all_events(),
-			"statusDict": [],
+			"statusDict": self._settings.get(["statusDict"],
 		}
 		return my_settings
 
