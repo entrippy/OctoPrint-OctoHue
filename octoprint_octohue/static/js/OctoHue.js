@@ -51,7 +51,7 @@ $(function() {
             );
         };
 
-        self.addNewStatus = function() {
+        /*self.addNewStatus = function() {
             var statusObj = {
                 status: ko.observable(''),
                 colour: ko.observable(''),
@@ -103,7 +103,7 @@ $(function() {
 
         self.onStatusDictDelete = function (status) {
             self.flatStatus.remove(status)
-        }
+        }*/
 
         self.setSwitchOff = function(status) {
             status.turnoff(!status.turnoff());
@@ -113,15 +113,10 @@ $(function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
         }
  
-        /*self.onBeforeBinding = function () {
+        self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
-            self.statusDict = self.ownSettings.statusDict
-
-            self.flatStatus = self.flattenstatus(self.statusDict);
-            self.flatStatus.extend({
-                rateLimit: 50,
-            });
+            //self.statusDict = self.ownSettings.statusDict
         }
 
         self.onSettingsBeforeSave = function () {
@@ -130,7 +125,7 @@ $(function() {
             self.ownSettings.statusDict = self.nestStatus(self.flatStatus);
             str = JSON.stringify(self.ownSettings.statusDict)
             console.log(self.ownSettings.statusDict)
-        }*/
+        }
         
     }
 
