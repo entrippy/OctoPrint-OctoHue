@@ -212,7 +212,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_settings_save(self, data):
 		self._logger.info("Saving: %s" % data) 
-		#octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
+		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		if type(data.get("statusDict")) == list;
 			self._settings.set(
 				["statusDict"], data.get("statusDict")
