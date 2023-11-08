@@ -143,7 +143,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			defaultbri=255,
 			offonshutdown=True,
 			showhuetoggle=True,
-			statusDict=""
+			statusDict=[]
 		)
 
 	def get_settings_restricted_paths(self):
