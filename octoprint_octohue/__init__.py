@@ -92,10 +92,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_settings_migrate(self, target, current=None):
 		if current is None or current < self.get_settings_version():
 			self._logger.info("Migrating Settings: Adding delay key to Status Dict")
-			statusDict = self._settings.get(['statusDict'])
-			for key in statusDict:
-				statusDict[key]['delay'] = ''
-			self._settings.set(['statusDict'], statusDict )
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
@@ -135,22 +131,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'illuminate':False})
 			
 			delayedtask.start()
-"""	
-		if event in self._settings.get(["statusDict"]):
-			self._logger.info("Received Configured Status Event: %s" % event)
-			delay = self._settings.get(['statusDict']).get(event).get('delay') or 0
 
-			if self._settings.get(['statusDict']).get(event).get('turnoff', False) == False:
-				brightness = self._settings.get(['statusDict']).get(event).get('brightness',  self._settings.get(['defaultbri']))
-				colour = self._settings.get(['statusDict']).get(event).get('colour')
-
-				delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
-
-			else:
-				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'illuminate':False})
-			
-			delayedtask.start()
-"""
 	# General Octoprint Hooks Below
 
 	def get_settings_defaults(self):
