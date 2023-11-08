@@ -154,54 +154,16 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# General Octoprint Hooks Below
 
 	def get_settings_defaults(self):
-		settings = {
-			"statusdict": {
-				"Connected" : {
-					"colour":"#FFFFFF",
-					"brightness":255,
-					"delay": None,
-					"turnoff":False
-				},
-				"Disconnected": {
-						"colour":"",
-						"brightness": None,
-						"delay": None,
-						"turnoff":True
-				},
-				"PrintStarted" : {
-						"colour":"#FFFFFF",
-						"brightness":255,
-						"delay": None,
-						"turnoff":False
-					},
-				"PrintResumed" : {
-						"colour": "#FFFFFF",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				},
-				"PrintDone": {
-						"colour": "#33FF36",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				},
-				"PrintFailed":{
-						"colour": "#FF0000",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				}
-			},
-			"bridgeaddr": "",
-			"husername": "",
-			"lampid": "",
-			"lampisgroup": "",
-			"defaultbri": 255,
-			"offonshutdown": True,
-			"showhuetoggle": True,
-		}
-		return settings
+		return dict(
+			bridgeaddr="",
+			husername="",
+			lampid="",
+			lampisgroup="",
+			defaultbri=255,
+			offonshutdown=True,
+			showhuetoggle=True,
+			statusDict=""
+		)
 
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
