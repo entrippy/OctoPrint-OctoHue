@@ -126,7 +126,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			delay = status['delay'] or 0
 
 			if status['turnoff'] == False:
-				brightness = status['brightess'] or self._settings.get(['defaultbri']
+				brightness = status['brightess'] or self._settings.get(['defaultbri'])
 				colour = status['colour']
 
 				delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
