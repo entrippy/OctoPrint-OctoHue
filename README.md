@@ -2,6 +2,15 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
+## Fixed in 0.4.4
+* It is recommended that you remove your existing octohue settings, or at the very least remove statusDict from config.yaml
+* Back from the dead after several years of inactivity (thanks covid)
+* Fixed bug preventing changes to initial example configuration from being changed. No example events are configured in this version, but they will return in future.
+* Changed persistent statusDict settins to a list of dicts instead of a dict of dicts, this was what played hell with the above
+* Moved from using the term "status" to "events" in line with octoprint terminology
+* Added new Event Add modal with "Event" dropdown populated from native octoprint events.
+
+
 ## Fixed in 0.4.3
 * Renamed rgb() to build_state() as it better describes its function
 * Fixed brightness not being passed properly to build_state meaning it always defaulted to 255
@@ -73,10 +82,8 @@ For a list of events compatible for triggering light changes see the [OctoPrint 
 ### Manual pip (re)installation instructions
 1. Log into you Octohue server via the command line.
 2. Activate OctoPrints python virtualenv e.g in octopi:
-
     ```source ~/oprint/bin/activate```
 3. Reinstall Octohue using pip:
-
     ```pip install --upgrade --force-reinstall https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip```
 
 ## TODO

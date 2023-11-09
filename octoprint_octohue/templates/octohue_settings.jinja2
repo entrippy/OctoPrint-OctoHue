@@ -57,14 +57,17 @@
                             Brightness
                         </th>
                         <th>
+                            Delay (Sec)
+                        </th>
+                        <th>
                             Or Switch Off
                         </th>
                     </tr>
                 </thead>
-                <tbody class="control-group" data-bind="foreach: flatStatus">
+                <tbody class="control-group" data-bind="foreach: settingsViewModel.settings.plugins.octohue.statusDict">
                     <tr>
                         <td>
-                            <input type="text" value="Status" data-bind="value: status">
+                            <input type="text" value="Event" data-bind="value: event">
                         </td>
                         <td>
                             <input type="color" class="input-mini" data-bind="value: colour">
@@ -73,20 +76,71 @@
                             <input type="text" class="input-mini" data-bind="value: colour">
                         </td>
                         <td>
-                            <input type="text" class="input-mini" data-bind="value: brightness">
+                            <input type="number" max="255" class="input-mini" data-bind="value: brightness">
+                        </td>
+                        <td>
+                            <input type="number" class="input-mini" data-bind="value: delay">
                         </td>
                         <td>
                             <i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i>
                         </td>
                         <td>
-                            <i class="fa fa-trash-o" data-bind="click: $parent.onStatusDictDelete"></i>
+                            <i class="fa fa-trash-o" data-bind="click: $root.removeStatus"></i>
                         </td>
                     </tr>
                 </tbody>
             </table>
             <div class="control">
-                <button class="btn" data-bind="click: addNewStatus">New</button>
+                <button class="btn" data-bind="click: addStatus">New</button>
             </div>
         </div>
     </div>
 </form>
+
+<div id="StatusManagerEditor" data-bind="with: selectedEvent" class="modal hide fade-in">
+    <div class="modal-header">
+        <a href="#" class="close" data-dismiss="modal" aria-hidden="true">&times;</a>
+        <h3>{{ _('Event Editor') }}</h3>
+    </div>
+    <div class="modal-body">
+        <div class="control-group">
+            <label class="control-label">{{ _('Event') }}</label>
+            <div class="controls">
+                <select class="input-block-level" data-bind="value: event, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="control-label">{{ _('Colour') }}</label>
+            <div class="controls">
+                <input type="color" class="input-mini" data-bind="value: colour">
+                <input type="text" class="input-block-level" data-bind="value: colour" />
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="control-label">{{ _('Brightness') }}</label>
+            <div class="controls">
+                <input type="number" max="255" class="input-mini" data-bind="value: brightness" value="255">
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="control-label">{{ _('Delay') }}</label>
+            <div class="controls">
+                <input type="text" class="input-block-level: data-bind="value: delay" />
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="control-label">{{ _('Turn Off') }}</label>
+            <div class="controls">
+                <input type="checkbox" data-bind="checked: turnoff" />
+            </div>
+        </div>
+        <p><small>
+            {{ _('Please note that any event handlers you define here will be processed <em>asynchronously</em> to OctoPrint\'s own processing of the event. You cannot stall, block or otherwise influence internal execution with event handlers.') }}
+        </small></p>
+    </div>
+    <div class="modal-footer">
+        <div class="row-fluid">
+            {{ _('Do not forget to save in main settings.') }} <button type="button" class="btn" data-dismiss="modal">{{ _('Close') }}</button>
+        </div>
+    </div>
+</div>
