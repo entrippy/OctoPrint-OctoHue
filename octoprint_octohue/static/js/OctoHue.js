@@ -9,7 +9,7 @@ $(function() {
         var self = this;
   
         self.settingsViewModel = parameters[0];
-        self.selectedStatus = ko.observable();
+        self.selectedEvent = ko.observable();
         self.ownSettings = {}
 
         self.statusDetails = function (data) {
