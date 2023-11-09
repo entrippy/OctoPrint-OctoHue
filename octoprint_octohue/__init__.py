@@ -117,7 +117,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Trigger state on Status match
 	def on_event(self, event, payload):
 		self._logger.debug("Recieved Status: %s from Printer" % event)
-		with next(status for status in self._settings.get(['statusDict']) if status['status'] == event) as status:
+		status = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['status'] == event), None)
+		if status: 
 			self._logger.info("Received Configured Status Event: %s" % event)
 			delay = status['delay'] or 0
 
@@ -129,7 +130,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 			else:
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'illuminate':False})
-			
+		
 			delayedtask.start()
 
 	# General Octoprint Hooks Below
