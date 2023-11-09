@@ -33,15 +33,15 @@ $(function() {
         self.statusDict = {}
 
         self.addStatus = function () {
-            self.selectedStatus(self.statusDetails(false));
+            self.selectedEvent(self.statusDetails(false));
             self.settingsViewModel.settings.plugins.octohue.statusDict.push(
-                self.selectedStatus()
+                self.selectedEvent()
             );
             $("#StatusManagerEditor").modal("show");
         };
 
         self.editStatus = function (data) {
-            self.selectedStatus(self.statusDetails(data));
+            self.selectedEvent(self.statusDetails(data));
         };
 
         self.removeStatus = function (data) {
