@@ -15,7 +15,7 @@ $(function() {
         self.statusDetails = function (data) {
             if (data === false) {
                 return {
-                    status: ko.observable(""),
+                    event: ko.observable(""),
                     colour: ko.observable(""),
                     brightness: ko.observable(""),
                     delay: ko.observable(""),
@@ -31,7 +31,6 @@ $(function() {
         };
 
         self.statusDict = {}
-        self.nestedStatus = {}
 
         self.addStatus = function () {
             self.selectedStatus(self.statusDetails(false));
@@ -51,60 +50,6 @@ $(function() {
             );
         };
 
-        /*self.addNewStatus = function() {
-            var statusObj = {
-                status: ko.observable(''),
-                colour: ko.observable(''),
-                brightness: ko.observable(''),
-                delay: ko.observable(''),
-                turnoff: ko.observable('')
-            };
-
-            self.flatStatus.push(statusObj)
-        }
-
-        self.flatStatus = ko.observableArray()
-        
-        self.flattenstatus = function(nestedStatuses) {
-            for (let ki=0; ki < Object.keys(nestedStatuses).length; ki++ ) {
-                var statusObj = {};
-                var status = Object.keys(nestedStatuses)[ki]
-                statusObj.status = status
-                for (let [key, value] of Object.entries(nestedStatuses[status]) ) {
-                    statusObj[key] = value
-                }
-                self.flatStatus.push(statusObj)
-            }
-            return self.flatStatus
-        }
-
-        self.nestStatus = function(newStatuses) {
-            for (let i=0; i < newStatuses().length; i++ ) {
-                if (ko.isObservable(newStatuses()[i].status)) {
-                    self.nestedStatus[newStatuses()[i].status()] = {
-                        colour: newStatuses()[i].colour(),
-                        brightness: newStatuses()[i].brightness(),
-                        delay: newStatuses()[i].delay(),
-                        turnoff: newStatuses()[i].turnoff()
-                    }
-                } else { 
-                    self.nestedStatus[newStatuses()[i].status] = {
-                        colour: newStatuses()[i].colour,
-                        brightness: newStatuses()[i].brightness,
-                        delay: newStatuses()[i].delay,
-                        turnoff: newStatuses()[i].turnoff
-                    }
-                }
-            }
-            return self.nestedStatus
-        }
-
-
-
-        self.onStatusDictDelete = function (status) {
-            self.flatStatus.remove(status)
-        }*/
-
         self.setSwitchOff = function(status) {
             status.turnoff(!status.turnoff());
         };
@@ -116,17 +61,8 @@ $(function() {
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
-            //self.statusDict = self.ownSettings.statusDict
         }
-
-        /*self.onSettingsBeforeSave = function () {
-            str = JSON.stringify(self.flatStatus, null, 4)
-            console.log(self.flatStatus)
-            self.ownSettings.statusDict = self.nestStatus(self.flatStatus);
-            str = JSON.stringify(self.ownSettings.statusDict)
-            console.log(self.ownSettings.statusDict)
-        }*/
-        
+     
     }
 
     /* view model class, parameters for constructor, container to bind to
