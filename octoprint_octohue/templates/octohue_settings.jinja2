@@ -67,7 +67,7 @@
                 <tbody class="control-group" data-bind="foreach: settingsViewModel.settings.plugins.octohue.statusDict">
                     <tr>
                         <td>
-                            <input type="text" value="Status" data-bind="value: status">
+                            <input type="text" value="Event" data-bind="value: event">
                         </td>
                         <td>
                             <input type="color" class="input-mini" data-bind="value: colour">
@@ -97,16 +97,16 @@
     </div>
 </form>
 
-<div id="StatusManagerEditor" data-bind="with: selectedStatus" class="modal hide fade-in">
+<div id="StatusManagerEditor" data-bind="with: selectedEvent" class="modal hide fade-in">
     <div class="modal-header">
         <a href="#" class="close" data-dismiss="modal" aria-hidden="true">&times;</a>
-        <h3>{{ _('Status Editor') }}</h3>
+        <h3>{{ _('Event Editor') }}</h3>
     </div>
     <div class="modal-body">
         <div class="control-group">
-            <label class="control-label">{{ _('Status') }}</label>
+            <label class="control-label">{{ _('Event') }}</label>
             <div class="controls">
-                <select class="input-block-level" data-bind="value: status, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
+                <select class="input-block-level" data-bind="value: event, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
             </div>
         </div>
         <div class="control-group">
@@ -119,7 +119,7 @@
         <div class="control-group">
             <label class="control-label">{{ _('Brightness') }}</label>
             <div class="controls">
-                <input type="number" max="255" class="input-mini" data-bind="value: brightness">
+                <input type="number" max="255" class="input-mini" data-bind="value: brightness" value="255">
             </div>
         </div>
         <div class="control-group">
