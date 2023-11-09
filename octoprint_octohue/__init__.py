@@ -90,8 +90,39 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return 2
 
 	def on_settings_migrate(self, target, current=None):
-		if current is None or current < self.get_settings_version():
-			self._logger.info("Migrating Settings: Adding delay key to Status Dict")
+		if current is None:
+			self._logger.info("Migrating Settings: Writing example settings")
+			self._settings.set(["statusDict"], [
+					{'event': 'Connected',
+					'colour':'#FFFFFF',
+					'brightness':255,
+					'turnoff':False},
+					{'event': 'Disconnected',
+					'colour':'',
+					'brightness':"",
+					'turnoff':True},
+					{'event': 'PrintStarted',
+					'colour':'#FFFFFF',
+					'brightness':255,
+					'turnoff':False},
+					{'event': 'PrintResumed',
+					'colour':'#FFFFFF',
+					'brightness':255,
+					'turnoff':False},
+					{'event': 'PrintDone',
+					'colour':'#33FF36',
+					'brightness':255,
+					'turnoff':False},
+					{'event': 'PrintFailed',
+					'colour':'#FF0000',
+					'brightness':255,
+					'turnoff':False}
+				])
+			self._settings.save()
+
+		if current < self.get_settings_version():
+			self._logger.info("Migrating Settings: Updating a setting")
+
 
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
@@ -117,14 +148,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Trigger state on Status match
 	def on_event(self, event, payload):
 		self._logger.debug("Recieved Status: %s from Printer" % event)
-		status = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['status'] == event), None)
-		if status: 
+		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
+		if my_statusEvent: 
 			self._logger.info("Received Configured Status Event: %s" % event)
-			delay = status['delay'] or 0
+			delay = my_statusEvent['delay'] or 0
 
-			if status['turnoff'] == False:
-				brightness = status['brightness'] or self._settings.get(['defaultbri'])
-				colour = status['colour']
+			if my_statusEvent['turnoff'] == False:
+				brightness = my_statusEvent['brightness'] or self._settings.get(['defaultbri'])
+				colour = my_statusEvent['colour']
 
 				delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
 
