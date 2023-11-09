@@ -13,19 +13,31 @@ Illuminate your print job and signal its status using a Philips Hue light.
 * Reworked settings allows user configurable Statuses and colour/brightness/state configurations.
 * Added turning lights off as an option for printer statuses.
 * Added debug logging option to allow logging or raw status events to aid configuration
+## Fixed in 0.4.3
+* Renamed rgb() to build_state() as it better describes its function
+* Fixed brightness not being passed properly to build_state meaning it always defaulted to 255
+* Fixed bridge object not being reinitialised on settings save, requiring a restart to pickup bridge and user changes.
+* Default brightness now works as planned and sets the brightness when it is not defined for a particular status. 
+
+## Added in 0.4.2
+* Optional Navbar Icon allowing the user to toggle On/Off
+* Reworked settings allows user configurable Statuses and colour/brightness/state configurations.
+* Added turning lights off as an option for printer statuses.
+* Added debug logging option to allow logging or raw status events to aid configuration
 
 ## Features
-* Light on and off in coordination with the connection between Octoprint and your printer
-* Configure "Connected" light colour using colour picker or HTML hex colour codes
+* Set Colour, Brightness, and On/Off state for any Octoprint state event e.g Connected, Printing, PrintCompleted.
+* Optional Navbar Icon allowing the user to toggle On/Off
+* Configure light colour using colour picker or HTML hex colour codes
+* Control individual lights, or Rooms/Zones
+* Support to switch off lights when OctoPrint quits.
 * Customisable default brightness
-* Available Customisable Statuses:
-  * Connected -  Default White
-  * Print Finished - Default Green
-  * Error - Default Red
 
 See the TODO list at the end of this page for features on the roadmap
 
 ## Setup
+
+### For install troubleshooting please see the "Known Issues" section at the bottom of this Readme.
 
 Install via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager)
 or manually using this URL:
@@ -77,8 +89,5 @@ For a list of events compatible for triggering light changes see the [OctoPrint 
     ```pip install --upgrade --force-reinstall https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip```
 
 ## TODO
-* Make all available statuses customisable
-* Per status brightness
 * LightID Discovery
-
-
+* Light Capability Discovery
