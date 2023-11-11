@@ -2,3 +2,9 @@
 .Python
 __init__.pyc
 OctoHue.egg-info
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# C extensions
+*.so

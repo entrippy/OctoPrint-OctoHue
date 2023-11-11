@@ -113,19 +113,20 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Trigger state on Status match
 	def on_event(self, event, payload):
 		self._logger.debug("Recieved Status: %s from Printer" % event)
-		if event in self._settings.get(["statusDict"]):
+		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
+		if my_statusEvent: 
 			self._logger.info("Received Configured Status Event: %s" % event)
-			delay = self._settings.get(['statusDict']).get(event).get('delay') or 0
+			delay = my_statusEvent['delay'] or 0
 
-			if self._settings.get(['statusDict']).get(event).get('turnoff', False) == False:
-				brightness = self._settings.get(['statusDict']).get(event).get('brightness',  self._settings.get(['defaultbri']))
-				colour = self._settings.get(['statusDict']).get(event).get('colour')
+			if my_statusEvent['turnoff'] == False:
+				brightness = my_statusEvent['brightness'] or self._settings.get(['defaultbri'])
+				colour = my_statusEvent['colour']
 
 				delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
 
 			else:
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'illuminate':False})
-			
+		
 			delayedtask.start()
 
 	# General Octoprint Hooks Below
@@ -201,6 +202,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return my_settings
 
 	def on_settings_save(self, data):
+		data.pop("availableEvents", None)
 		self._logger.info("Saving: %s" % data) 
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
