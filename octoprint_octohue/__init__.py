@@ -86,23 +86,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		else:
 			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
 
-	def get_settings_version(self):
-		return 2
-
-	def on_settings_migrate(self, target, current=None):
-		if current is None or current < self.get_settings_version():
-			self._logger.info("Migrating Settings: Adding delay key to Status Dict")
-			statusDict = self._settings.get(['statusDict'])
-			for key in statusDict:
-				statusDict[key]['delay'] = ''
-			self._settings.set(['statusDict'], statusDict )
-
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
 		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
 		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
+		if self._settings.get(['ononstartup']) == True:
+			my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get['ononstartupevent']), None)
+			self.build_state(illuminate=True, colour=my_statusEvent['colour'], bri=int(self._settings.get(['defaultbri'])))
 
 	def on_shutdown(self):
 		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
@@ -139,69 +131,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# General Octoprint Hooks Below
 
 	def get_settings_defaults(self):
-		settings = {
-			"statusdict": {
-				"Connected" : {
-					"colour":"#FFFFFF",
-					"brightness":255,
-					"delay": None,
-					"turnoff":False
-				},
-				"Disconnected": {
-						"colour":"",
-						"brightness": None,
-						"delay": None,
-						"turnoff":True
-				},
-				"PrintStarted" : {
-						"colour":"#FFFFFF",
-						"brightness":255,
-						"delay": None,
-						"turnoff":False
-					},
-				"PrintResumed" : {
-						"colour": "#FFFFFF",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				},
-				"PrintDone": {
-						"colour": "#33FF36",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				},
-				"PrintFailed":{
-						"colour": "#FF0000",
-						"brightness": 255,
-						"delay": None,
-						"turnoff": False
-				}
-			},
-			"bridgeaddr": "",
-			"husername": "",
-			"lampid": "",
-			"lampisgroup": "",
-			"defaultbri": 255,
-			"offonshutdown": True,
-			"showhuetoggle": True,
-		}
-		return settings
-
-	def create_status(self, status, colour=None, brightness=None, delay=None, turnoff=False):
-		self._settings.set(
-			["statusDict", status, "colour"], colour
+		return dict(
+			bridgeaddr="",
+			husername="",
+			lampid="",
+			lampisgroup="",
+			defaultbri=255,
+			ononstartup=False,
+			ononstartupevent="",
+			offonshutdown=True,
+			showhuetoggle=True,
+			statusDict=[]
 		)
-		self._settings.set(
-			["statusDict", status, "brightness"], brightness
-		)
-		self._settings.set(
-			["statusDict", status, "delay"], delay
-		)
-		self._settings.set(
-			["statusDict", status, "turnoff"], turnoff
-		)
-		self._settings.save()
 
 	def get_settings_restricted_paths(self):
 		return dict(admin=[["bridgeaddr"],["husername"]])
@@ -209,15 +150,55 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def get_settings_version(self):
 		return 1
 
-	def on_settings_migrate(self, target, current):
+	def on_settings_migrate(self, target, current=None):
 		if current is None:
-			self._logger.info("Creating Default Settings")
+			self._logger.info("Migrating Settings: Writing example settings")
+			self._settings.set(["statusDict"], [
+					{'event': 'Connected',
+					'colour':'#FFFFFF',
+					'brightness':255,
+					'turnoff':False},
+					{'event': 'Disconnected',
+					'colour':'',
+					'brightness':"",
+					'turnoff':True},
+					{'event': 'PrintStarted',
+					'colour':'#FFFFFF',
+					'brightness':255,
+					'turnoff':False},
+					{'event': 'PrintResumed',
+					'colour':'#FFFFFF',
+					'brightness':255,
+					'turnoff':False},
+					{'event': 'PrintDone',
+					'colour':'#33FF36',
+					'brightness':255,
+					'turnoff':False},
+					{'event': 'PrintFailed',
+					'colour':'#FF0000',
+					'brightness':255,
+					'turnoff':False}
+				])
+			self._settings.save()
 
-		if current is not None and current < self.get_settings_version():
-			self._logger.info("Updating Settings")
-			
-		self._settings.save()
+		if current < self.get_settings_version():
+			self._logger.info("Migrating Settings: Updating a setting")
 
+	def on_settings_load(self):
+		my_settings = {
+            "availableEvents": octoprint.events.all_events(),
+			"statusDict": self._settings.get(["statusDict"]),
+			"bridgeaddr": self._settings.get(["bridgeaddr"]),
+			"husername": self._settings.get(["husername"]),
+			"lampid": self._settings.get(["lampid"]),
+			"lampisgroup": self._settings.get(["lampisgroup"]),
+			"defaultbri": self._settings.get(["defaultbri"]),
+			"ononstartup":self._settings.get(["ononstartup"]),
+			"ononstartupevent": self._settings.get(["ononstartupevent"]),
+			"offonshutdown": self._settings.get(["offonshutdown"]),
+			"showhuetoggle": self._settings.get(["showhuetoggle"])
+		}
+		return my_settings
 
 	def on_settings_save(self, data):
 		self._logger.info("Saving: %s" % data) 
