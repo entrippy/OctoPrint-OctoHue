@@ -86,6 +86,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		else:
 			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
 
+	def get_configured_events(self):
+		configuredEvents = [ sub['event'] for sub in self._settings.get(['statusDict']) ]
+		return configuredEvents
+
 	def on_after_startup(self):
 		self._logger.info("Octohue is alive!")
 		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
@@ -194,7 +198,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			"lampid": self._settings.get(["lampid"]),
 			"lampisgroup": self._settings.get(["lampisgroup"]),
 			"defaultbri": self._settings.get(["defaultbri"]),
-			"ononstartup":self._settings.get(["ononstartup"]),
+			"ononstartup": self._settings.get(["ononstartup"]),
+			"configuredEvents": self.get_configured_events(),
 			"ononstartupevent": self._settings.get(["ononstartupevent"]),
 			"offonshutdown": self._settings.get(["offonshutdown"]),
 			"showhuetoggle": self._settings.get(["showhuetoggle"])
