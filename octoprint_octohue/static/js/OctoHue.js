@@ -32,6 +32,18 @@ $(function() {
 
         self.statusDict = {}
 
+        self.addNewStatus = function () {
+            var statusObj = {
+                status: ko.observable(''),
+                colour: ko.observable(''),
+                brightness: ko.observable(''),
+                turnoff: ko.observable('')
+            };
+            self.settingsViewModel.settings.plugins.octohue.statusDict.push(
+                self.statusObj
+            );
+        }
+
         self.addStatus = function () {
             self.selectedEvent(self.statusDetails(false));
             self.settingsViewModel.settings.plugins.octohue.statusDict.push(
