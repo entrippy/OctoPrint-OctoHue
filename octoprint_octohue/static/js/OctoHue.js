@@ -73,8 +73,12 @@ $(function() {
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
+            self.statusDict = self.ownSettings.statusDict;
         }
      
+        self.onSettingsBeforeSave = function () {
+            self.ownSettings.statusDict = self.statusDict;
+        }
     }
 
     /* view model class, parameters for constructor, container to bind to
