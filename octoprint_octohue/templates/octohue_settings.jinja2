@@ -73,7 +73,7 @@
                 <tbody class="control-group" data-bind="foreach: settingsViewModel.settings.plugins.octohue.statusDict">
                     <tr>
                         <td>
-                            <input type="text" value="Event" data-bind="value: event">
+                            <select class="input-block-level" data-bind="value: event, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
                         </td>
                         <td>
                             <input type="color" class="input-mini" data-bind="value: colour">
