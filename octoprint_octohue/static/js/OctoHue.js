@@ -11,6 +11,7 @@ $(function() {
         self.settingsViewModel = parameters[0];
         self.selectedEvent = ko.observable();
         self.ownSettings = {}
+        self.statusDict = {}
 
         self.statusDetails = function (data) {
             if (data === false) {
@@ -73,7 +74,7 @@ $(function() {
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
-            self.statusDict = self.ownSettings.statusDict;
+            self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
         }
      
         self.onSettingsBeforeSave = function () {
