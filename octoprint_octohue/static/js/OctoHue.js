@@ -10,8 +10,8 @@ $(function() {
   
         self.settingsViewModel = parameters[0];
         self.selectedEvent = ko.observable();
-        self.ownSettings = {}
-        self.statusDict = {}
+        self.ownSettings = {};
+        self.statusDict = {};
 
         self.statusDetails = function (data) {
             if (data === false) {
@@ -40,7 +40,7 @@ $(function() {
                 brightness: ko.observable(''),
                 turnoff: ko.observable('')
             };
-            self.settingsViewModel.settings.plugins.octohue.statusDict.push(
+            self.statusDict.push(
                 self.statusObj
             );
         }
