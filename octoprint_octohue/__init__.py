@@ -192,8 +192,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					'turnoff':False}
 				])
 			self._settings.save()
-
-		if current < self.get_settings_version():
+		elif current < self.get_settings_version():
 			self._logger.info("Migrating Settings: Updating a setting")
 
 	def on_settings_load(self):
