@@ -96,9 +96,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
-		if self._settings.get(['ononstartup']) == True:
-			my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
-			self.build_state(illuminate=True, colour=my_statusEvent['colour'], bri=int(self._settings.get(['defaultbri'])))
+		#if self._settings.get(['ononstartup']) == True:
+		#	my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
+		#	self.build_state(illuminate=True, colour=my_statusEvent['colour'], bri=int(self._settings.get(['defaultbri'])))
 
 	def on_shutdown(self):
 		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
@@ -117,6 +117,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Trigger state on Status match
 	def on_event(self, event, payload):
 		self._logger.debug("Recieved Status: %s from Printer" % event)
+		self._logger.debug(self._settings.get(['statusDict']))
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
 		if my_statusEvent: 
 			self._logger.info("Received Configured Status Event: %s" % event)
@@ -162,26 +163,32 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					{'event': 'Connected',
 					'colour':'#FFFFFF',
 					'brightness':255,
+					'delay':0,
 					'turnoff':False},
 					{'event': 'Disconnected',
 					'colour':'',
 					'brightness':"",
+					'delay':0,
 					'turnoff':True},
 					{'event': 'PrintStarted',
 					'colour':'#FFFFFF',
 					'brightness':255,
+					'delay':0,
 					'turnoff':False},
 					{'event': 'PrintResumed',
 					'colour':'#FFFFFF',
 					'brightness':255,
+					'delay':0,
 					'turnoff':False},
 					{'event': 'PrintDone',
 					'colour':'#33FF36',
 					'brightness':255,
+					'delay':0,
 					'turnoff':False},
 					{'event': 'PrintFailed',
 					'colour':'#FF0000',
 					'brightness':255,
+					'delay':0,
 					'turnoff':False}
 				])
 			self._settings.save()
@@ -221,6 +228,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			lampisgroup=self._settings.get(["lampisgroup"]),
 			defaultbri=self._settings.get(["defaultbri"]),
 			offonshutdown=self._settings.get(["offonshutdown"]),
+			ononstartup=self._settings.get(['ononstartup']),
+			ononstartupevent=self._settings.get(['ononstartupevent']),
 			showhuetoggle=self._settings.get(["showhuetoggle"]),
 			statusDict=self._settings.get(["statusDict"])
 		)

@@ -74,7 +74,7 @@ $(function() {
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
-            self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
+            self.statusDoct = self.settingsViewModel.settings.plugins.octohue.statusDict;
         }
      
         self.onSettingsBeforeSave = function () {
