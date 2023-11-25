@@ -48,8 +48,6 @@ $(function() {
             }
         };
 
-        self.statusDict = {}
-
         self.addNewStatus = function () {
             var statusObj = {
                 status: ko.observable(''),
@@ -61,6 +59,7 @@ $(function() {
             self.statusDict.push(
                 self.statusObj
             );
+            console.log(self.statusDict);
         }
 
         self.addStatus = function () {
