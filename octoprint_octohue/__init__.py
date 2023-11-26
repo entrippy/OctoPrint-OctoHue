@@ -116,6 +116,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug("Recieved API Command: %s" % command)
 		if command == 'togglehue':
 			self.toggle_state()
+		elif command == 'getstate':
+			return self.get_state()
 		
 	def on_api_get(self, request):
 		if request.args.get("getstate"):
