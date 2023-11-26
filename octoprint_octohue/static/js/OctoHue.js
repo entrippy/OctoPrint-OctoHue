@@ -6,6 +6,23 @@
  */
 $(function() {
  
+    ko.extenders.defaultIfNull = function(target, defaultValue) {
+        var result = ko.computed({
+            read: target,
+            write: function(newValue) {
+                if (!newValue) {
+                    target(defaultValue);
+                } else {
+                    target(newValue);
+                }
+            }
+        });
+    
+        result(target());
+    
+        return result;
+    };
+
     function OctohueViewModel(parameters) {
         var self = this;
   
@@ -36,8 +53,8 @@ $(function() {
             var statusObj = {
                 event: ko.observable(''),
                 colour: ko.observable(''),
-                brightness: ko.observable(''),
-                delay: ko.observable(''),
+                brightness: ko.observable('').extend({ defaultIfNull: "255" }),
+                delay: ko.observable('').extend({ defaultIfNull: "0" }),
                 turnoff: ko.observable('')
             };
             self.ownSettings.statusDict.push(statusObj);
