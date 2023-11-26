@@ -116,7 +116,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self.toggle_state()
 		
 	def on_api_get(self, request):
-		if request.args.get("getstate")
+		if request.args.get("getstate"):
 			self._logger.debug("Recieved API Get: %s" % request)
 			return self.get_state()
 		
