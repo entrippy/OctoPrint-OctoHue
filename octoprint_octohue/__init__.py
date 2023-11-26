@@ -107,12 +107,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_api_commands(self):
 		return dict(
-			togglehue=[]
+			togglehue=[],
+			getstate=[]
 		)
 	
 	def on_api_command(self, command, data):
 		if command == 'togglehue':
 			self.toggle_state()
+		elif command == 'getstate':
+			self.get_state()
 
 	# Trigger state on Status match
 	def on_event(self, event, payload):
