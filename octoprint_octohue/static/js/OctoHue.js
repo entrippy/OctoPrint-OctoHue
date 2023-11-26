@@ -5,23 +5,7 @@
  * License: AGPLv3
  */
 $(function() {
-    ko.extenders.defaultIfNull = function(target, defaultValue) {
-        var result = ko.computed({
-            read: target,
-            write: function(newValue) {
-                if (!newValue) {
-                    target(defaultValue);
-                } else {
-                    target(newValue);
-                }
-            }
-        });
-    
-        result(target());
-    
-        return result;
-    };
-    
+ 
     function OctohueViewModel(parameters) {
         var self = this;
   
@@ -57,19 +41,6 @@ $(function() {
                 turnoff: ko.observable('')
             };
             self.ownSettings.statusDict.push(statusObj);
-            console.log(self.statusDict);
-        };
-
-        self.addStatus = function () {
-            self.selectedEvent(self.statusDetails(false));
-            self.settingsViewModel.settings.plugins.octohue.statusDict.push(
-                self.selectedEvent()
-            );
-            $("#StatusManagerEditor").modal("show");
-        };
-
-        self.editStatus = function (data) {
-            self.selectedEvent(self.statusDetails(data));
         };
 
         self.removeStatus = function (data) {
@@ -90,10 +61,6 @@ $(function() {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
-        }
-     
-        self.onSettingsBeforeSave = function () {
-            self.ownSettings.statusDict = self.statusDict;
         }
     }
 
