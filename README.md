@@ -2,6 +2,9 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
+## Added in 0.5.0
+* Added option to "Light On" on Octoprint startup by selecting an already configured light event
+
 ## Fixed in 0.4.4
 * It is recommended that you remove your existing octohue settings, or at the very least remove statusDict from config.yaml
 * Back from the dead after several years of inactivity (thanks covid)
@@ -30,6 +33,8 @@ Illuminate your print job and signal its status using a Philips Hue light.
 * Control individual lights, or Rooms/Zones
 * Support to switch off lights when OctoPrint quits.
 * Customisable default brightness
+
+See the CHANGELOG.md for a full list of historic changes over time
 
 See the TODO list at the end of this page for features on the roadmap
 
