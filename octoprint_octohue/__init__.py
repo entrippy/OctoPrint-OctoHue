@@ -121,12 +121,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.jsonify(on="true")
 			else:
 				return flask.jsonify(on="false")
-		
-	def on_api_get(self, request):
-		if request.args.get("getstate"):
-			self._logger.debug("Recieved API Get: %s" % request)
-			return flask.jsonify(foo="bar")
-		
 
 	# Trigger state on Status match
 	def on_event(self, event, payload):
