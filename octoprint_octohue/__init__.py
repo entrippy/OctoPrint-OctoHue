@@ -117,7 +117,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if command == 'togglehue':
 			self.toggle_state()
 		elif command == 'getstate':
-			return self.get_state()
+			if self.get_state():
+				return flask.jsonify(on="true")
+			else:
+				return flask.jsonify(on="false")
 		
 	def on_api_get(self, request):
 		if request.args.get("getstate"):
