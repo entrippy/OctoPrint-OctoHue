@@ -117,7 +117,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	# Trigger state on Status match
 	def on_event(self, event, payload):
 		self._logger.debug("Recieved Status: %s from Printer" % event)
-		self._logger.debug(self._settings.get(['statusDict']))
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
 		if my_statusEvent: 
 			self._logger.info("Received Configured Status Event: %s" % event)
