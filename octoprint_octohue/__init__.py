@@ -107,12 +107,29 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_api_commands(self):
 		return dict(
-			togglehue=[]
+			togglehue=[],
+			getstate=[],
+			turnon=[],
+			turnoff=[]
 		)
 	
 	def on_api_command(self, command, data):
+		import flask
+		self._logger.debug("Recieved API Command: %s" % command)
 		if command == 'togglehue':
 			self.toggle_state()
+		elif command == 'getstate':
+			if self.get_state():
+				return flask.jsonify(on="true")
+			else:
+				return flask.jsonify(on="false")
+		elif command == 'turnon':
+			if "colour" in data:
+				self.build_state(illuminate=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri'])))
+			else:
+				self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
+		elif command == 'turnoff':
+			self.build_state(illuminate=False)
 
 	# Trigger state on Status match
 	def on_event(self, event, payload):

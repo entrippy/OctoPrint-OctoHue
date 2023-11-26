@@ -2,6 +2,12 @@
 
 Illuminate your print job and signal its status using a Philips Hue light.
 
+## Added in 0.6.0
+* Added several API commands to assist with 3rd party integrations
+    * getstate : Returns "On": True|False, representing if the light is on or off
+    * turnon : turns the light on to its last illuminated settings. Also accepts the hex colour code as the value for the optional "colour" parameter 
+    * turnoff: Turns the light off
+
 ## Added in 0.5.0
 * Added option to "Light On" on Octoprint startup by selecting an already configured light event
 
@@ -13,18 +19,6 @@ Illuminate your print job and signal its status using a Philips Hue light.
 * Moved from using the term "status" to "events" in line with octoprint terminology
 * Added new Event Add modal with "Event" dropdown populated from native octoprint events.
 
-
-## Fixed in 0.4.3
-* Renamed rgb() to build_state() as it better describes its function
-* Fixed brightness not being passed properly to build_state meaning it always defaulted to 255
-* Fixed bridge object not being reinitialised on settings save, requiring a restart to pickup bridge and user changes.
-* Default brightness now works as planned and sets the brightness when it is not defined for a particular status. 
-
-## Added in 0.4.2
-* Optional Navbar Icon allowing the user to toggle On/Off
-* Reworked settings allows user configurable Statuses and colour/brightness/state configurations.
-* Added turning lights off as an option for printer statuses.
-* Added debug logging option to allow logging or raw status events to aid configuration
 
 ## Features
 * Set Colour, Brightness, and On/Off state for any Octoprint state event e.g Connected, Printing, PrintCompleted.
