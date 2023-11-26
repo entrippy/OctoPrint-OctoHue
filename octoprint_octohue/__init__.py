@@ -213,10 +213,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_settings_save(self, data):
 		data.pop("availableEvents", None)
-		self._logger.info("Saving: %s" % data) 
+		self._logger.debug("Saving: %s" % data) 
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-		self._logger.debug("New Bridge established at: %s" % self.pbridge.url)
+		self._logger.info("New Bridge established at: %s" % self.pbridge.url)
 		
 	def get_template_vars(self):
 		return dict(
