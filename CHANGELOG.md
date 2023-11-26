@@ -1,7 +1,13 @@
 # OctoPrint-OctoHue Change Log
 
+## Added in 0.6.0
+* Added several API commands to assist with 3rd party integrations
+    * getstate : Returns "On": True|False, representing if the light is on or off
+    * turnon : turns the light on to its last illuminated settings. Also accepts the hex colour code as the value for the optional "colour" parameter 
+    * turnoff: Turns the light off
+
 ## Added in 0.5.0
-* Added "Light On" on Octoprint startup
+* Added option to "Light On" on Octoprint startup by selecting an already configured light event
 
 ## Fixed in 0.4.4
 * It is recommended that you remove your existing octohue settings, or at the very least remove statusDict from config.yaml
@@ -10,7 +16,6 @@
 * Changed persistent statusDict settins to a list of dicts instead of a dict of dicts, this was what played hell with the above
 * Moved from using the term "status" to "events" in line with octoprint terminology
 * Added new Event Add modal with "Event" dropdown populated from native octoprint events.
-
 
 ## Fixed in 0.4.3
 * Renamed rgb() to build_state() as it better describes its function
