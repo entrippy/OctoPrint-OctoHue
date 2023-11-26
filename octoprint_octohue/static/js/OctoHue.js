@@ -28,7 +28,7 @@ $(function() {
         self.settingsViewModel = parameters[0];
         self.selectedEvent = ko.observable();
         self.ownSettings = {};
-        self.statusDict = {};
+        self.statusDict = [];
 
         self.statusDetails = function (data) {
             if (data === false) {
@@ -50,17 +50,15 @@ $(function() {
 
         self.addNewStatus = function () {
             var statusObj = {
-                status: ko.observable(''),
+                event: ko.observable(''),
                 colour: ko.observable(''),
-                brightness: ko.observable('').extend({ defaultIfNull: "255" }),
-                delay: ko.observable('').extend({ defaultIfNull: "0" }),
+                brightness: ko.observable(''),
+                delay: ko.observable(''),
                 turnoff: ko.observable('')
             };
-            self.statusDict.push(
-                self.statusObj
-            );
+            self.ownSettings.statusDict.push(statusObj);
             console.log(self.statusDict);
-        }
+        };
 
         self.addStatus = function () {
             self.selectedEvent(self.statusDetails(false));
