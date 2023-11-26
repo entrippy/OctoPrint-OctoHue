@@ -113,6 +113,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def on_api_command(self, command, data):
 		import flask
+		self._logger.debug("Recieved API Command: %s" % command)
 		if command == 'togglehue':
 			self.toggle_state()
 		
