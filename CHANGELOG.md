@@ -2,9 +2,9 @@
 
 ## Added in 0.6.0
 * Added several API commands to assist with 3rd party integrations
-** getstate : Returns "On": True|False, representing if the light is on or off
-** turnon : turns the light on to its last illuminated settings. Also accepts the hex colour code as the value for the optional "colour" parameter 
-** turnoff: Turns the light off
+    * getstate : Returns "On": True|False, representing if the light is on or off
+    * turnon : turns the light on to its last illuminated settings. Also accepts the hex colour code as the value for the optional "colour" parameter 
+    * turnoff: Turns the light off
 
 ## Added in 0.5.0
 * Added option to "Light On" on Octoprint startup by selecting an already configured light event
