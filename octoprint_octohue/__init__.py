@@ -1,8 +1,9 @@
 # coding=utf-8
 from __future__ import absolute_import
 from qhue import Bridge, QhueException
-from colormath.color_objects import XYZColor, sRGBColor
-from colormath.color_conversions import convert_color
+#from colormath.color_objects import XYZColor, sRGBColor
+#from colormath.color_conversions import convert_color
+from colourfunctions import XYZColor, sRGBColor, convert_color
 from octoprint.util import ResettableTimer
 import octoprint.plugin
 import flask
