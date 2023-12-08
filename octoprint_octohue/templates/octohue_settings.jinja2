@@ -45,13 +45,12 @@
         </div>
     </div> 
     <div class="control-group">
-         <div>
+        <div>
             <small>
-                <a href="#" class="muted" onclick="$(this).children().toggleClass('fa-caret-right fa-caret-down').parent().parent().parent().next().slideToggle('fast')">
-                    <i class="fa fa-caret-right"></i> Advanced options</a>
+                <a href="#" class="muted" data-bind="toggleContent: { class: 'fa-caret-right fa-caret-down', parent: '.advanced_options', container: '.hide' }"><i class="fas fa-caret-right"></i> {{ _(' Event Lighting Options') }}</a>
             </small>
         </div>
-        <div class="hide" style="display: none;" data-bind="css: { disabled: !ownSettings.enableCustomization() }">
+        <div class="hide">
             <h4>Status Colours</h4>
             <div style="margin-left: 25px">
                 <table class="table table-striped table-condensed">
