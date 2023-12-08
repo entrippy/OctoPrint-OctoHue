@@ -2,6 +2,7 @@ import math
 import logging
 import networkx
 from abc import ABCMeta, abstractmethod
+from octoprint_octohue import colour_constants
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,24 @@ class ColorMathException(Exception):
     """
 
     pass
+
+class InvalidIlluminantError(ColorMathException):
+    """
+    Raised when an invalid illuminant is set on a ColorObj.
+    """
+
+    def __init__(self, illuminant):
+        super(InvalidIlluminantError, self).__init__(illuminant)
+        self.message = "Invalid illuminant specified: %s" % illuminant
+
+class InvalidObserverError(ColorMathException):
+    """
+    Raised when an invalid observer is set on a ColorObj.
+    """
+
+    def __init__(self, cobj):
+        super(InvalidObserverError, self).__init__(cobj)
+        self.message = "Invalid observer angle specified: %s" % cobj.observer
 
 class UndefinedConversionError(ColorMathException):
     """
@@ -282,6 +301,196 @@ class sRGBColor(BaseRGBColor):
                 [0.0193324, 0.119193, 0.950444],
         ],
     }
+
+class IlluminantMixin(object):
+    """
+    Color spaces that have a notion of an illuminant should inherit this.
+    """
+
+    # noinspection PyAttributeOutsideInit
+    def set_observer(self, observer):
+        """
+        Validates and sets the color's observer angle.
+
+        .. note:: This only changes the observer angle value. It does no conversion
+            of the color's coordinates.
+
+        :param str observer: One of '2' or '10'.
+        """
+        observer = str(observer)
+        if observer not in color_constants.OBSERVERS:
+            raise InvalidObserverError(self)
+        self.observer = observer
+
+    # noinspection PyAttributeOutsideInit
+    def set_illuminant(self, illuminant):
+        """
+        Validates and sets the color's illuminant.
+
+        .. note:: This only changes the illuminant. It does no conversion
+            of the color's coordinates. For this, you'll want to refer to
+            :py:meth:`XYZColor.apply_adaptation \
+<colormath.color_objects.XYZColor.apply_adaptation>`.
+
+        .. tip:: Call this after setting your observer.
+
+        :param str illuminant: One of the various illuminants.
+        """
+        illuminant = illuminant.lower()
+        if illuminant not in color_constants.ILLUMINANTS[self.observer]:
+            raise InvalidIlluminantError(illuminant)
+        self.illuminant = illuminant
+
+    def get_illuminant_xyz(self, observer=None, illuminant=None):
+        """
+        :param str observer: Get the XYZ values for another observer angle. Must
+            be either '2' or '10'.
+        :param str illuminant: Get the XYZ values for another illuminant.
+        :returns: the color's illuminant's XYZ values.
+        """
+        try:
+            if observer is None:
+                observer = self.observer
+
+            illums_observer = color_constants.ILLUMINANTS[observer]
+        except KeyError:
+            raise InvalidObserverError(self)
+
+        try:
+            if illuminant is None:
+                illuminant = self.illuminant
+
+            illum_xyz = illums_observer[illuminant]
+        except (KeyError, AttributeError):
+            raise InvalidIlluminantError(illuminant)
+
+        return {"X": illum_xyz[0], "Y": illum_xyz[1], "Z": illum_xyz[2]}
+
+class XYZColor(IlluminantMixin, ColorBase):
+    """
+    Represents an XYZ color.
+    """
+
+    VALUES = ["xyz_x", "xyz_y", "xyz_z"]
+
+    def __init__(self, xyz_x, xyz_y, xyz_z, observer="2", illuminant="d50"):
+        """
+        :param float xyz_x: X coordinate.
+        :param float xyz_y: Y coordinate.
+        :param float xyz_z: Z coordinate.
+        :keyword str observer: Observer angle. Either ``'2'`` or ``'10'`` degrees.
+        :keyword str illuminant: See :doc:`illuminants` for valid values.
+        """
+        super(XYZColor, self).__init__()
+        #: X coordinate
+        self.xyz_x = float(xyz_x)
+        #: Y coordinate
+        self.xyz_y = float(xyz_y)
+        #: Z coordinate
+        self.xyz_z = float(xyz_z)
+
+        #: The color's observer angle. Set with :py:meth:`set_observer`.
+        self.observer = None
+        #: The color's illuminant. Set with :py:meth:`set_illuminant`.
+        self.illuminant = None
+
+        self.set_observer(observer)
+        self.set_illuminant(illuminant)
+
+def apply_chromatic_adaptation(
+    val_x, val_y, val_z, orig_illum, targ_illum, observer="2", adaptation="bradford"
+):
+    """
+    Applies a chromatic adaptation matrix to convert XYZ values between
+    illuminants. It is important to recognize that color transformation results
+    in color errors, determined by how far the original illuminant is from the
+    target illuminant. For example, D65 to A could result in very high maximum
+    deviance.
+
+    An informative article with estimate average Delta E values for each
+    illuminant conversion may be found at:
+
+    http://brucelindbloom.com/ChromAdaptEval.html
+    """
+    # It's silly to have to do this, but some people may want to call this
+    # function directly, so we'll protect them from messing up upper/lower case.
+    adaptation = adaptation.lower()
+
+    # Get white-points for illuminant
+    if isinstance(orig_illum, str):
+        orig_illum = orig_illum.lower()
+        wp_src = color_constants.ILLUMINANTS[observer][orig_illum]
+    elif hasattr(orig_illum, "__iter__"):
+        wp_src = orig_illum
+
+    if isinstance(targ_illum, str):
+        targ_illum = targ_illum.lower()
+        wp_dst = color_constants.ILLUMINANTS[observer][targ_illum]
+    elif hasattr(targ_illum, "__iter__"):
+        wp_dst = targ_illum
+
+    logger.debug("  \\* Applying adaptation matrix: %s", adaptation)
+    # Retrieve the appropriate transformation matrix from the constants.
+    transform_matrix = _get_adaptation_matrix(wp_src, wp_dst, observer, adaptation)
+
+    # Stuff the XYZ values into a NumPy matrix for conversion.
+    XYZ_matrix = numpy.array((val_x, val_y, val_z))
+    # Perform the adaptation via matrix multiplication.
+    result_matrix = numpy.dot(transform_matrix, XYZ_matrix)
+
+    # Return individual X, Y, and Z coordinates.
+    return result_matrix[0], result_matrix[1], result_matrix[2]
+
+
+
+def apply_chromatic_adaptation_on_color(color, targ_illum, adaptation="bradford"):
+    """
+    Convenience function to apply an adaptation directly to a Color object.
+    """
+    xyz_x = color.xyz_x
+    xyz_y = color.xyz_y
+    xyz_z = color.xyz_z
+    orig_illum = color.illuminant
+    targ_illum = targ_illum.lower()
+    observer = color.observer
+    adaptation = adaptation.lower()
+
+    # Return individual X, Y, and Z coordinates.
+    color.xyz_x, color.xyz_y, color.xyz_z = apply_chromatic_adaptation(
+        xyz_x,
+        xyz_y,
+        xyz_z,
+        orig_illum,
+        targ_illum,
+        observer=observer,
+        adaptation=adaptation,
+    )
+    color.set_illuminant(targ_illum)
+
+    return color
+
+    def apply_adaptation(self, target_illuminant, adaptation="bradford"):
+        """
+        This applies an adaptation matrix to change the XYZ color's illuminant.
+        You'll most likely only need this during RGB conversions.
+        """
+        logger.debug("  \\- Original illuminant: %s", self.illuminant)
+        logger.debug("  \\- Target illuminant: %s", target_illuminant)
+
+        # If the XYZ values were taken with a different reference white than the
+        # native reference white of the target RGB space, a transformation matrix
+        # must be applied.
+        if self.illuminant != target_illuminant:
+            logger.debug(
+                "  \\* Applying transformation from %s to %s ",
+                self.illuminant,
+                target_illuminant,
+            )
+            # Sets the adjusted XYZ values, and the new illuminant.
+            apply_chromatic_adaptation_on_color(
+                color=self, targ_illum=target_illuminant, adaptation=adaptation
+            )
+
 
 _conversion_manager = GraphConversionManager()
 
