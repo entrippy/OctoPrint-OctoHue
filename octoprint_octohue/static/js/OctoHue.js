@@ -87,7 +87,7 @@ $(function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {}).done(function(response) {
                 console.log(response)
 				if(response.internalipaddress){
-
+                    console.log("eh it has an ip:")
                     bridgeaddr = response.internalipaddress + ":" + response.port;
 					search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
 					search_button.disabled = false;
