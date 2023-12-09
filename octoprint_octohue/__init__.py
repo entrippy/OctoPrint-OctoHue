@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from qhue import Bridge, QhueException
 #from colormath.color_objects import XYZColor, sRGBColor
 #from colormath.color_conversions import convert_color
-from colourfunctions import XYZColor, sRGBColor, convert_color
+from octoprint_octohue.colourfunctions import XYZColor, sRGBColor, convert_color
 from octoprint.util import ResettableTimer
 import octoprint.plugin
 import flask
@@ -108,6 +108,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_api_commands(self):
 		return dict(
+			bridgestatus=[],
 			togglehue=[],
 			getstate=[],
 			turnon=[],
@@ -117,18 +118,27 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_api_command(self, command, data):
 		import flask
 		self._logger.debug("Recieved API Command: %s" % command)
-		if command == 'togglehue':
+		if command == 'bridgestatus':
+			if (self._settings.get('bridgeaddr') == None and self._settings.get('husername') == None):
+				return flask.jsonify(bridgestatus="false")
+			elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') != None):
+				return flask.jsonify(bridgestatus="false")
+			
+		elif command == 'togglehue':
 			self.toggle_state()
+
 		elif command == 'getstate':
 			if self.get_state():
 				return flask.jsonify(on="true")
 			else:
 				return flask.jsonify(on="false")
+			
 		elif command == 'turnon':
 			if "colour" in data:
 				self.build_state(illuminate=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri'])))
 			else:
 				self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
+				
 		elif command == 'turnoff':
 			self.build_state(illuminate=False)
 

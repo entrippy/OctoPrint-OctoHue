@@ -11,15 +11,37 @@
             <div id="octohue_settings_bridge" class="tab-pane active">
                 <div class="control-group">
                     <h4>Hue Configuration</h4>
-                    <label class="control-label">{{ _('Hue Bridge Address') }}</label>
-                    <div class="controls">
-                        <input type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
-                    </div>
-                    <label class="control-label">{{ _('Hue Username') }}</label>
-                    <div class="controls">
-                        <input type="text" class="input-block-level" data-bind="value: ownSettings.husername">
-                    </div>
+                    Hue Bridge Status: <span id="huebridgestatus" class="badge badge-danger" style="background-color: #ff4b4b;">Unconfigured</span>
 
+                    <div id="huebridge_unconfigured">
+                        <h4>Pair with your Hue Bridge</h4>
+                        <button id="huebridge_search" type="button" class="btn"><i class="fa fa-search"></i> Find My Bridge</button>
+                        <br /><br />
+                        <span id="huebridge_searchstatus" style="display: none;"></span>
+                        <br />
+                        <div id="huebridge_found" style="display: none;">
+                            <p>Click on "Start Pairing" button below and push the pairing button on your Bridge</p>
+                            <button id="huebridge_pairingbutton" class="btn"><i class="fa fa-link"></i> Start Pairing</button>
+                            <span id="huebridge_pairingreties"></span>
+                            <br />
+                            <!-- <div class="controls">
+                                <input type="text" id="ophom_champtest" data-bind="value: settings.plugins.ophom.hue_token"/>
+                            </div> -->
+                            <img src="plugin/ophom/static/images/hue_pairing.png" />
+                        </div>
+                    </div>
+                    
+                    <div id="huebridge_configured">
+                        <label class="control-label">{{ _('Hue Bridge Address') }}</label>
+                        <div class="controls">
+                            <input type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
+                        </div>
+                        <label class="control-label">{{ _('Hue Username') }}</label>
+                        <div class="controls">
+                            <input type="text" class="input-block-level" data-bind="value: ownSettings.husername">
+                        </div>
+                    </div>
+                    
                 </div>
             </div>
             

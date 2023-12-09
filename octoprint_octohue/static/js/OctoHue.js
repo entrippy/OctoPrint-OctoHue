@@ -73,6 +73,10 @@ $(function() {
         self.togglehue = function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
         }
+
+        self.bridgestatus = function() {
+            OctoPrint.simpleApiCommand("octohue", "bridgestatus", {}, {});
+        }
  
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
