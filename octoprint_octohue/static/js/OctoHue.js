@@ -84,19 +84,11 @@ $(function() {
 		    search_button.disabled = true;
 		    document.getElementById("huebridge_searchstatus").style.display = "none";
 		    document.getElementById("huebridge_found").style.display = "none";
-            //OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {});
-            $.ajax({
-				url: API_BASEURL + "plugin/octohue",
-				type: "POST",
-				dataType: "json",
-				data: {"command":"bridge", "discover":true},
-                success: null,
-				dataType: "json"
-			}).done(function(data){
-                console.log(data)
-				if(data.internalipaddress){
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {}).done(function(response) {
+                console.log(response)
+				if(response.internalipaddress){
 
-                    bridgeaddr = data.internalipaddress + ":" + data.port;
+                    bridgeaddr = response.internalipaddress + ":" + response.port;
 					search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
 					search_button.disabled = false;
 					document.getElementById("huebridge_searchstatus").style.display = "";
