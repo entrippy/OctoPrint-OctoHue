@@ -122,6 +122,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		import flask
 		self._logger.debug("Recieved API Command: %s" % command)
 		if command == 'bridge':
+			self._logger.info("bridge called")
 			if "getstatus" in data:
 				if (self._settings.get('bridgeaddr') == None and self._settings.get('husername') == None):
 					return flask.jsonify(bridgestatus="false")
@@ -133,6 +134,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				for element in r.json():
 					discoveredbridge.append(element)
 				return flask.jsonify(discoveredbridge)
+			else:
+				return flask.jsonify(status="ok")
 			
 		elif command == 'togglehue':
 			self.toggle_state()
