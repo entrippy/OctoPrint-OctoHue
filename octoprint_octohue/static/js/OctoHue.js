@@ -79,7 +79,30 @@ $(function() {
         }
 
         self.bridgediscovery = function() {
-            OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {});
+            var search_button = this
+		    search_button.innerHTML = '<i class="fa fa-search"></i> Searching...';
+		    search_button.disabled = true;
+		    document.getElementById("huebridge_searchstatus").style.display = "none";
+		    document.getElementById("huebridge_found").style.display = "none";
+            //OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {});
+            $.ajax({
+				url: API_BASEURL + "plugin/octohue",
+				type: "GET",
+				dataType: "json",
+				data: {command:bridge, discover:true},
+				contentType: "application/json; charset=UTF-8"
+			}).done(function(data){
+				if(data.internalipaddress){
+
+                    bridgeaddr = data.internalipaddress + ":" + data.internalport;
+					search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
+					search_button.disabled = false;
+					document.getElementById("huebridge_searchstatus").style.display = "";
+					document.getElementById("huebridge_searchstatus").innerHTML = "<font color='green'>Brige found (<i>"+ data.internalipaddress+ ":" + data.internalport + "</i>) !</font>";
+					document.getElementById("huebridge_found").style.display = "";
+				}
+				});
+
         }
  
         self.onBeforeBinding = function () {

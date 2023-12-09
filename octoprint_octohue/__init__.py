@@ -127,7 +127,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				if (self._settings.get('bridgeaddr') == None and self._settings.get('husername') == None):
 					return flask.jsonify(bridgestatus="false")
 				elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') != None):
-					return flask.jsonify(bridgestatus="false")
+					return flask.jsonify(bridgestatus="true")
 			elif "discover" in data:
 				discoveredbridge = []
 				r = requests.get(self.discoveryurl)
