@@ -75,7 +75,11 @@ $(function() {
         }
 
         self.bridgestatus = function() {
-            OctoPrint.simpleApiCommand("octohue", "bridgestatus", {}, {});
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {});
+        }
+
+        self.bridgediscovery = function() {
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {});
         }
  
         self.onBeforeBinding = function () {

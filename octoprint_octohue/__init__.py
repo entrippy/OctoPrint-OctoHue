@@ -7,6 +7,8 @@ from octoprint_octohue.colourfunctions import XYZColor, sRGBColor, convert_color
 from octoprint.util import ResettableTimer
 import octoprint.plugin
 import flask
+import requests
+import re
 
 
 class OctohuePlugin(octoprint.plugin.StartupPlugin,
@@ -19,6 +21,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	# Hue Functions
 	pbridge=''
+	discoveryurl='https://discovery.meethue.com/'
 
 	def rgb_to_xy(self, red, green=None, blue=None):
 		self._logger.debug("RGB Input - R:%s G:%s B:%s" % (red, green, blue))
@@ -118,11 +121,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_api_command(self, command, data):
 		import flask
 		self._logger.debug("Recieved API Command: %s" % command)
-		if command == 'bridgestatus':
-			if (self._settings.get('bridgeaddr') == None and self._settings.get('husername') == None):
-				return flask.jsonify(bridgestatus="false")
-			elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') != None):
-				return flask.jsonify(bridgestatus="false")
+		if command == 'bridge':
+			if "getstatus" in data:
+				if (self._settings.get('bridgeaddr') == None and self._settings.get('husername') == None):
+					return flask.jsonify(bridgestatus="false")
+				elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') != None):
+					return flask.jsonify(bridgestatus="false")
+			elif "discover" in data:
+				discoveredbridge = []
+				r = requests.get(self.discoveryurl)
+				for element in r.json():
+					discoveredbridge.append(element)
+				return flask.jsonify(discoveredbridge)
 			
 		elif command == 'togglehue':
 			self.toggle_state()
@@ -138,7 +148,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				self.build_state(illuminate=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri'])))
 			else:
 				self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
-				
+
 		elif command == 'turnoff':
 			self.build_state(illuminate=False)
 
