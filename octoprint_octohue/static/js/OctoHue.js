@@ -89,7 +89,7 @@ $(function() {
 				url: API_BASEURL + "plugin/octohue",
 				type: "GET",
 				dataType: "json",
-				data: {command:bridge, discover:true},
+				data: {command:"bridge", discover:true},
 				contentType: "application/json; charset=UTF-8"
 			}).done(function(data){
 				if(data.internalipaddress){
