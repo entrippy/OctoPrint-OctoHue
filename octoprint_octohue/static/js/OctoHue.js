@@ -91,7 +91,7 @@ $(function() {
 				dataType: "json",
 				data: {"command":"bridge", "discover":true},
                 success: null,
-				contentType: "application/json; charset=UTF-8"
+				dataType: "json"
 			}).done(function(data){
                 console.log(data)
 				if(data.internalipaddress){
