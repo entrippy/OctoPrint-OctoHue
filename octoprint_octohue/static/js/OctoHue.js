@@ -90,7 +90,7 @@ $(function() {
 				type: "POST",
 				dataType: "json",
 				data: {"command":"bridge", "discover":true},
-                success: success,
+                success: null,
 				contentType: "application/json; charset=UTF-8"
 			}).done(function(data){
                 console.log(data)
