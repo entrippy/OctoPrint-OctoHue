@@ -87,7 +87,7 @@ $(function() {
             //OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {});
             $.ajax({
 				url: API_BASEURL + "plugin/octohue",
-				type: "GET",
+				type: "POST",
 				dataType: "json",
 				data: {command:"bridge", discover:true},
 				contentType: "application/json; charset=UTF-8"
