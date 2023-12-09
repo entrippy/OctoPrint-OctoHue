@@ -111,7 +111,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_api_commands(self):
 		return dict(
-			bridgestatus=[],
+			bridge=[],
 			togglehue=[],
 			getstate=[],
 			turnon=[],
