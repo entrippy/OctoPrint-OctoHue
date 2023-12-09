@@ -19,13 +19,7 @@
                     <div class="controls">
                         <input type="text" class="input-block-level" data-bind="value: ownSettings.husername">
                     </div>
-                    <label class="control-label">{{ _('Hue Lamp or Group ID') }}</label>
-                    <div class="controls">
-                        <input type="text" class="input-mini" data-bind="value: ownSettings.lampid">
-                        <label class="checkbox">
-                            <input type="checkbox" data-bind="checked: ownSettings.lampisgroup">Use group instead of single lamp
-                        </label>
-                    </div>
+
                 </div>
             </div>
             
@@ -51,16 +45,23 @@
                                 <input type="checkbox" data-bind="checked: ownSettings.showhuetoggle">Add Hue Toggle Icon to Navigation Bar
                             </label>
                         </div>
-                        <label class="control-label">{{ _('Default Brightness') }}</label>
-                        <div class="controls">
-                            <input type="text" class="input-mini" data-bind="value: ownSettings.defaultbri">
-                        </div>
                     </div>
                 </div>
             </div>
 
             <div id="octohue_settings_lights" class="tab-pane">
                 <div class="light_options">
+                    <label class="control-label">{{ _('Hue Lamp or Group ID') }}</label>
+                    <div class="controls">
+                        <input type="text" class="input-mini" data-bind="value: ownSettings.lampid">
+                        <label class="checkbox">
+                            <input type="checkbox" data-bind="checked: ownSettings.lampisgroup">Use group instead of single lamp
+                        </label>
+                    </div>
+                    <label class="control-label">{{ _('Default Brightness') }}</label>
+                    <div class="controls">
+                        <input type="text" class="input-mini" data-bind="value: ownSettings.defaultbri">
+                    </div>
                     <div>
                         <small>
                             <a href="#" class="muted" data-bind="toggleContent: { class: 'fa-caret-right fa-caret-down', parent: '.light_options', container: '.hide' }"><i class="fas fa-caret-right"></i> {{ _(' Event Lighting Options') }}</a>
