@@ -92,13 +92,14 @@ $(function() {
 				data: {command:"bridge", discover:true},
 				contentType: "application/json; charset=UTF-8"
 			}).done(function(data){
+                console.log(data)
 				if(data.internalipaddress){
 
-                    bridgeaddr = data.internalipaddress + ":" + data.internalport;
+                    bridgeaddr = data.internalipaddress + ":" + data.port;
 					search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
 					search_button.disabled = false;
 					document.getElementById("huebridge_searchstatus").style.display = "";
-					document.getElementById("huebridge_searchstatus").innerHTML = "<font color='green'>Brige found (<i>"+ data.internalipaddress+ ":" + data.internalport + "</i>) !</font>";
+					document.getElementById("huebridge_searchstatus").innerHTML = "<font color='green'>Brige found (<i>"+ data.internalipaddress+ ":" + data.port + "</i>) !</font>";
 					document.getElementById("huebridge_found").style.display = "";
 				}
 			});
