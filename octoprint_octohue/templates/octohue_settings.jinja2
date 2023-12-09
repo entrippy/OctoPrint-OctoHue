@@ -1,114 +1,140 @@
-<form class="form-horizontal">
-    <div class="control-group">
-        <h4>Hue Configuration</h4>
-        <label class="control-label">{{ _('Hue Bridge Address') }}</label>
-        <div class="controls">
-            <input type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
-        </div>
-        <label class="control-label">{{ _('Hue Username') }}</label>
-        <div class="controls">
-            <input type="text" class="input-block-level" data-bind="value: ownSettings.husername">
-        </div>
-        <label class="control-label">{{ _('Hue Lamp or Group ID') }}</label>
-        <div class="controls">
-            <input type="text" class="input-mini" data-bind="value: ownSettings.lampid">
-            <label class="checkbox">
-                    <input type="checkbox" data-bind="checked: ownSettings.lampisgroup">Use group instead of single lamp
-            </label>
-        </div>
-    </div>
-    <div class="control-group">
-        <h4>General Behaviour</h4>
-        <div class="control-group">
-            <label class="control-label"></label>
-            <div class="controls">
-                <label class="checkbox">
-                    <input type="checkbox" data-bind="checked: ownSettings.offonshutdown">Lights Off on Server Shutdown
-                </label>
-            </div>
-            <div class="controls">
-                <label class="checkbox">
-                    <input type="checkbox" data-bind="checked: ownSettings.ononstartup">Lights On on OctoPrint Startup
-                </label>
-                <select class="input-block-level" data-bind="value: ownSettings.ononstartupevent, options: $root.settingsViewModel.settings.plugins.octohue.configuredEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
-            </div>
-            <label class="control-label"></label>
-            <div class="controls">
-                <label class="checkbox">
-                    <input type="checkbox" data-bind="checked: ownSettings.showhuetoggle">Add Hue Toggle Icon to Navigation Bar
-                </label>
-            </div>
-            <label class="control-label">{{ _('Default Brightness') }}</label>
-            <div class="controls">
-                <input type="text" class="input-mini" data-bind="value: ownSettings.defaultbri">
-            </div>
-        </div>
-    </div> 
-    <div class="light_options">
-        <div>
-            <small>
-                <a href="#" class="muted" data-bind="toggleContent: { class: 'fa-caret-right fa-caret-down', parent: '.light_options', container: '.hide' }"><i class="fas fa-caret-right"></i> {{ _(' Event Lighting Options') }}</a>
-            </small>
-        </div>
-        <div class="hide">
-            <div class="control-group">
-                <h4>Status Colours</h4>
-                <div style="margin-left: 25px">
-                    <table class="table table-striped table-condensed">
-                        <thead>
-                    <tr>
-                        <th>
-                            Status
-                        </th>
-                        <th>
-                            Colour
-                        </th>
-                        <th>
-                            Hex
-                        </th>
-                        <th>
-                            Brightness
-                        </th>
-                        <th>
-                            Delay (Sec)
-                        </th>
-                        <th>
-                            Or Switch Off
-                        </th>
-                    </tr>
-                        </thead>
-                        <tbody class="control-group" data-bind="foreach: statusDict">
-                        <tr>
-                            <td>
-                                <select class="input-block-level" data-bind="value: event, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
-                            </td>
-                            <td>
-                                <input type="color" class="input-mini" data-bind="value: colour">
-                            </td>
-                            <td>
-                                <input type="text" class="input-mini" data-bind="value: colour">
-                            </td>
-                            <td>
-                                <input type="number" max="255" class="input-mini" data-bind="value: brightness" value="255">
-                            </td>
-                            <td>
-                                <input type="number" class="input-mini" data-bind="value: delay" value="0">
-                            </td>
-                            <td>
-                                <i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i>
-                            </td>
-                            <td>
-                                <i class="fa fa-trash-o" data-bind="click: $parent.removeStatus"></i>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                    <div class="control">
-                        <button class="btn" data-bind="click: addNewStatus">New</button>
+<div class="row-fluid">
+    <div class="tabbable">
+        <h4>OctoHue Settings <small>Version {{ plugin_octohue_plugin_version }}</small></h4>
+		<ul class="nav nav-tabs" id="octohue_tabs">
+			<li class="active"><a data-toggle="tab" href="#octohue_settings_bridge">Bridge</a></li>
+			<li><a data-toggle="tab" href="#octohue_settings_general">General</a></li>
+			<li><a data-toggle="tab" href="#octohue_settings_lights">Lights</a></li>
+			<li><a data-toggle="tab" href="#octohue_settings_power">Power</a></li>
+		</ul>
+        <div class="tab-content">
+            <div id="octohue_settings_bridge" class="tab-pane active">
+                <div class="control-group">
+                    <h4>Hue Configuration</h4>
+                    <label class="control-label">{{ _('Hue Bridge Address') }}</label>
+                    <div class="controls">
+                        <input type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
+                    </div>
+                    <label class="control-label">{{ _('Hue Username') }}</label>
+                    <div class="controls">
+                        <input type="text" class="input-block-level" data-bind="value: ownSettings.husername">
+                    </div>
+                    <label class="control-label">{{ _('Hue Lamp or Group ID') }}</label>
+                    <div class="controls">
+                        <input type="text" class="input-mini" data-bind="value: ownSettings.lampid">
+                        <label class="checkbox">
+                            <input type="checkbox" data-bind="checked: ownSettings.lampisgroup">Use group instead of single lamp
+                        </label>
                     </div>
                 </div>
             </div>
+            
+            <div id="octohue_settings_general" class="tab-pane">
+                <div class="control-group">
+                    <h4>General Behaviour</h4>
+                    <div class="control-group">
+                        <label class="control-label"></label>
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" data-bind="checked: ownSettings.offonshutdown">Lights Off on Server Shutdown
+                            </label>
+                        </div>
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" data-bind="checked: ownSettings.ononstartup">Lights On on OctoPrint Startup
+                            </label>
+                            <select class="input-block-level" data-bind="value: ownSettings.ononstartupevent, options: $root.settingsViewModel.settings.plugins.octohue.configuredEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
+                        </div>
+                        <label class="control-label"></label>
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" data-bind="checked: ownSettings.showhuetoggle">Add Hue Toggle Icon to Navigation Bar
+                            </label>
+                        </div>
+                        <label class="control-label">{{ _('Default Brightness') }}</label>
+                        <div class="controls">
+                            <input type="text" class="input-mini" data-bind="value: ownSettings.defaultbri">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="octohue_settings_lights" class="tab-pane">
+                <div class="light_options">
+                    <div>
+                        <small>
+                            <a href="#" class="muted" data-bind="toggleContent: { class: 'fa-caret-right fa-caret-down', parent: '.light_options', container: '.hide' }"><i class="fas fa-caret-right"></i> {{ _(' Event Lighting Options') }}</a>
+                        </small>
+                    </div>
+                    <div class="hide">
+                        <div class="control-group">
+                            <h4>Status Colours</h4>
+                            <div style="margin-left: 25px">
+                                <table class="table table-striped table-condensed">
+                                    <thead>
+                                <tr>
+                                    <th>
+                                        Status
+                                    </th>
+                                    <th>
+                                        Colour
+                                    </th>
+                                    <th>
+                                        Hex
+                                    </th>
+                                    <th>
+                                        Brightness
+                                    </th>
+                                    <th>
+                                        Delay (Sec)
+                                    </th>
+                                    <th>
+                                        Or Switch Off
+                                    </th>
+                                </tr>
+                                    </thead>
+                                    <tbody class="control-group" data-bind="foreach: statusDict">
+                                    <tr>
+                                        <td>
+                                            <select class="input-block-level" data-bind="value: event, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select>
+                                        </td>
+                                        <td>
+                                            <input type="color" class="input-mini" data-bind="value: colour">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="input-mini" data-bind="value: colour">
+                                        </td>
+                                        <td>
+                                            <input type="number" max="255" class="input-mini" data-bind="value: brightness" value="255">
+                                        </td>
+                                        <td>
+                                            <input type="number" class="input-mini" data-bind="value: delay" value="0">
+                                        </td>
+                                        <td>
+                                            <i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i>
+                                        </td>
+                                        <td>
+                                            <i class="fa fa-trash-o" data-bind="click: $parent.removeStatus"></i>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                                <div class="control">
+                                    <button class="btn" data-bind="click: addNewStatus">New</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="octohue_settings_power" class="tab-pane">
+
+            </div>
         </div>
+</div>
+ 
     </div>
-</form>
+    
+</div>
 
