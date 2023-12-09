@@ -84,7 +84,7 @@ $(function() {
 		    search_button.disabled = true;
 		    document.getElementById("huebridge_searchstatus").style.display = "none";
 		    document.getElementById("huebridge_found").style.display = "none";
-            //OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {});
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {});
             $.ajax({
 				url: API_BASEURL + "plugin/octohue",
 				type: "GET",
