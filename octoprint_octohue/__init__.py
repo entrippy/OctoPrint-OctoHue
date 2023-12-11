@@ -128,15 +128,30 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					return flask.jsonify(bridgestatus="false")
 				elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') != None):
 					return flask.jsonify(bridgestatus="true")
+				
 			elif "discover" in data:
 				discoveredbridge = []
 				r = requests.get(self.discoveryurl)
 				for element in r.json():
 					discoveredbridge.append(element)
 				return flask.jsonify(discoveredbridge)
+			
+			elif "pair" in data:
+				self._logger.debug("yay do a thing")
+				bridgeaddr = data['bridgeaddr']
+				r = requests.post("http://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"})
+				if(list(r.json()[0].keys())[0] == "error"):
+					return flask.jsonify(reponse="error")
+				elif(list(r.json()[0].keys())[0] == "success"):
+					token = r.json()[0]['success']['username']
+					self._settings.set(['huesername'], token)
+					self._settings.set(['bridgeaddr'], bridgeaddr)
+					self._settings.save()
+					return flask.jsonify(reponse="success")
+
 			else:
 				return flask.jsonify(status="ok")
-			
+				
 		elif command == 'togglehue':
 			self.toggle_state()
 
