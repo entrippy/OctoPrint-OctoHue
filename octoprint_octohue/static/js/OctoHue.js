@@ -132,7 +132,7 @@ $(function() {
 		    var interval_pairing = setInterval(function() {
 			pairing_try_count += 1;
 			text_pairing_count.innerHTML = "Try count: " + pairing_try_count + "/30";
-            OctoPrint.simpleApiCommand("octohue", "bridge", {"pair": "bridgeaddr"}, {}).done(function(response) {
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"pair": "true", "bridgeaddr":bridgeaddr}, {}).done(function(response) {
 				console.info(response.response);
 				if(response.reponse == "success")
 				{
