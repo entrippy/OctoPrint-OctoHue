@@ -136,7 +136,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.jsonify(discoveredbridge)
 			
 			elif "pair" in data:
-				self._logger.debug("yay do a thing")
+				self._logger.debug(data)
 				bridgeaddr = data['bridgeaddr']
 				r = requests.post("http://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"})
 				if(list(r.json()[0].keys())[0] == "error"):
