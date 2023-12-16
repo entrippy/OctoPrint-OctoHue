@@ -144,7 +144,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				elif(list(r.json()[0].keys())[0] == "success"):
 					token = r.json()[0]['success']['username']
 					console.log("New Huesername %s" % token)
-					self._settings.set(['huesername'], token)
+					self._settings.set(['husername'], token)
 					self._settings.set(['bridgeaddr'], bridgeaddr)
 					self._settings.save()
 					return flask.jsonify(reponse="success")
