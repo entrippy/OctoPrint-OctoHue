@@ -9,6 +9,10 @@ import octoprint.plugin
 import flask
 import requests
 import re
+from urllib3.exceptions import InsecureRequestWarning
+ 
+# Suppress the warnings from urllib3
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 
 class OctohuePlugin(octoprint.plugin.StartupPlugin,
@@ -138,7 +142,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			elif "pair" in data:
 				self._logger.debug(data['bridgeaddr'])
 				bridgeaddr = data['bridgeaddr']
-				r = requests.post("https://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"}, verify=False, retries=False)
+				r = requests.post("https://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"}, verify=False)
 				if(list(r.json()[0].keys())[0] == "error"):
 					return flask.jsonify(reponse="error")
 				elif(list(r.json()[0].keys())[0] == "success"):
