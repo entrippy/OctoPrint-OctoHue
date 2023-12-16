@@ -111,7 +111,7 @@ $(function() {
                 console.log(response)
 				if(response[0].internalipaddress){
                     console.log("eh it has an ip:")
-                    bridgeaddr = response[0].internalipaddress + ":" + response[0].port;
+                    bridgeaddr = response[0].internalipaddress;
                     search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
 					search_button.disabled = false;
 					document.getElementById("huebridge_searchstatus").style.display = "";

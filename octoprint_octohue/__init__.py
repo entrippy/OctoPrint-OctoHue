@@ -136,8 +136,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				discoveredbridge = []
 				r = requests.get(self.discoveryurl)
 				for element in r.json():
-					bridgeip = element.split(":")[0]
-					discoveredbridge.append(bridgeip)
+					discoveredbridge.append(element)
 				return flask.jsonify(discoveredbridge)
 			
 			elif "pair" in data:
