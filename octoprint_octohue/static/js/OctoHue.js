@@ -35,6 +35,7 @@ $(function() {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
+            console.log(self.ownSettings)
         }
 
         self.statusDetails = function (data) {
@@ -55,7 +56,7 @@ $(function() {
             }
         };
 
-        if (self.ownSettings.bridgeaddr.length == 0) {
+        if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
             document.getElementById("huebridge_unconfigured").style.display = "block";
         }
 
