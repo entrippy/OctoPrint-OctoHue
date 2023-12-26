@@ -49,6 +49,10 @@ $(function() {
             }
         };
 
+        if (self.ownSettings.statusDict.bridgeaddr.length == 0) {
+            document.getElementById("huebridge_unconfigured").style.display = "block";
+        }
+
         self.addNewStatus = function () {
             var statusObj = {
                 event: ko.observable(''),
@@ -115,7 +119,7 @@ $(function() {
                     search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
 					search_button.disabled = false;
 					document.getElementById("huebridge_searchstatus").style.display = "";
-					document.getElementById("huebridge_searchstatus").innerHTML = "<font color='green'>Brige found (<i>"+ response[0].internalipaddress+ ":" + response[0].port + "</i>) !</font>";
+					document.getElementById("huebridge_searchstatus").innerHTML = "<font color='green'>Brige found (<i>"+ response[0].internalipaddress+ "</i>) !</font>";
 					document.getElementById("huebridge_found").style.display = "";
 				}
 			});
