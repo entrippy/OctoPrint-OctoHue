@@ -36,6 +36,9 @@ $(function() {
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
             console.log(self.ownSettings)
+            if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
+                document.getElementById("huebridge_unconfigured").style.display = "block";
+            }
         }
 
         self.statusDetails = function (data) {
@@ -55,10 +58,6 @@ $(function() {
                 return data;
             }
         };
-
-        if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
-            document.getElementById("huebridge_unconfigured").style.display = "block";
-        }
 
         self.addNewStatus = function () {
             var statusObj = {
