@@ -31,6 +31,12 @@ $(function() {
         self.ownSettings = {};
         self.statusDict = [];
 
+        self.onBeforeBinding = function () {
+            self.settings = self.settingsViewModel.settings;
+            self.ownSettings = self.settings.plugins.octohue;
+            self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
+        }
+
         self.statusDetails = function (data) {
             if (data === false) {
                 return {
@@ -49,7 +55,7 @@ $(function() {
             }
         };
 
-        if (self.ownSettings.statusDict.bridgeaddr.length == 0) {
+        if (self.ownSettings.bridgeaddr.length == 0) {
             document.getElementById("huebridge_unconfigured").style.display = "block";
         }
 
@@ -157,11 +163,6 @@ $(function() {
 		}, 1000);
         }
 
-        self.onBeforeBinding = function () {
-            self.settings = self.settingsViewModel.settings;
-            self.ownSettings = self.settings.plugins.octohue;
-            self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
-        }
     }
 
     /* view model class, parameters for constructor, container to bind to
