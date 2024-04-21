@@ -36,8 +36,25 @@ $(function() {
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
             console.log(self.ownSettings)
-            if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
-                document.getElementById("huebridge_unconfigured").style.display = "none";
+            //if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
+            //    document.getElementById("huebridge_unconfigured").style.display = "none";
+            //}
+            var bridgeunconfigured = document.getElementById("huebridge_unconfigured");
+            var bridgeunauthed = document.getElementById("huebridge_unauthed");
+            var configured = "configured";
+            var unconfigured = "unconfigured";
+            var unauthed = "unauthed";
+            var bridgeconfigured = document.getElementById("huebridge_configured");
+            if(self.bridgestatus() === configured)
+            {
+                bridgeunconfigured.style.display = "none";
+                bridgeconfigured.style.display = "";
+            }
+            else if(self.bridgestatus() === unconfigured)
+            {
+                bridgeunconfigured.style.display = "";
+                bridgeconfigured.style.display = "none";
+    
             }
         }
 
@@ -140,25 +157,6 @@ $(function() {
 		}, 1000);
         }
     
-        
-        var bridgeunconfigured = document.getElementById("huebridge_unconfigured");
-        var bridgeunauthed = document.getElementById("huebridge_unauthed");
-        var configured = "configured";
-        var unconfigured = "unconfigured";
-        var unauthed = "unauthed";
-        var bridgeconfigured = document.getElementById("huebridge_configured");
-        if(self.bridgestatus() === configured)
-        {
-            bridgeunconfigured.style.display = "none";
-            bridgeconfigured.style.display = "";
-        }
-        else if(self.bridgestatus() === unconfigured)
-        {
-            bridgeunconfigured.style.display = "";
-            bridgeconfigured.style.display = "none";
-
-        }
-
     }
 
     /* view model class, parameters for constructor, container to bind to
