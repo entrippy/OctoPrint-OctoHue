@@ -54,7 +54,11 @@ $(function() {
             var unconfigured = "unconfigured";
             var unauthed = "unauthed";
             var bridgeconfigured = document.getElementById("huebridge_configured");
-            console.log(self.bridgestatus())
+            var configstatus = self.bridgestatus();
+            if(configstatus === "configured")
+            {
+                console.log(configstatus)
+            }
             //if(self.bridgestatus() === configured)
             //    {
             //        bridgeunconfigured.style.display = "none";
