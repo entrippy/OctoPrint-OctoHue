@@ -47,17 +47,19 @@ $(function() {
             var unauthed = "unauthed";
             var bridgeconfigured = document.getElementById("huebridge_configured");
             console.log(self.bridgestatus())
-            if(self.bridgestatus() === configured)
-            {
-                bridgeunconfigured.style.display = "none";
-                bridgeconfigured.style.display = "";
-            }
-            else if(self.bridgestatus() === unconfigured)
-            {
-                bridgeunconfigured.style.display = "";
-                bridgeconfigured.style.display = "none";
-    
-            }
+            //if(self.bridgestatus() === configured)
+            //    {
+            //        bridgeunconfigured.style.display = "none";
+            //        bridgeconfigured.style.display = "";
+            //        bridgeunauthed.style.display = "none";
+            //    }
+            //}
+            //else if(self.bridgestatus() === unconfigured)
+            //{
+            //    bridgeunconfigured.style.display = "";
+            //    bridgeconfigured.style.display = "none";
+            //
+            //}
         }
 
         self.statusDetails = function (data) {
