@@ -152,7 +152,7 @@ $(function() {
             bridgeunconfigured.style.display = "none";
             bridgeconfigured.style.display = "";
         }
-        elseif (self.bridgestatus() === unconfigured)
+        else if(self.bridgestatus() === unconfigured)
         {
             bridgeunconfigured.style.display = "";
             bridgeconfigured.style.display = "none";
