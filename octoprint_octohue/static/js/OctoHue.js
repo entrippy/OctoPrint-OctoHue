@@ -107,7 +107,6 @@ $(function() {
 
         self.bridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
-                console.log(response)
                 if(response[0].bridgestatus){
                     return response[0].bridgestatus
                 }
