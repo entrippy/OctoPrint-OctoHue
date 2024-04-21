@@ -31,6 +31,36 @@ $(function() {
         self.ownSettings = {};
         self.statusDict = [];
 
+
+         //if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
+            //    document.getElementById("huebridge_unconfigured").style.display = "none";
+            //}
+        var huebridgestatus = document.getElementById("huebridgestatus");
+        var bridgeunconfigured = document.getElementById("huebridge_unconfigured");
+        var bridgeunauthed = document.getElementById("huebridge_unauthed");
+        var configured = "configured";
+        var unconfigured = "unconfigured";
+        var unauthed = "unauthed";
+        var bridgeconfigured = document.getElementById("huebridge_configured");
+        var configstatus = self.bridgestatus();
+        if(configstatus === "configured")
+        {
+            console.log(configstatus)
+        }
+        //if(self.bridgestatus() === configured)
+        //    {
+        //        bridgeunconfigured.style.display = "none";
+        //        bridgeconfigured.style.display = "";
+        //        bridgeunauthed.style.display = "none";
+        //    }
+        //}
+        //else if(self.bridgestatus() === unconfigured)
+        //{
+        //    bridgeunconfigured.style.display = "";
+        //    bridgeconfigured.style.display = "none";
+        //
+        //}
+
         self.bridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 if(response[0].bridgestatus){
@@ -44,34 +74,7 @@ $(function() {
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
             console.log(self.ownSettings)
-            //if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
-            //    document.getElementById("huebridge_unconfigured").style.display = "none";
-            //}
-            var huebridgestatus = document.getElementById("huebridgestatus");
-            var bridgeunconfigured = document.getElementById("huebridge_unconfigured");
-            var bridgeunauthed = document.getElementById("huebridge_unauthed");
-            var configured = "configured";
-            var unconfigured = "unconfigured";
-            var unauthed = "unauthed";
-            var bridgeconfigured = document.getElementById("huebridge_configured");
-            var configstatus = self.bridgestatus();
-            if(configstatus === "configured")
-            {
-                console.log(configstatus)
-            }
-            //if(self.bridgestatus() === configured)
-            //    {
-            //        bridgeunconfigured.style.display = "none";
-            //        bridgeconfigured.style.display = "";
-            //        bridgeunauthed.style.display = "none";
-            //    }
-            //}
-            //else if(self.bridgestatus() === unconfigured)
-            //{
-            //    bridgeunconfigured.style.display = "";
-            //    bridgeconfigured.style.display = "none";
-            //
-            //}
+   
         }
 
         self.statusDetails = function (data) {
