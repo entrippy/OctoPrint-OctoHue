@@ -1,12 +1,10 @@
-# coding=utf-8
 from __future__ import absolute_import
-from qhue import Bridge, QhueException
-#from colormath.color_objects import XYZColor, sRGBColor
-#from colormath.color_conversions import convert_color
-from octoprint_octohue.colourfunctions import XYZColor, sRGBColor, convert_color
-from octoprint.util import ResettableTimer
 import octoprint.plugin
-import flask
+from qhue import Bridge
+from octoprint_octohue.colourfunctions import *
+from octoprint.util import *
+import octoprint.plugin
+from flask import *
 import requests
 import re
 from urllib3.exceptions import InsecureRequestWarning
@@ -23,20 +21,31 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.plugin.TemplatePlugin,
 					octoprint.plugin.EventHandlerPlugin):
 
-	# Hue Functions
+
 	pbridge=''
 	discoveryurl='https://discovery.meethue.com/'
 
-	def rgb_to_xy(self, red, green=None, blue=None):
+	def rgb_to_xy(self, red: int, green: int = None, blue: int = None):
+		'''
+		Converts RBG colour space to XY
+		
+			Parameters:
+				red (int): 8bit int representing red value
+				green (int): 8bit int representing green value
+				blue (int): 8bit int representing blue
+				 
+			returns:
+				xy (list): XY Colourspace Coordinates
+		
+		'''
 		self._logger.debug("RGB Input - R:%s G:%s B:%s" % (red, green, blue))
 
 		if isinstance(red, str):
-		# If Red is a string or unicode assume a hex string is passed and convert it to numberic 
-			rstring = red
-			red = int(rstring[1:3], 16)
-			green = int(rstring[3:5], 16)
-			blue = int(rstring[5:], 16)
-
+			try:
+				red, green, blue = int(red[1:], 16), int(red[3:5], 16), int(red[5:], 16)
+			except ValueError:
+				raise ValueError("Invalid hex string format")
+	
 		# We need to convert the RGB value to Yxz.
 		redScale = float(red) / 255.0
 		greenScale = float(green) / 255.0
@@ -57,6 +66,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return xy
 
 	def build_state(self, colour=None, transitiontime=5, bri=None, illuminate=True):
+		'''
+		Assembles payload used to set a lights state
+
+			Parameters:
+				colour (string): 6 Char RBG Hex colour string
+				transitiontime (int): Desired duration of the state transition time
+				bri (int): 8bit int representing desired brightness, 255 = max brightness
+				illuminate (bool): True = Light On, False = Light Off
+
+			Returns:
+				set_state() with the assembled payload
+		'''
 
 		state = {}
 		state['on'] = illuminate
@@ -74,6 +95,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self.set_state(state)
 
 	def get_state(self):
+		'''
+		Queries a device or devicegroups on/off state
+
+			Returns:
+				_state (bool): True for on.
+		'''
 		if self._settings.get(['lampisgroup']) == True:
 			self._state = self.pbridge.groups[self._settings.get(['lampid'])]().get("action")['on']
 		else:
@@ -82,6 +109,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return self._state
 
 	def set_state(self, state):
+		'''
+		Set a device or devicegroup to the desired state
+
+			Parameters:
+				state (dict): Dictionary of state settings; see build_state()
+		'''
 		self._logger.debug("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
 		if self._settings.get(['lampisgroup']) == True:
 			self.pbridge.groups[self._settings.get(['lampid'])].action(**state)
@@ -89,16 +122,29 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
 
 	def toggle_state(self):
+		'''
+		Queries a device or devicegroup for its state and flips it to its opposite state.
+		'''
 		if self.get_state():
 			self.build_state(illuminate=False)
 		else:
 			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
 
 	def get_configured_events(self):
+		'''
+		Fetch a list of events names the user has configured settings for
+
+			Returns:
+				configuredEvents (list): A list of event names the user has configured
+		'''
 		configuredEvents = [ sub['event'] for sub in self._settings.get(['statusDict']) ]
 		return configuredEvents
 
 	def on_after_startup(self):
+		'''
+		Commands to call on Plugin Startup
+			pbridge : create bridge object.
+		'''
 		self._logger.info("Octohue is alive!")
 		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
 		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
@@ -109,6 +155,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		#	self.build_state(illuminate=True, colour=my_statusEvent['colour'], bri=int(self._settings.get(['defaultbri'])))
 
 	def on_shutdown(self):
+		'''
+		Commands to call on Plugin Shutdown
+			offonshutdown : Turn off device if true
+		'''
 		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
 		if self._settings.get(['offonshutdown']) == True:
 			self.set_state({"on": False})
@@ -128,9 +178,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if command == 'bridge':
 			if "getstatus" in data:
 				if (self._settings.get('bridgeaddr') == None and self._settings.get('husername') == None):
-					return flask.jsonify(bridgestatus="false")
+					return flask.jsonify(bridgestatus="unconfigured")
+				elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') == None):
+					return flask.jsonify(bridgestatus="unauthed")
 				elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') != None):
-					return flask.jsonify(bridgestatus="true")
+					return flask.jsonify(bridgestatus="configured")
 				
 			elif "discover" in data:
 				discoveredbridge = []

@@ -37,7 +37,7 @@ $(function() {
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
             console.log(self.ownSettings)
             if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
-                document.getElementById("huebridge_unconfigured").style.display = "block";
+                document.getElementById("huebridge_unconfigured").style.display = "none";
             }
         }
 
