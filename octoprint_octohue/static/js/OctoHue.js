@@ -140,7 +140,25 @@ $(function() {
 		}, 1000);
         }
     
-        self.bridgestatus();
+        
+        var bridgeunconfigured = document.getElementById("huebridge_unconfigured");
+        var bridgeunauthed = document.getElementById("huebridge_unauthed");
+        var configured = "configured";
+        var unconfigured = "unconfigured";
+        var unauthed = "unauthed";
+        var bridgeconfigured = document.getElementById("huebridge_configured");
+        if(self.bridgestatus() === configured)
+        {
+            bridgeunconfigured.style.display = "none";
+            bridgeconfigured.style.display = "";
+        }
+        elseif (self.bridgestatus() === unconfigured)
+        {
+            bridgeunconfigured.style.display = "";
+            bridgeconfigured.style.display = "none";
+
+        }
+
     }
 
     /* view model class, parameters for constructor, container to bind to
