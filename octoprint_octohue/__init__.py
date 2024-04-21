@@ -177,11 +177,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug("Recieved API Command: %s" % command)
 		if command == 'bridge':
 			if "getstatus" in data:
-				if (self._settings.get('bridgeaddr') == None and self._settings.get('husername') == None):
+				bridge = self._settings.get('bridgeaddr')
+				apikey = self._settings.get('husername')
+				if (bridge == None and apikey == None):
 					return flask.jsonify(bridgestatus="unconfigured")
-				elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') == None):
+				elif (bridge != None and apikey == None):
 					return flask.jsonify(bridgestatus="unauthed")
-				elif (self._settings.get('bridgeaddr') != None and self._settings.get('husername') != None):
+				elif (bridge != None and apikey != None):
 					return flask.jsonify(bridgestatus="configured")
 				
 			elif "discover" in data:
