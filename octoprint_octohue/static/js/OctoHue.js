@@ -39,12 +39,14 @@ $(function() {
             //if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
             //    document.getElementById("huebridge_unconfigured").style.display = "none";
             //}
+            var huebridgestatus = document.getElementById("huebridgestatus");
             var bridgeunconfigured = document.getElementById("huebridge_unconfigured");
             var bridgeunauthed = document.getElementById("huebridge_unauthed");
             var configured = "configured";
             var unconfigured = "unconfigured";
             var unauthed = "unauthed";
             var bridgeconfigured = document.getElementById("huebridge_configured");
+            console.log(self.bridgestatus())
             if(self.bridgestatus() === configured)
             {
                 bridgeunconfigured.style.display = "none";
