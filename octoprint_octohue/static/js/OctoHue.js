@@ -32,7 +32,11 @@ $(function() {
         self.statusDict = [];
 
         self.bridgestatus = function() {
-            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {});
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
+                if(response[0].bridgestatus){
+                    return response[0].bridgestatus
+                }
+            });
         }
 
         self.onBeforeBinding = function () {
