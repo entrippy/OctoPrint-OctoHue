@@ -31,6 +31,10 @@ $(function() {
         self.ownSettings = {};
         self.statusDict = [];
 
+        self.bridgestatus = function() {
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {});
+        }
+
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
@@ -103,10 +107,6 @@ $(function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
         }
 
-        self.bridgestatus = function() {
-            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {});
-        }
- 
         self.bridgediscovery = function() {
             var search_button = this
 		    search_button.innerHTML = '<i class="fa fa-search"></i> Searching...';
