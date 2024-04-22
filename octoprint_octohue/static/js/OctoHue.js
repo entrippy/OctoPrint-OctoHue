@@ -46,19 +46,12 @@ $(function() {
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
             console.log(self.ownSettings)
-            if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length == 0) {
-                console.log("unconfed")
-                document.getElementById("huebridge_unconfigured").style.display = "";
-            }
-            else if (self.settingsViewModel.settings.plugins.octohue.bridgeaddr.length != 0  && self.settingsViewModel.settings.plugins.octohue.husername.length != 0) {
-                console.log("confed")
-                document.getElementById("huebridge_configured").style.display = "";
-            }
         }
 
-        self.onSettingsShown = function() {
-            self.bridgestatus = function()
-        }
+        self.onSettingsShown = function () {
+            self.bridgestatus()
+        };
+
         self.statusDetails = function (data) {
             if (data === false) {
                 return {
