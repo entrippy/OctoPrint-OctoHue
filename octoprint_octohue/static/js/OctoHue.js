@@ -57,7 +57,7 @@ $(function() {
         }
 
         self.onSettingsShown = function() {
-            self.bridgestatus = function();
+            self.bridgestatus = function()
         }
         self.statusDetails = function (data) {
             if (data === false) {
