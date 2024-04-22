@@ -32,7 +32,7 @@ $(function() {
         self.statusDict = [];
 
 
-        self.bridgestatus = function() {
+        self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 console.log("callingstatus")
                 if(response[0].bridgestatus){
@@ -49,7 +49,7 @@ $(function() {
         }
 
         self.onSettingsShown = function () {
-            self.bridgestatus()
+            self.getbridgestatus()
         };
 
         self.statusDetails = function (data) {
