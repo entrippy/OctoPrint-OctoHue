@@ -35,9 +35,7 @@ $(function() {
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 console.log("callingstatus")
-                if(response[0].bridgestatus){
-                    return response[0].bridgestatus
-                }
+                console.log(response[0].bridgestatus)
             });
         }
 
