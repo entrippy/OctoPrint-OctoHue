@@ -251,6 +251,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_settings_defaults(self):
 		return dict(
+			enabled=True,
 			installed_version=self._plugin_version,
 			bridgeaddr="",
 			husername="",
