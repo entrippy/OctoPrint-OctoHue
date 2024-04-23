@@ -40,20 +40,21 @@ $(function() {
         }
 
         self.onSettingsShown = function () {
-            if (self.getbridgestatus() == "configured") {
-                console.log("hiding configuration")
-                document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
-            } else if (self.getbridgestatus() == "unconfigured") {
-                console.log("hiding settings")
-                document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
-            }
+           self.getbridgestatus() 
         };
 
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 console.log("callingstatus")
                 console.log(response.bridgestatus)
-                return response.bridgestatus;
+                if ( response.bridgestatus === "configured") {
+                    console.log("hiding configuration")
+                    document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
+                } else if (response.bridgestatus === "unconfigured") {
+                    console.log("hiding settings")
+                    document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
+                }
+                
             });
         }
 
