@@ -40,13 +40,18 @@ $(function() {
         }
 
         self.onSettingsShown = function () {
-            self.getbridgestatus()
+            if (self.getbridgestatus() == "configured") {
+                document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
+            } else if (self.getbridgestatus() == "unconfigured") {
+                document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
+            }
         };
 
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 console.log("callingstatus")
                 console.log(response.bridgestatus)
+                return response.bridgestatus;
             });
         }
 
