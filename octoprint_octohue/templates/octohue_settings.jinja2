@@ -14,16 +14,16 @@
                     Hue Bridge Status: <span id="huebridgestatus" class="badge badge-danger" style="background-color: #ff4b4b;">Unconfigured</span>
                     <div class="controls">
                         <label class="checkbox">
-                            <input type="checkbox" data-bind="checked: ownSettings.configured">Enable theme
+                            <input type="checkbox" data-bind="checked: ownSettings.enabled">Enable Config
                         </label>
                     </div>
-                    <div id="huebridge_unconfigured" style="display: none;">
+                    <div id="huebridge_unconfigured">
                         <h4 id="pairbridge">Pair with your Hue Bridge</h4>
                         <button id="huebridge_startsearch" type="button" class="btn" data-bind="click: bridgediscovery"><i class="fa fa-search"></i> Find My Bridge</button>
                         <br /><br />
-                        <span id="huebridge_searchstatus" style="display: none;"></span>
+                        <span id="huebridge_searchstatus"></span>
                         <br />
-                        <div id="huebridge_found" style="display: none;">
+                        <div id="huebridge_found">
                             <p>Click on "Start Pairing" button below and push the pairing button on your Bridge</p>
                             <button id="huebridge_pairingbutton" class="btn" data-bind="click: bridgepair"><i class="fa fa-link"></i> Start Pairing</button>
                             <span id="huebridge_pairingreties"></span>
@@ -35,7 +35,7 @@
                         </div>
                     </div>
                     
-                    <div id="huebridge_configured" style="display: none;">
+                    <div id="huebridge_configured">
                         <label class="control-label">{{ _('Hue Bridge Address') }}</label>
                         <div class="controls">
                             <input type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
