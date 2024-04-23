@@ -12,12 +12,7 @@
                 <div class="control-group">
                     <h4>Hue Configuration</h4>
                     Hue Bridge Status: <span id="huebridgestatus" class="badge badge-danger" style="background-color: #ff4b4b;">Unconfigured</span>
-                    <div class="controls">
-                        <label class="checkbox">
-                            <input type="checkbox" data-bind="checked: ownSettings.enabled">Enable Config
-                        </label>
-                    </div>
-                    <div id="huebridge_unconfigured" class="activeconfig">
+                    <div id="huebridge_unconfigured">
                         <h4 id="pairbridge">Pair with your Hue Bridge</h4>
                         <button id="huebridge_startsearch" type="button" class="btn" data-bind="click: bridgediscovery"><i class="fa fa-search"></i> Find My Bridge</button>
                         <br /><br />
