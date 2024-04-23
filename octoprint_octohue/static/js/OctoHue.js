@@ -41,8 +41,10 @@ $(function() {
 
         self.onSettingsShown = function () {
             if (self.getbridgestatus() == "configured") {
+                console.log("hiding configuration")
                 document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
             } else if (self.getbridgestatus() == "unconfigured") {
+                console.log("hiding settings")
                 document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
             }
         };

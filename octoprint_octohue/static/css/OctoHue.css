@@ -3,3 +3,7 @@
     color:blue;
     
 }
+
+.inactiveconfig {
+    display: none;
+}
