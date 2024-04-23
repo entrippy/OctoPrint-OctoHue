@@ -52,7 +52,7 @@ $(function() {
                     document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
                 } else if (response.bridgestatus === "unconfigured") {
                     console.log("hiding settings")
-                    document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
+                    document.getElementById("huebridge_configured").classList.add("inactiveconfig")
                 }
                 
             });
