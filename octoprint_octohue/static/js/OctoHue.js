@@ -32,13 +32,6 @@ $(function() {
         self.statusDict = [];
 
 
-        self.getbridgestatus = function() {
-            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
-                console.log("callingstatus")
-                console.log(response[0].bridgestatus)
-            });
-        }
-
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
@@ -49,6 +42,13 @@ $(function() {
         self.onSettingsShown = function () {
             self.getbridgestatus()
         };
+
+        self.getbridgestatus = function() {
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
+                console.log("callingstatus")
+                console.log(response.bridgestatus)
+            });
+        }
 
         self.statusDetails = function (data) {
             if (data === false) {
