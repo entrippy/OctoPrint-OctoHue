@@ -25,6 +25,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	pbridge=''
 	discoveryurl='https://discovery.meethue.com/'
 
+	def establishBridge(self, bridgeaddr, husername):
+		self._logger.debug("Bridge Address is %s" % bridgeaddr if bridgeaddr else "Please set Bridge Address in settings")
+		self._logger.debug("Hue Username is %s" % husername if husername else "Please set Hue Username in settings")
+		self.pbridge = Bridge(bridgeaddr, husername)
+		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
+	
+
 	def rgb_to_xy(self, red: int, green: int = None, blue: int = None):
 		'''
 		Converts RBG colour space to XY
@@ -146,10 +153,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			pbridge : create bridge object.
 		'''
 		self._logger.info("Octohue is alive!")
-		self._logger.debug("Bridge Address is %s" % self._settings.get(['bridgeaddr']) if self._settings.get(['bridgeaddr']) else "Please set Bridge Address in settings")
-		self._logger.debug("Hue Username is %s" % self._settings.get(['husername']) if self._settings.get(['husername']) else "Please set Hue Username in settings")
-		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
+		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		#if self._settings.get(['ononstartup']) == True:
 		#	my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
 		#	self.build_state(illuminate=True, colour=my_statusEvent['colour'], bri=int(self._settings.get(['defaultbri'])))
@@ -205,6 +209,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					self._settings.set(['husername'], token)
 					self._settings.set(['bridgeaddr'], bridgeaddr)
 					self._settings.save()
+					self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 					return flask.jsonify(reponse="success")
 
 			else:
