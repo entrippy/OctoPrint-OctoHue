@@ -50,9 +50,11 @@ $(function() {
                 if ( response.bridgestatus === "configured") {
                     console.log("hiding configuration")
                     document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
+                    document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
                 } else if (response.bridgestatus === "unconfigured") {
                     console.log("hiding settings")
                     document.getElementById("huebridge_configured").classList.add("inactiveconfig")
+                    document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig")
                 }
                 
             });
