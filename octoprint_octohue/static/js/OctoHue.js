@@ -105,8 +105,8 @@ $(function() {
             var search_button = this
 		    search_button.innerHTML = '<i class="fa fa-search"></i> Searching...';
 		    search_button.disabled = true;
-		    document.getElementById("huebridge_searchstatus").style.display = "none";
-		    document.getElementById("huebridge_found").style.display = "none";
+		    //document.getElementById("huebridge_searchstatus").style.display = "none";
+		    //document.getElementById("huebridge_found").style.display = "none";
             OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {}).done(function(response) {
                 console.log(response)
 				if(response[0].internalipaddress){
@@ -114,9 +114,9 @@ $(function() {
                     bridgeaddr = response[0].internalipaddress;
                     search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
 					search_button.disabled = false;
-					document.getElementById("huebridge_searchstatus").style.display = "";
+					document.getElementById("huebridge_searchstatus").classList.remove("inactiveconfig");
 					document.getElementById("huebridge_searchstatus").innerHTML = "<font color='green'>Brige found (<i>"+ response[0].internalipaddress+ "</i>) !</font>";
-					document.getElementById("huebridge_found").style.display = "";
+					document.getElementById("huebridge_found").classList.remove("inactiveconfig");
 				}
 			});
         }
