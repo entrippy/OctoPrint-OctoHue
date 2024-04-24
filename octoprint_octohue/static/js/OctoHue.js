@@ -138,7 +138,9 @@ $(function() {
 				{
 					clearInterval(interval_pairing);
 					text_pairing_count.innerHTML = "<font color='green'>Succesfull Pairing !</font>";
-					bridgeConfiguration();
+                    setTimeout(function(){
+                        self.getbridgestatus();
+                    }, 5000);
 				}
 			})
 
