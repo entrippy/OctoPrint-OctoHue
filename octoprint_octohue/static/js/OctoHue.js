@@ -1,7 +1,7 @@
 /*
  * View model for OctoPrint-OctoHue
  *
- * Author: Entrippy
+ * Author: Simon Beckett
  * License: AGPLv3
  */
 $(function() {
@@ -31,48 +31,6 @@ $(function() {
         self.ownSettings = {};
         self.statusDict = [];
 
-
-        self.onBeforeBinding = function () {
-            self.settings = self.settingsViewModel.settings;
-            self.ownSettings = self.settings.plugins.octohue;
-            self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
-        }
-
-        self.onSettingsShown = function () {
-           self.getbridgestatus() 
-        };
-
-        self.getbridgestatus = function() {
-            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
-                if ( response.bridgestatus === "configured") {
-                    document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
-                    document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
-                } else if (response.bridgestatus === "unconfigured") {
-                    document.getElementById("huebridge_configured").classList.add("inactiveconfig")
-                    document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig")
-                }
-                
-            });
-        }
-
-        self.statusDetails = function (data) {
-            if (data === false) {
-                return {
-                    event: ko.observable(""),
-                    colour: ko.observable(""),
-                    brightness: ko.observable(""),
-                    delay: ko.observable(""),
-                    turnoff: ko.observable(false)
-                };
-            
-            } else {
-                if (!data.hasOwnProperty("turnoff")) {
-                    data["turnoff"] = ko.observable(true);
-                }
-                return data;
-            }
-        };
-
         self.addNewStatus = function () {
             var statusObj = {
                 event: ko.observable(''),
@@ -83,20 +41,6 @@ $(function() {
             };
             self.ownSettings.statusDict.push(statusObj);
         };
-
-        self.removeStatus = function (data) {
-            self.settingsViewModel.settings.plugins.octohue.statusDict.remove(
-                data
-            );
-        };
-
-        self.setSwitchOff = function(status) {
-            status.turnoff(!status.turnoff());
-        };
-
-        self.togglehue = function() {
-            OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
-        }
 
         self.bridgediscovery = function() {
             var search_button = this
@@ -155,6 +99,68 @@ $(function() {
 		}, 1000);
         }
     
+        self.getbridgestatus = function() {
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
+                if ( response.bridgestatus === "configured") {
+                    document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
+                    document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
+                } else if (response.bridgestatus === "unconfigured") {
+                    document.getElementById("huebridge_configured").classList.add("inactiveconfig")
+                    document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig")
+                }
+                
+            });
+        }
+
+        self.getdevices = function(data) {
+            OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {}).done(function(response) {
+				
+			});
+        }
+
+        self.onBeforeBinding = function () {
+            self.settings = self.settingsViewModel.settings;
+            self.ownSettings = self.settings.plugins.octohue;
+            self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
+        }
+
+        self.onSettingsShown = function () {
+           self.getbridgestatus() 
+        };
+
+        self.removeStatus = function (data) {
+            self.settingsViewModel.settings.plugins.octohue.statusDict.remove(
+                data
+            );
+        };
+
+        self.setSwitchOff = function(status) {
+            status.turnoff(!status.turnoff());
+        };
+
+        self.statusDetails = function (data) {
+            if (data === false) {
+                return {
+                    event: ko.observable(""),
+                    colour: ko.observable(""),
+                    brightness: ko.observable(""),
+                    delay: ko.observable(""),
+                    turnoff: ko.observable(false)
+                };
+            
+            } else {
+                if (!data.hasOwnProperty("turnoff")) {
+                    data["turnoff"] = ko.observable(true);
+                }
+                return data;
+            }
+        };
+
+        self.togglehue = function() {
+            OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
+        }
+
+
     }
 
     /* view model class, parameters for constructor, container to bind to

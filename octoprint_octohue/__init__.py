@@ -26,10 +26,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	discoveryurl='https://discovery.meethue.com/'
 
 	def establishBridge(self, bridgeaddr, husername):
-		self._logger.debug("Bridge Address is %s" % bridgeaddr if bridgeaddr else "Please set Bridge Address in settings")
-		self._logger.debug("Hue Username is %s" % husername if husername else "Please set Hue Username in settings")
+		self._logger.debug(f"Bridge Address is {bridgeaddr if bridgeaddr else 'Please set Bridge Address in settings'}")
+		self._logger.debug(f"Hue Username is {husername if husername else 'Please set Hue Username in settings'}")
 		self.pbridge = Bridge(bridgeaddr, husername)
-		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
+		self._logger.debug(f"Bridge established at: {self.pbridge.url}")
 	
 	def rgb_to_xy(self, red: int, green: int = None, blue: int = None):
 		'''
@@ -44,7 +44,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				xy (list): XY Colourspace Coordinates
 		
 		'''
-		self._logger.debug("RGB Input - R:%s G:%s B:%s" % (red, green, blue))
+		self._logger.debug(f"RGB Input - R:{red} G:{green} B:{blue}")
 
 		if isinstance(red, str):
 			try:
@@ -111,7 +111,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._state = self.pbridge.groups[self._settings.get(['lampid'])]().get("action")['on']
 		else:
 			self._state = self.pbridge.lights[self._settings.get(['lampid'])]().get("state")['on']
-		self._logger.debug("Get State is %s" % self._state )
+		self._logger.debug(f"Get State is {self._state}")
 		return self._state
 
 	def set_state(self, state):
@@ -121,7 +121,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Parameters:
 				state (dict): Dictionary of state settings; see build_state()
 		'''
-		self._logger.debug("Setting lampid: %s  Is Group: %s with State: %s" % (self._settings.get(['lampid']),self._settings.get(['lampisgroup']), state))
+		self._logger.debug(f"Setting lampid: {self._settings.get(['lampid'])} Is Group: {self._settings.get(['lampisgroup'])} with State: {state}")
+
 		if self._settings.get(['lampisgroup']) == True:
 			self.pbridge.groups[self._settings.get(['lampid'])].action(**state)
 		else:
@@ -177,7 +178,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def on_api_command(self, command, data):
 		import flask
-		self._logger.debug("Recieved API Command: %s" % command)
+		self._logger.debug(f"Recieved API Command: {command}")
 		if command == 'bridge':
 			if "getstatus" in data:
 				bridge = self._settings.get(['bridgeaddr'])
@@ -213,7 +214,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 						'bridgeaddr': bridgeaddr,
 						'husername': token
 					}]
-					self._logger.debug("New Huesername %s" % token)
+					self._logger.debug(f"New Huesername {token}")
 					self._settings.set(['husername'], token)
 					self._settings.set(['bridgeaddr'], bridgeaddr)
 					self._settings.save()
@@ -222,7 +223,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 			else:
 				return flask.jsonify(status="ok")
-				
+
+		elif command == 'getdevices':
+			self._logger.debug("Getting Devices")
+
+
 		elif command == 'togglehue':
 			self.toggle_state()
 
@@ -243,10 +248,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	# Trigger state on Status match
 	def on_event(self, event, payload):
-		self._logger.debug("Recieved Status: %s from Printer" % event)
+		self._logger.debug(f"Recieved Status: {event} from Printer")
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
 		if my_statusEvent: 
-			self._logger.info("Received Configured Status Event: %s" % event)
+			self._logger.info(f"Received Configured Status Event: {event}")
 			delay = my_statusEvent['delay'] or 0
 
 			if my_statusEvent['turnoff'] == False:
@@ -342,10 +347,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_settings_save(self, data):
 		data.pop("availableEvents", None)
-		self._logger.debug("Saving: %s" % data) 
+		self._logger.debug(f"Saving: {data} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-		self._logger.info("New Bridge established at: %s" % self.pbridge.url)
+		self._logger.info(f"New Bridge established at: {self.pbridge.url}")
 		
 	def get_template_vars(self):
 		return dict(
