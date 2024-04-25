@@ -226,7 +226,20 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		elif command == 'getdevices':
 			self._logger.debug("Getting Devices")
-
+			archetype = data['archetype']
+			data = self.pbridge.lights()
+			if (archetype !=""):
+				device_elements = [
+					{"name": value["name"], "archetype": value["config"]["archetype"]}
+					for key, value in data.items()
+					if value["config"]["archetype"] == archetype
+				]
+			else:
+				device_elements = [
+					{"name": value["name"], "archetype": value["config"]["archetype"]}
+					for key, value in data.items()
+				]
+			return flask.jsonify(devices=device_elements)
 
 		elif command == 'togglehue':
 			self.toggle_state()
