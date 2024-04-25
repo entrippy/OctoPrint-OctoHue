@@ -202,7 +202,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				bridgeaddr = data['bridgeaddr']
 				r = requests.post("https://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"}, verify=False)
 				if(list(r.json()[0].keys())[0] == "error"):
-					return flask.jsonify([{response:"error"}])
+					response = [{
+						'response': 'error'
+					}]
+					return flask.jsonify(response)
 				elif(list(r.json()[0].keys())[0] == "success"):
 					token = r.json()[0]['success']['username']
 					response = [{
