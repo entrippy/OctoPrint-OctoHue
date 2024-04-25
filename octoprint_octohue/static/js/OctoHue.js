@@ -36,7 +36,6 @@ $(function() {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
-            console.log(self.ownSettings)
         }
 
         self.onSettingsShown = function () {
@@ -46,11 +45,9 @@ $(function() {
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 if ( response.bridgestatus === "configured") {
-                    console.log("hiding configuration")
                     document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
                     document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
                 } else if (response.bridgestatus === "unconfigured") {
-                    console.log("hiding settings")
                     document.getElementById("huebridge_configured").classList.add("inactiveconfig")
                     document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig")
                 }
@@ -108,7 +105,6 @@ $(function() {
 		    //document.getElementById("huebridge_searchstatus").style.display = "none";
 		    //document.getElementById("huebridge_found").style.display = "none";
             OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {}).done(function(response) {
-                console.log(response)
 				if(response[0].internalipaddress){
                     bridgeaddr = response[0].internalipaddress;
                     search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
@@ -134,7 +130,8 @@ $(function() {
 			text_pairing_count.innerHTML = "Try count: " + pairing_try_count + "/30";
             
             OctoPrint.simpleApiCommand("octohue", "bridge", {"pair": "true", "bridgeaddr":bridgeaddr}, {}).done(function(response) {
-				console.info(response.response);
+                console.log(response)
+
 				if(response[0].husername)
 				{
 					self.ownSettings.bridgeaddr = response[0].bridgeaddr
