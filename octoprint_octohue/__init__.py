@@ -202,10 +202,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				bridgeaddr = data['bridgeaddr']
 				r = requests.post("https://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"}, verify=False)
 				if(list(r.json()[0].keys())[0] == "error"):
-					return flask.jsonify(reponse="error")
+					return flask.jsonify([{response:"error"}])
 				elif(list(r.json()[0].keys())[0] == "success"):
 					token = r.json()[0]['success']['username']
-					huecreds = [{
+					response = [{
+						'response': 'success',
 						'bridgeaddr': bridgeaddr,
 						'husername': token
 					}]
@@ -214,7 +215,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					self._settings.set(['bridgeaddr'], bridgeaddr)
 					self._settings.save()
 					self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-					return flask.jsonify(huecreds)
+					return flask.jsonify(response)
 
 			else:
 				return flask.jsonify(status="ok")

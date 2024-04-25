@@ -132,7 +132,7 @@ $(function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"pair": "true", "bridgeaddr":bridgeaddr}, {}).done(function(response) {
                 console.log(response)
 
-				if(response.response == "success")
+				if(response[0].response == "success")
 				{
 					self.ownSettings.bridgeaddr = response[0].bridgeaddr
                     self.ownSettings.husername = response[0].husername
