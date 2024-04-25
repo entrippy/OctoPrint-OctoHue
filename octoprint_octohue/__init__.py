@@ -227,13 +227,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		elif command == 'getdevices':
 			self._logger.debug("Getting Devices")
-			archetype = data['archetype']
 			data = self.pbridge.lights()
-			if archetype in data:
+			if data['archetype'] in data:
 				device_elements = [
 					{"id": key, "name": value["name"], "archetype": value["config"]["archetype"]}
 					for key, value in data.items()
-					if value["config"]["archetype"] == archetype
+					if value["config"]["archetype"] == data['archetype']
 				]
 			else:
 				device_elements = [
