@@ -31,7 +31,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self.pbridge = Bridge(bridgeaddr, husername)
 		self._logger.debug("Bridge established at: %s" % self.pbridge.url)
 	
-
 	def rgb_to_xy(self, red: int, green: int = None, blue: int = None):
 		'''
 		Converts RBG colour space to XY
@@ -193,6 +192,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			elif "discover" in data:
 				discoveredbridge = []
 				r = requests.get(self.discoveryurl)
+				self._logger.debug(r.json())
 				for element in r.json():
 					discoveredbridge.append(element)
 				return flask.jsonify(discoveredbridge)
@@ -205,6 +205,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					return flask.jsonify(reponse="error")
 				elif(list(r.json()[0].keys())[0] == "success"):
 					token = r.json()[0]['success']['username']
+					huecreds = []
+					huecreds.append({
+						'bridgeaddr': bridgeaddr,
+						'husername': token
+					
+					})
 					self._logger.debug("New Huesername %s" % token)
 					self._settings.set(['husername'], token)
 					self._settings.set(['bridgeaddr'], bridgeaddr)
