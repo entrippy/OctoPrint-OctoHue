@@ -132,14 +132,13 @@ $(function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"pair": "true", "bridgeaddr":bridgeaddr}, {}).done(function(response) {
                 console.log(response)
 
-				if(response[0].husername)
+				if(response.response == "success")
 				{
 					self.ownSettings.bridgeaddr = response[0].bridgeaddr
                     self.ownSettings.husername = response[0].husername
                     clearInterval(interval_pairing);
 					text_pairing_count.innerHTML = "<font color='green'>Succesfull Pairing !</font>";
                     setTimeout(function(){
-                        document.getElementById("bridgeaddress").value(success)
                         self.getbridgestatus();
                     }, 5000);
 				}
