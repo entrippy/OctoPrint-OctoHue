@@ -229,15 +229,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.debug("Getting Devices")
 			archetype = data['archetype']
 			data = self.pbridge.lights()
-			if (archetype !=""):
+			if archetype in data:
 				device_elements = [
-					{"name": value["name"], "archetype": value["config"]["archetype"]}
+					{"id": key, "name": value["name"], "archetype": value["config"]["archetype"]}
 					for key, value in data.items()
 					if value["config"]["archetype"] == archetype
 				]
 			else:
 				device_elements = [
-					{"name": value["name"], "archetype": value["config"]["archetype"]}
+					{"id": key,"name": value["name"], "archetype": value["config"]["archetype"]}
 					for key, value in data.items()
 				]
 			return flask.jsonify(devices=device_elements)
