@@ -134,12 +134,12 @@ $(function() {
 
 				if(response[0].response == "success")
 				{
-					self.ownSettings.bridgeaddr = response[0].bridgeaddr
-                    self.ownSettings.husername = response[0].husername
                     clearInterval(interval_pairing);
 					text_pairing_count.innerHTML = "<font color='green'>Succesfull Pairing !</font>";
                     setTimeout(function(){
                         self.getbridgestatus();
+                        document.getElementById("bridgeaddress").value = response[0].bridgeaddr
+                        document.getElementById("apikey").value = response[0].husername
                     }, 5000);
 				}
 			})
