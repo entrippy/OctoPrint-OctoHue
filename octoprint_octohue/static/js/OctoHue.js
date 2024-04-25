@@ -130,8 +130,6 @@ $(function() {
 			text_pairing_count.innerHTML = "Try count: " + pairing_try_count + "/30";
             
             OctoPrint.simpleApiCommand("octohue", "bridge", {"pair": "true", "bridgeaddr":bridgeaddr}, {}).done(function(response) {
-                console.log(response)
-
 				if(response[0].response == "success")
 				{
                     clearInterval(interval_pairing);
@@ -140,6 +138,8 @@ $(function() {
                         self.getbridgestatus();
                         document.getElementById("bridgeaddress").value = response[0].bridgeaddr
                         document.getElementById("apikey").value = response[0].husername
+                        document.getElementById("huebridgestatus").backgroundColor = "green";
+                        document.getElementById("huebridgestatus").innerHTML = "Paired";
                     }, 5000);
 				}
 			})
