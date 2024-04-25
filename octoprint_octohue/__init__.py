@@ -170,6 +170,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def get_api_commands(self):
 		return dict(
 			bridge=[],
+			getdevices=[],
 			togglehue=[],
 			getstate=[],
 			turnon=[],
