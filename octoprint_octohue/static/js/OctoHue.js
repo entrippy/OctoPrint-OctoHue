@@ -45,8 +45,6 @@ $(function() {
 
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
-                console.log("callingstatus")
-                console.log(response.bridgestatus)
                 if ( response.bridgestatus === "configured") {
                     console.log("hiding configuration")
                     document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
@@ -112,7 +110,6 @@ $(function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {}).done(function(response) {
                 console.log(response)
 				if(response[0].internalipaddress){
-                    console.log("eh it has an ip:")
                     bridgeaddr = response[0].internalipaddress;
                     search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
 					search_button.disabled = false;
@@ -127,20 +124,25 @@ $(function() {
             var bridgebutton= document.getElementById("huebridge_pairingbutton");
 		    bridgebutton.innerHTML = '<i class="fa fa-link"></i> Pairing...';
 		    bridgebutton.disabled = true;
-		    var pairing_try_count = 0;
+		    
+            var pairing_try_count = 0;
 		    var text_pairing_count = document.getElementById("huebridge_pairingreties");
 		    text_pairing_count.innerHTML = "Try count: " + pairing_try_count + "/30";
 		    document.getElementById("huebridge_startsearch").disabled = true;
 		    var interval_pairing = setInterval(function() {
 			pairing_try_count += 1;
 			text_pairing_count.innerHTML = "Try count: " + pairing_try_count + "/30";
+            
             OctoPrint.simpleApiCommand("octohue", "bridge", {"pair": "true", "bridgeaddr":bridgeaddr}, {}).done(function(response) {
 				console.info(response.response);
-				if(response.reponse == "success")
+				if(response[0].husername)
 				{
-					clearInterval(interval_pairing);
+					self.ownSettings.bridgeaddr = response[0].bridgeaddr
+                    self.ownSettings.husername = response[0].husername
+                    clearInterval(interval_pairing);
 					text_pairing_count.innerHTML = "<font color='green'>Succesfull Pairing !</font>";
                     setTimeout(function(){
+                        document.getElementById("bridgeaddress").value(success)
                         self.getbridgestatus();
                     }, 5000);
 				}

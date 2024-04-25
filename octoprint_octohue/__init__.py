@@ -205,18 +205,16 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					return flask.jsonify(reponse="error")
 				elif(list(r.json()[0].keys())[0] == "success"):
 					token = r.json()[0]['success']['username']
-					huecreds = []
-					huecreds.append({
+					huecreds = [{
 						'bridgeaddr': bridgeaddr,
 						'husername': token
-					
-					})
+					}]
 					self._logger.debug("New Huesername %s" % token)
 					self._settings.set(['husername'], token)
 					self._settings.set(['bridgeaddr'], bridgeaddr)
 					self._settings.save()
 					self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-					return flask.jsonify(reponse="success")
+					return flask.jsonify(huecreds)
 
 			else:
 				return flask.jsonify(status="ok")
