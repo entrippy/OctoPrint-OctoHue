@@ -63,7 +63,7 @@ $(function() {
         };
 
         self.bridgepair = function() {
-            var bridgebutton= document.getElementById("huebridge_pairingbutton");
+            var bridgebutton = document.getElementById("huebridge_pairingbutton");
 		    bridgebutton.innerHTML = '<i class="fa fa-link"></i> Pairing...';
 		    bridgebutton.disabled = true;
 		    
@@ -115,13 +115,19 @@ $(function() {
         };
 
         self.getDevices = function (data) {
-            OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {}).done(function(response) { 
-                console.log(response);
-            })
+            return OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {})
+              .then(response => response.devices); // Access devices from successful response
         };
-
-        self.huePlugs = self.getDevices("plugs");
-        console.log(self.huePlugs);
+          
+        self.getDevices("hueplay")
+            .then(devices => {
+              self.huePlugs = devices;
+              console.log(self.huePlugs); // Now this will have the actual devices
+            })
+            .catch(error => {
+              console.error("Error fetching devices:", error);
+            }
+        );
 
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;

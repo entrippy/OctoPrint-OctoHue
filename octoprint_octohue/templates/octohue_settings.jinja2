@@ -129,8 +129,7 @@
                 <div class=""power-options>
                     <label class="control-label">{{ _('Hue Plug ID') }}</label>
                     <div class="controls">
-                        <input type="text" class="input-mini" data-bind="value: ownSettings.lampid">
-                        <select class="input-block-level" data-bind="options: huePlugs, optionsCaption: 'Select Plug', valueAllowUnset: true"></select>
+                        <select class="input-block-level" data-bind="options: huePlugs, optionsText: 'name', value: 'id', optionsCaption: 'Select Plug', valueAllowUnset: true"></select>
                     </div>
                 </div>
 
