@@ -31,7 +31,7 @@ $(function() {
         self.ownSettings = {};
         self.statusDict = [];
 
-        self.huePlugs = self.getDevices("plugs");
+
 
         self.addNewStatus = function () {
             var statusObj = {
@@ -112,12 +112,14 @@ $(function() {
                 }
                 
             });
-        }
+        };
 
         self.getDevices = function (data) {
-            OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {}).done(function(response) {
-			});
+            OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {}).done(function(response) {});
         };
+
+        self.huePlugs = self.getDevices("plugs");
+        console.log(self.huePlugs);
 
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
