@@ -115,8 +115,9 @@ $(function() {
         };
 
         self.getDevices = function (data) {
-            OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {}).done(function(response) {});
-            console.log(response);
+            OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {}).done(function(response) { 
+                console.log(response);
+            })
         };
 
         self.huePlugs = self.getDevices("plugs");
