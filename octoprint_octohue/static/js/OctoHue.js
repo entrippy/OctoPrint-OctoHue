@@ -31,6 +31,8 @@ $(function() {
         self.ownSettings = {};
         self.statusDict = [];
 
+        self.huePlugs = self.getDevices("plugs");
+
         self.addNewStatus = function () {
             var statusObj = {
                 event: ko.observable(''),
@@ -58,7 +60,7 @@ $(function() {
 					document.getElementById("huebridge_found").classList.remove("inactiveconfig");
 				}
 			});
-        }
+        };
 
         self.bridgepair = function() {
             var bridgebutton= document.getElementById("huebridge_pairingbutton");
@@ -97,7 +99,7 @@ $(function() {
 				document.getElementById("huebridge_startsearch").disabled = false;
 			}
 		}, 1000);
-        }
+        };
     
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
@@ -112,17 +114,16 @@ $(function() {
             });
         }
 
-        self.getdevices = function(data) {
+        self.getDevices = function (data) {
             OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {}).done(function(response) {
-				
 			});
-        }
+        };
 
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
-        }
+        };
 
         self.onSettingsShown = function () {
            self.getbridgestatus() 
@@ -158,10 +159,10 @@ $(function() {
 
         self.togglehue = function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
-        }
+        };
 
 
-    }
+    };
 
     /* view model class, parameters for constructor, container to bind to
      * Please see http://docs.octoprint.org/en/master/plugins/viewmodels.html#registering-custom-viewmodels for more details
