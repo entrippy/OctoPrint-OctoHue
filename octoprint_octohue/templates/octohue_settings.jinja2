@@ -76,6 +76,7 @@
                     <label class="control-label">{{ _('Hue Lamp or Group ID') }}</label>
                     <div class="controls">
                         <input type="text" class="input-mini" data-bind="value: ownSettings.lampid">
+                        <select class="input-block-level" data-bind="value: ownSettings.lampid, options: hueLamps, optionsText: 'name', optionsValue: 'id', optionsCaption: 'Select Light', valueAllowUnset: true"></select>
                         <label class="checkbox">
                             <input type="checkbox" data-bind="checked: ownSettings.lampisgroup">Use group instead of single lamp
                         </label>
@@ -127,10 +128,22 @@
 
             <div id="octohue_settings_power" class="tab-pane">
                 <div class=""power-options>
+                    <label class="checkbox">
+                        <input type="checkbox" data-bind="checked: ownSettings.showpowertoggle">Add Power Toggle Icon to Navigation Bar
+                    </label>
                     <label class="control-label">{{ _('Hue Plug ID') }}</label>
                     <div class="controls">
                         <select class="input-block-level" data-bind="value: ownSettings.plugid, options: huePlugs, optionsText: 'name', optionsValue: 'id', optionsCaption: 'Select Plug', valueAllowUnset: true"></select>
                     </div>
+                    <label class="checkbox">
+                        <input type="checkbox" data-bind="checked: ownSettings.autopoweroff">Power off printer after print (time or temperature)
+                    </label>
+                    <tbody class="control-group">
+                        <tr>
+                            <td>Temp(c)</td><td><input type="number" max="255" class="input-mini" data-bind="value: powerofftemp" value="0"></td>
+                            <td>Time(s)</td><td><input type="number" class="input-mini" data-bind="value: powerofftime" value="0"></td>
+                        </tr>
+                    </tbody>
                 </div>
 
             </div>

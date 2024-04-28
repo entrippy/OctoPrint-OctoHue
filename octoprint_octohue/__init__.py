@@ -295,6 +295,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			ononstartupevent="",
 			offonshutdown=True,
 			showhuetoggle=True,
+			showpowertoggle=False,
+			autopoweroff=False,
+			powerofftime="",
+			powerofftemp="",
 			statusDict=[]
 		)
 

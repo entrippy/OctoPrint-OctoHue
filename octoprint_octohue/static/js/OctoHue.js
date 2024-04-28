@@ -124,6 +124,13 @@ $(function() {
             }
         );
 
+        self.getDevices().then(devices => {
+            self.hueLamps = devices;
+        }).catch(error => {
+            console.error("Error fetching devices:", error);
+            }
+        );
+
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
