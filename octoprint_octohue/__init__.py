@@ -100,17 +100,21 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		return self.set_state(state)
 
-	def get_state(self):
+	def get_state(self, deviceid=None):
 		'''
 		Queries a device or devicegroups on/off state
 
 			Returns:
 				_state (bool): True for on.
 		'''
+		if deviceid is None:
+			deviceid = self._settings.get(['lampid'])
+
+		self._logger.debug(f"Getting state of {deviceid}")
 		if self._settings.get(['lampisgroup']) == True:
-			self._state = self.pbridge.groups[self._settings.get(['lampid'])]().get("action")['on']
+			self._state = self.pbridge.groups[deviceid]().get("action")['on']
 		else:
-			self._state = self.pbridge.lights[self._settings.get(['lampid'])]().get("state")['on']
+			self._state = self.pbridge.lights[deviceid]().get("state")['on']
 		self._logger.debug(f"Get State is {self._state}")
 		return self._state
 
@@ -128,11 +132,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		else:
 			self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
 
-	def toggle_state(self):
+	def toggle_state(self, deviceid=None):
 		'''
 		Queries a device or devicegroup for its state and flips it to its opposite state.
 		'''
-		if self.get_state():
+		if deviceid is None:
+			deviceid = self._settings.get(['lampid'])
+			
+		if self.get_state(deviceid):
 			self.build_state(illuminate=False)
 		else:
 			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
@@ -243,7 +250,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			return flask.jsonify(devices=device_elements)
 
 		elif command == 'togglehue':
-			self.toggle_state()
+			if 'deviceid' in data:
+				self._logger.debug(f"Device ID: {data['deviceid']}")
+				self.togglestate(data['deviceid'])
+			else:
+				self.toggle_state(self._settings.get(['lampid']))
 
 		elif command == 'getstate':
 			if self.get_state():
