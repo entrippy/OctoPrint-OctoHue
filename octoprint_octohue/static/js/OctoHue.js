@@ -172,6 +172,10 @@ $(function() {
         self.togglehue = function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
         };
+        
+        self.togglepower = function() {
+            OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
+        };
 
 
     };
