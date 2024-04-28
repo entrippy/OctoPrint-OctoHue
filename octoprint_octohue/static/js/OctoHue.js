@@ -31,8 +31,6 @@ $(function() {
         self.ownSettings = {};
         self.statusDict = [];
 
-
-
         self.addNewStatus = function () {
             var statusObj = {
                 event: ko.observable(''),
@@ -116,16 +114,13 @@ $(function() {
 
         self.getDevices = function (data) {
             return OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {})
-              .then(response => response.devices); // Access devices from successful response
+                .then(response => response.devices); // Access devices from successful response
         };
           
-        self.getDevices("hueplay")
-            .then(devices => {
-              self.huePlugs = devices;
-              console.log(self.huePlugs); // Now this will have the actual devices
-            })
-            .catch(error => {
-              console.error("Error fetching devices:", error);
+        self.getDevices("plug").then(devices => {
+            self.huePlugs = devices;
+        }).catch(error => {
+            console.error("Error fetching devices:", error);
             }
         );
 
