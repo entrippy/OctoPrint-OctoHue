@@ -138,7 +138,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
-			
+
 		if self.get_state(deviceid):
 			self.build_state(illuminate=False)
 		else:
@@ -365,13 +365,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			"bridgeaddr": self._settings.get(["bridgeaddr"]),
 			"husername": self._settings.get(["husername"]),
 			"lampid": self._settings.get(["lampid"]),
+			"plugid": self._settings.get(["plugid"]),
 			"lampisgroup": self._settings.get(["lampisgroup"]),
 			"defaultbri": self._settings.get(["defaultbri"]),
 			"ononstartup": self._settings.get(["ononstartup"]),
 			"configuredEvents": self.get_configured_events(),
 			"ononstartupevent": self._settings.get(["ononstartupevent"]),
 			"offonshutdown": self._settings.get(["offonshutdown"]),
-			"showhuetoggle": self._settings.get(["showhuetoggle"])
+			"showhuetoggle": self._settings.get(["showhuetoggle"]),
+			"showpowertoggle": self._settings.get(["showpowertoggle"]),
+			"autopoweroff": self._settings.get(["autopoweroff"]),
+			"powerofftime": self._settings.get(["powerofftime"]),
+			"powerofftemp": self._settings.get(["powerofftemp"]),
 		}
 		return my_settings
 

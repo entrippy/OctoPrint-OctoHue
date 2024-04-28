@@ -136,12 +136,12 @@
                         <select class="input-block-level" data-bind="value: ownSettings.plugid, options: huePlugs, optionsText: 'name', optionsValue: 'id', optionsCaption: 'Select Plug', valueAllowUnset: true"></select>
                     </div>
                     <label class="checkbox">
-                        <input type="checkbox" data-bind="checked: ownSettings.autopoweroff">Power off printer after print (time or temperature)
+                        <input type="checkbox" data-bind="checked: ownSettings.autopoweroff">Power off printer after print (time and temperature, if both slowest value wins)
                     </label>
                     <tbody class="control-group">
                         <tr>
-                            <td>Temp(c)</td><td><input type="number" max="255" class="input-mini" data-bind="value: powerofftemp" value="0"></td>
-                            <td>Time(s)</td><td><input type="number" class="input-mini" data-bind="value: powerofftime" value="0"></td>
+                            <td>Temp(c): </td><td><input type="number" max="255" class="input-mini" data-bind="value: powerofftemp" value="0"></td>
+                            <td>Time(s): </td><td><input type="number" max="900" class="input-mini" data-bind="value: powerofftime" value="0"></td>
                         </tr>
                     </tbody>
                 </div>
