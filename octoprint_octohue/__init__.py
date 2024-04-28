@@ -138,7 +138,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
-
+			self._logger.debug(f"Toggling {deviceid}")
+		self._logger.debug(f"Toggling {deviceid}")
 		if self.get_state(deviceid):
 			self.build_state(illuminate=False)
 		else:
@@ -250,6 +251,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			return flask.jsonify(devices=device_elements)
 
 		elif command == 'togglehue':
+			self._logger.debug(data)
 			if 'deviceid' in data:
 				self._logger.debug(f"Device ID: {data['deviceid']}")
 				self.togglestate(data['deviceid'])
