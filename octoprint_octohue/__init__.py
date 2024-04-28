@@ -251,7 +251,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			return flask.jsonify(devices=device_elements)
 
 		elif command == 'togglehue':
-			self._logger.debug(data)
+			self._logger.debug(f"Toggling Hue for {data['deviceid']}")
 			if 'deviceid' in data:
 				self._logger.debug(f"Device ID: {data['deviceid']}")
 				self.togglestate(data['deviceid'])
