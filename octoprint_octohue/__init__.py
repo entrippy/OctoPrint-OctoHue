@@ -71,7 +71,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		
 		return xy
 
-	def build_state(self, colour=None, transitiontime=5, bri=None, illuminate=True):
+	def build_state(self, colour=None, transitiontime=5, bri=None, illuminate=True, deviceid=None):
 		'''
 		Assembles payload used to set a lights state
 
@@ -98,7 +98,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		state['transitiontime'] = transitiontime
 
-		return self.set_state(state)
+		return self.set_state(state, deviceid)
 
 	def get_state(self, deviceid=None):
 		'''
@@ -118,19 +118,22 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug(f"Get State is {self._state}")
 		return self._state
 
-	def set_state(self, state):
+	def set_state(self, state, deviceid=None):
 		'''
 		Set a device or devicegroup to the desired state
 
 			Parameters:
 				state (dict): Dictionary of state settings; see build_state()
 		'''
+		if deviceid is None:
+			deviceid = self._settings.get(['lampid'])
+
 		self._logger.debug(f"Setting lampid: {self._settings.get(['lampid'])} Is Group: {self._settings.get(['lampisgroup'])} with State: {state}")
 
 		if self._settings.get(['lampisgroup']) == True:
-			self.pbridge.groups[self._settings.get(['lampid'])].action(**state)
+			self.pbridge.groups[deviceid].action(**state)
 		else:
-			self.pbridge.lights[self._settings.get(['lampid'])].state(**state)
+			self.pbridge.lights[deviceid].state(**state)
 
 	def toggle_state(self, deviceid=None):
 		'''
@@ -139,6 +142,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
 			self._logger.debug(f"Toggling {deviceid}")
+
 		self._logger.debug(f"Toggling {deviceid}")
 		if self.get_state(deviceid):
 			self.build_state(illuminate=False)
@@ -254,7 +258,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.debug(f"Toggling Hue for {data}")
 			if 'deviceid' in data:
 				self._logger.debug(f"Device ID: {data['deviceid']}")
-				self.togglestate(data['deviceid'])
+				self.toggle_state(data['deviceid'])
 			else:
 				self.toggle_state(self._settings.get(['lampid']))
 
