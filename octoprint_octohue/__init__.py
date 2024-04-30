@@ -87,8 +87,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		state = {}
 		state['on'] = illuminate
-		
-		self._logger.debug(f"Build DeviceID is now {deviceid}")
 
 		if illuminate == True:
 			if bri is None:
@@ -117,7 +115,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._state = self.pbridge.groups[deviceid]().get("action")['on']
 		else:
 			self._state = self.pbridge.lights[deviceid]().get("state")['on']
-		self._logger.debug(f"Get State is {self._state}")
+			
 		return self._state
 
 	def set_state(self, state, deviceid=None):
@@ -127,11 +125,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Parameters:
 				state (dict): Dictionary of state settings; see build_state()
 		'''
-		self._logger.debug(f"DeviceID is {deviceid}")
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
 
-		self._logger.debug(f"DeviceID is now {deviceid}")
 		self._logger.debug(f"Setting lampid: {deviceid} Is Group: {self._settings.get(['lampisgroup'])} with State: {state}")
 
 		if (self._settings.get(['lampisgroup']) == True and self._settings.get['plugid'] != deviceid):
@@ -145,9 +141,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
-			self._logger.debug(f"Toggling {deviceid}")
 
-		self._logger.debug(f"Toggling {deviceid}")
 		if self.get_state(deviceid):
 			self.build_state(illuminate=False, deviceid=deviceid)
 		else:
@@ -261,7 +255,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'togglehue':
 			self._logger.debug(f"Toggling Hue for {data}")
 			if 'deviceid' in data:
-				self._logger.debug(f"Device ID: {data['deviceid']}")
 				self.toggle_state(data['deviceid'])
 			else:
 				self.toggle_state(self._settings.get(['lampid']))
