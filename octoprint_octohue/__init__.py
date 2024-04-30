@@ -88,6 +88,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		state = {}
 		state['on'] = illuminate
 		
+		self._logger.debug(f"Build DeviceID is now {deviceid}")
+
 		if illuminate == True:
 			if bri is None:
 				bri = int(self._settings.get(['defaultbri']))
