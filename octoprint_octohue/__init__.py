@@ -125,9 +125,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Parameters:
 				state (dict): Dictionary of state settings; see build_state()
 		'''
+		self._logger.debug(f"DeviceID is {deviceid}")
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
 
+		self._logger.debug(f"DeviceID is now {deviceid}")
 		self._logger.debug(f"Setting lampid: {deviceid} Is Group: {self._settings.get(['lampisgroup'])} with State: {state}")
 
 		if (self._settings.get(['lampisgroup']) == True and self._settings.get['plugid'] != deviceid):
