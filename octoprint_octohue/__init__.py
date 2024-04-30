@@ -130,7 +130,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		self._logger.debug(f"Setting lampid: {self._settings.get(['lampid'])} Is Group: {self._settings.get(['lampisgroup'])} with State: {state}")
 
-		if self._settings.get(['lampisgroup']) == True:
+		if (self._settings.get(['lampisgroup']) == True and self._settings.get['plugid'] != deviceid):
 			self.pbridge.groups[deviceid].action(**state)
 		else:
 			self.pbridge.lights[deviceid].state(**state)
