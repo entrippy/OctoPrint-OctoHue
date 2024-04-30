@@ -173,8 +173,8 @@ $(function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
         };
         
-        self.togglepower = function() {
-            OctoPrint.simpleApiCommand("octohue", "togglehue", {"deviceid": self.ownSettings.plugid}, {});
+        self.togglepower = function(data) {
+            OctoPrint.simpleApiCommand("octohue", "togglehue", {"deviceid": self.settingsViewModel.settings.plugins.octohue.plugid}, {});
         };
 
 
