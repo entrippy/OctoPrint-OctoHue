@@ -149,9 +149,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		self._logger.debug(f"Toggling {deviceid}")
 		if self.get_state(deviceid):
-			self.build_state(illuminate=False)
+			self.build_state(illuminate=False, deviceid=deviceid)
 		else:
-			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
+			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
 
 	def get_configured_events(self):
 		'''
