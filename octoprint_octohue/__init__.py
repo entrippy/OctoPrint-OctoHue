@@ -71,7 +71,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		
 		return xy
 
-	def build_state(self, colour=None, transitiontime=5, bri=None, illuminate=True, deviceid=None):
+	def build_state(self, **kwargs):
 		'''
 		Assembles payload used to set a lights state
 
@@ -84,21 +84,22 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Returns:
 				set_state() with the assembled payload
 		'''
-
+		for key, value in kwargs.items():
+			print("{} -> {}".format(key, value))
+	
 		state = {}
-		state['on'] = illuminate
+		state['on'] = kwargs['illuminate']
 
-		if illuminate == True:
-			if bri is None:
-				bri = int(self._settings.get(['defaultbri']))
-			state['bri'] = bri
+		if kwargs.illuminate == True:
+			for key, value in kwargs.items():
+				if key != 'deviceid' or key != 'colour':
+					self._logger.debug("{} -> {}".format(key, value))
+					state[key] = value
 			
-			if colour is not None:
-				state['xy'] = self.rgb_to_xy(colour)
+				if "colour" in kwargs and kwargs['colour'] is not None:
+					state['xy'] = self.rgb_to_xy(kwargs.colour)
 
-		state['transitiontime'] = transitiontime
-
-		return self.set_state(state, deviceid)
+		return self.set_state(state, kwargs['deviceid'])
 
 	def get_state(self, deviceid=None):
 		'''
@@ -115,7 +116,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._state = self.pbridge.groups[deviceid]().get("action")['on']
 		else:
 			self._state = self.pbridge.lights[deviceid]().get("state")['on']
-			
+
 		return self._state
 
 	def set_state(self, state, deviceid=None):
@@ -275,7 +276,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self.build_state(illuminate=False)
 
 	# Trigger state on Status match
-	def on_event(self, event, payload):
+	def on_event(self, event):
 		self._logger.debug(f"Recieved Status: {event} from Printer")
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
 		if my_statusEvent: 
