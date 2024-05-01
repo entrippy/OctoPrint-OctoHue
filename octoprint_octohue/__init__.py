@@ -92,7 +92,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		if kwargs['illuminate'] == True:
 			for key, value in kwargs.items():
-				if key != 'deviceid' or key != 'colour':
+				if key != 'deviceid' or key != 'colour' or key != 'illuminate':
 					self._logger.debug("{} -> {}".format(key, value))
 					state[key] = value
 			
