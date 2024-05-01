@@ -84,9 +84,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Returns:
 				set_state() with the assembled payload
 		'''
-		for key, value in kwargs.items():
-			print("{} -> {}".format(key, value))
-	
+		
 		state = {}
 		state['on'] = kwargs['illuminate']
 
