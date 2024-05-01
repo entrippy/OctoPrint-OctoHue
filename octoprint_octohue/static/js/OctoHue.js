@@ -134,7 +134,7 @@ $(function() {
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
-            self.statusDict = self.settingsViewModel.settings.plugins.octohue.statusDict;
+            self.statusDict = self.ownSettings.statusDict;
         };
 
         self.onSettingsShown = function () {
@@ -142,7 +142,7 @@ $(function() {
         };
 
         self.removeStatus = function (data) {
-            self.settingsViewModel.settings.plugins.octohue.statusDict.remove(
+            self.ownSettings.statusDict.remove(
                 data
             );
         };
@@ -174,9 +174,7 @@ $(function() {
         };
         
         self.togglepower = function(data) {
-            console.log("PlugID is: " + self.settingsViewModel.settings.plugins.octohue.plugid)
-            console.log("Toggle power")
-            OctoPrint.simpleApiCommand("octohue", "togglehue", {"deviceid": self.settingsViewModel.settings.plugins.octohue.plugid}, {});
+            OctoPrint.simpleApiCommand("octohue", "togglehue", {"deviceid": self.ownSettings.plugid()}, {});
         };
 
 
