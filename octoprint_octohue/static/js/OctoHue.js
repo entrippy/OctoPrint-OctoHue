@@ -174,6 +174,8 @@ $(function() {
         };
         
         self.togglepower = function(data) {
+            console.log("PlugID is: " + self.settingsViewModel.settings.plugins.octohue.plugid)
+            console.log("Toggle power")
             OctoPrint.simpleApiCommand("octohue", "togglehue", {"deviceid": self.settingsViewModel.settings.plugins.octohue.plugid}, {});
         };
 
