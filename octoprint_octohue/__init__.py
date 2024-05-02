@@ -87,7 +87,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		state = {}
 		exclude_keys = {"illuminate", "deviceid", "colour"}
-  
+		self._logger.debug(f"Final Kwargs: {kwargs}")
+
 		if kwargs['on'] == True:
 			state = {key: value for key, value in kwargs.items() if key not in exclude_keys}
 			
