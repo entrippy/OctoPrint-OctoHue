@@ -79,24 +79,22 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				colour (string): 6 Char RBG Hex colour string
 				transitiontime (int): Desired duration of the state transition time
 				bri (int): 8bit int representing desired brightness, 255 = max brightness
-				illuminate (bool): True = Light On, False = Light Off
+				on (bool): True = Light On, False = Light Off
 
 			Returns:
 				set_state() with the assembled payload
 		'''
 
 		state = {}
-		state['on'] = kwargs['illuminate']
-
-		if kwargs['illuminate'] == True:
-			for key, value in kwargs.items():
-				if key != 'deviceid' or key != 'colour' or key != 'illuminate':
-					self._logger.debug("Adding {} -> {}".format(key, value))
-					state[key] = value
+		exclude_keys = {"illuminate", "deviceid", "colour"}
+  
+		if kwargs['on'] == True:
+			state = {key: value for key, value in kwargs.items() if key not in exclude_keys}
 			
-				if "colour" in kwargs and kwargs['colour'] is not None:
-					state['xy'] = self.rgb_to_xy(kwargs.colour)
+			if "colour" in kwargs and kwargs['colour'] is not None:
+				state['xy'] = self.rgb_to_xy(kwargs.colour)
 
+		self._logger.debug(f"Final State: {state}")
 		return self.set_state(state, kwargs['deviceid'])
 
 	def get_state(self, deviceid=None):
@@ -142,9 +140,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			deviceid = self._settings.get(['lampid'])
 
 		if self.get_state(deviceid):
-			self.build_state(illuminate=False, deviceid=deviceid)
+			self.build_state(on=False, deviceid=deviceid)
 		else:
-			self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
+			self.build_state(on=True, bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
 
 	def get_configured_events(self):
 		'''
@@ -266,12 +264,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			
 		elif command == 'turnon':
 			if "colour" in data:
-				self.build_state(illuminate=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri'])))
+				self.build_state(on=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri'])))
 			else:
-				self.build_state(illuminate=True, bri=int(self._settings.get(['defaultbri'])))
+				self.build_state(on=True, bri=int(self._settings.get(['defaultbri'])))
 
 		elif command == 'turnoff':
-			self.build_state(illuminate=False)
+			self.build_state(on=False)
 
 	# Trigger state on Status match
 	def on_event(self, event):
@@ -288,7 +286,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
 
 			else:
-				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'illuminate':False})
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':False})
 		
 			delayedtask.start()
 
