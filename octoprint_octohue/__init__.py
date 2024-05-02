@@ -84,14 +84,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Returns:
 				set_state() with the assembled payload
 		'''
-		
+
 		state = {}
 		state['on'] = kwargs['illuminate']
 
 		if kwargs['illuminate'] == True:
 			for key, value in kwargs.items():
 				if key != 'deviceid' or key != 'colour' or key != 'illuminate':
-					self._logger.debug("{} -> {}".format(key, value))
+					self._logger.debug("Adding {} -> {}".format(key, value))
 					state[key] = value
 			
 				if "colour" in kwargs and kwargs['colour'] is not None:
