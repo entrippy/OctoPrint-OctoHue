@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import octoprint.plugin
+import octoprint.printer
 from qhue import Bridge
 from octoprint_octohue.colourfunctions import *
 from octoprint.util import *
@@ -19,7 +20,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.plugin.SimpleApiPlugin,
 					octoprint.plugin.AssetPlugin,
 					octoprint.plugin.TemplatePlugin,
-					octoprint.plugin.EventHandlerPlugin):
+					octoprint.plugin.EventHandlerPlugin,
+					octoprint.printer.PrinterInterface):
 
 
 	pbridge=''
@@ -174,6 +176,24 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._settings.get(['offonshutdown']) == True:
 			self.set_state({"on": False})
 
+	def printer_power_down(self):
+		'''
+		Commands to call on Printer Power Down
+			offonshutdown : Turn off device if true
+		'''
+		delay = self._settings.get(['powerofftime']) or 0
+		delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':False, 'deviceid':self._settings.get(['plugid'])})
+
+		delayedtask.start()
+		#powerofftemp
+
+	def printer_check_temp_power_down(self):
+		'''
+		Commands to call on Printer Cool Down
+			offonshutdown : Turn off device if true
+		'''
+		self._logger.debug(f"Cool Down: {self._printer.get_current_temperatures()}")
+
 	def get_api_commands(self):
 		return dict(
 			bridge=[],
@@ -181,7 +201,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			togglehue=[],
 			getstate=[],
 			turnon=[],
-			turnoff=[]
+			turnoff=[],
+			cooldown=[]
 		)
 	
 	def on_api_command(self, command, data):
@@ -271,6 +292,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'turnoff':
 			self.build_state(on=False)
 
+		elif command == 'cooldown':
+			self.printer_check_temp_power_down()
+			
 	# Trigger state on Status match
 	def on_event(self, event):
 		self._logger.debug(f"Recieved Status: {event} from Printer")
@@ -280,7 +304,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			delay = my_statusEvent['delay'] or 0
 
 			if my_statusEvent['turnoff'] == False:
-				brightness = my_statusEvent['brightness'] or self._settings.get(['defaultbri'])
+				brightness = my_statusEvent['brightness']
 				colour = my_statusEvent['colour']
 
 				delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
