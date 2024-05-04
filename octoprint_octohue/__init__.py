@@ -182,17 +182,21 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			offonshutdown : Turn off device if true
 		'''
 		delay = self._settings.get(['powerofftime']) or 0
-		delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':False, 'deviceid':self._settings.get(['plugid'])})
+		delayedtask = ResettableTimer(delay, self.printer_check_temp_power_down(self))
 
 		delayedtask.start()
-		#powerofftemp
+		
 
 	def printer_check_temp_power_down(self):
 		'''
-		Commands to call on Printer Cool Down
-			offonshutdown : Turn off device if true
+		Check if minimum temperature for shutdown is reached if defined.
+		Shutdown if below temp or not defined.
 		'''
 		self._logger.debug(f"Cool Down: {self._printer.get_current_temperatures()}")
+		#self.build_state(on=False, deviceid=self._settings.get(['plugid']))
+		tooltemp = self._printer.get_current_temperatures()['tool0']['actual']
+		self._logger.debug(f"Tool Temp: {tooltemp}")
+		#powerofftemp
 
 	def get_api_commands(self):
 		return dict(
