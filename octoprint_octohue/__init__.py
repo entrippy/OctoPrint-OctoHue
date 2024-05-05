@@ -192,6 +192,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Check if minimum temperature for shutdown is reached if defined.
 		Shutdown if below temp or not defined.
 		'''
+		deviceid = self._settings.get(['plugid'])
 		target_temp = int(self._settings.get(['powerofftemp'])) or 0
 		while True:
 			current_temp = int(self._printer.get_current_temperatures()['tool0']['actual'])
@@ -199,6 +200,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
 			if current_temp <= target_temp or current_temp <= 40:
 				self._logger.debug(f"Temperature reached {current_temp}, shutting down.")
+				self.build_state(on=False, deviceid=deviceid)
 				break
 			else:
 				self._logger.debug(f"Current temperature: {current_temp}, waiting 30 seconds...")
