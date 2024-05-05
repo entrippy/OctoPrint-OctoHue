@@ -198,10 +198,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.debug(f"Safe Shutdown Requested! Tool Temp: {current_temp}, Looking for PowerOff Temp: {target_temp}")
 			# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
 			if current_temp <= target_temp or current_temp <= 40:
-				print(f"Temperature reached {current_temp}, shutting down.")
+				self._logger.debug(f"Temperature reached {current_temp}, shutting down.")
 				break
 			else:
-				print(f"Current temperature: {current_temp}, waiting 30 seconds...")
+				self._logger.debug(f"Current temperature: {current_temp}, waiting 30 seconds...")
 				# Schedule the next check after 30 seconds
 				timer = Timer(30.0, self.printer_check_temp_power_down)
 				timer.start()
