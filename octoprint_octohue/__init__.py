@@ -334,7 +334,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				brightness = my_statusEvent['brightness']
 				colour = my_statusEvent['colour']
 
-				delayedtask = Timer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
+				delayedtask = Timer(delay, self.build_state, kwargs={'colour':colour, 'bri':int(brightness)})
 
 			else:
 				delayedtask = Timer(delay, self.build_state, kwargs={'on':False})
