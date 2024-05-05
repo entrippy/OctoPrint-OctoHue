@@ -87,6 +87,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Returns:
 				set_state() with the assembled payload
 		'''
+		
+		self._logger.debug(f"Build_state Called with: {kwargs}")
 		if kwargs['deviceid'] is None:
 			self._logger.debug("No deviceid provided")
 
@@ -333,11 +335,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				colour = my_statusEvent['colour']
 
 				delayedtask = Timer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
-				self._logger.debug(f"Turning {deviceid} On: {delayedtask}")
 
 			else:
 				delayedtask = Timer(delay, self.build_state, kwargs={'on':False})
-				self._logger.debug(f"Turning {deviceid} Off: {delayedtask}")
 		
 			delayedtask.start()
 		
