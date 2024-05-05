@@ -195,7 +195,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug(f"Cool Down: {self._printer.get_current_temperatures()}")
 
 		while True:
-			current_temp = sint(elf._printer.get_current_temperatures()['tool0']['actual'])
+			current_temp = int(self._printer.get_current_temperatures()['tool0']['actual'])
 			self._logger.debug(f"Tool Temp: {current_temp}, PowerOff Temp: {self._settings.get(['powerofftemp'])}")
 			# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
 			if current_temp < int(self._settings.get(['powerofftemp'])) or current_temp < 40:
