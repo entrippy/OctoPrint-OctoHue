@@ -7,7 +7,7 @@ from octoprint.util import *
 import octoprint.plugin
 from flask import *
 import requests
-import re
+from threading import Timer
 from urllib3.exceptions import InsecureRequestWarning
  
 # Suppress the warnings from urllib3
@@ -193,10 +193,21 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Shutdown if below temp or not defined.
 		'''
 		self._logger.debug(f"Cool Down: {self._printer.get_current_temperatures()}")
-		#self.build_state(on=False, deviceid=self._settings.get(['plugid']))
-		tooltemp = self._printer.get_current_temperatures()['tool0']['actual']
+
+		while True:
+			current_temp = self._printer.get_current_temperatures()['tool0']['actual']
+			# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
+			if current_temp < self._settings.get(['powerofftemp']) or current_temp < 40:
+				print(f"Temperature reached {current_temp}, shutting down.")
+				break
+			else:
+				print(f"Current temperature: {current_temp}, waiting 30 seconds...")
+				# Schedule the next check after 30 seconds
+				timer = Timer(30.0, check_temperature)
+				timer.start()
+		
 		self._logger.debug(f"Tool Temp: {tooltemp}")
-		#powerofftemp
+
 
 	def get_api_commands(self):
 		return dict(
