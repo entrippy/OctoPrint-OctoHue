@@ -338,8 +338,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 			else:
 				delayedtask = Timer(delay, self.build_state, kwargs={'on':False})
-		
-			delayedtask.start()
+
+			try:
+				delayedtask.start()
+			except Exception as e:
+				self._logger.error(f"Error starting delayed task: {e}")
+
 		
 		if self._settings.get(['autopoweroff']) == True and event == 'PrintDone':
 			self.printer_start_power_down()
