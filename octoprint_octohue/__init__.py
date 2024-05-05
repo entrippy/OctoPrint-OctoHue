@@ -332,12 +332,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				brightness = my_statusEvent['brightness']
 				colour = my_statusEvent['colour']
 
-				self._logger.debug(f"Turning {deviceid} On")
 				delayedtask = Timer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
+				self._logger.debug(f"Turning {deviceid} On: {delayedtask}")
 
 			else:
-				self._logger.debug(f"Turning {deviceid} Off")
 				delayedtask = Timer(delay, self.build_state, kwargs={'on':False})
+				self._logger.debug(f"Turning {deviceid} Off: {delayedtask}")
 		
 			delayedtask.start()
 		
