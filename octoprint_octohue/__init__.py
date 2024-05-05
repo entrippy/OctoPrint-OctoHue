@@ -89,14 +89,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		
 		self._logger.debug(f"Build_state Called with: {kwargs}")
-		if kwargs['deviceid'] is None:
-			self._logger.debug("No deviceid provided")
 
 		state = {}
 		exclude_keys = {"deviceid", "colour"}
 		self._logger.debug(f"Final Kwargs: {kwargs}")
 		state = {key: value for key, value in kwargs.items() if key not in exclude_keys}
-
+		self._logger.debug(f"Early state: {state}")
 		if kwargs['on'] == True:
 			if "colour" in kwargs and kwargs['colour'] is not None:
 				state['xy'] = self.rgb_to_xy(kwargs.colour)
