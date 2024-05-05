@@ -82,6 +82,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				transitiontime (int): Desired duration of the state transition time
 				bri (int): 8bit int representing desired brightness, 255 = max brightness
 				on (bool): True = Light On, False = Light Off
+				deviceid (int): The ID of the device to set the state for
 
 			Returns:
 				set_state() with the assembled payload
@@ -144,7 +145,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self.get_state(deviceid):
 			self.build_state(on=False, deviceid=deviceid)
 		else:
-			self.build_state(on=True, bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
+			if deviceid != self._settings.get(['plugid']):
+				self.build_state(on=True, bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
+			else:
+				self.build_state(on=True, deviceid=deviceid)
 
 	def get_configured_events(self):
 		'''
@@ -296,13 +300,19 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.jsonify(on="false")
 			
 		elif command == 'turnon':
+			if deviceid is None:
+				deviceid = self._settings.get(['lampid'])
+
 			if "colour" in data:
-				self.build_state(on=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri'])))
+				self.build_state(on=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri']), deviceid=deviceid))
 			else:
-				self.build_state(on=True, bri=int(self._settings.get(['defaultbri'])))
+				self.build_state(on=True, bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
 
 		elif command == 'turnoff':
-			self.build_state(on=False)
+			if deviceid is None:
+				deviceid = self._settings.get(['lampid'])
+
+			self.build_state(on=False, deviceid=deviceid)
 
 		elif command == 'cooldown':
 			self.printer_check_temp_power_down()
@@ -328,7 +338,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		
 		if self._settings.get(['autopoweroff']) == True and event == 'PrintDone':
 			self.printer_start_power_down()
-
 
 	# General Octoprint Hooks Below
 
