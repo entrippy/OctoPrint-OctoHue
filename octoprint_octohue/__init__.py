@@ -87,6 +87,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Returns:
 				set_state() with the assembled payload
 		'''
+		if kwargs['deviceid'] is None:
+			self._logger.debug("No deviceid provided")
 
 		state = {}
 		exclude_keys = {"deviceid", "colour"}
@@ -329,10 +331,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				brightness = my_statusEvent['brightness']
 				colour = my_statusEvent['colour']
 
-				delayedtask = ResettableTimer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
+				delayedtask = Timer(delay, self.build_state, args=[colour], kwargs={'bri':int(brightness)})
 
 			else:
-				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':False})
+				delayedtask = Timer(delay, self.build_state, kwargs={'on':False})
 		
 			delayedtask.start()
 		
