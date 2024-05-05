@@ -176,17 +176,16 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._settings.get(['offonshutdown']) == True:
 			self.set_state({"on": False})
 
-	def printer_power_down(self):
+	def printer_start_power_down(self):
 		'''
 		Commands to call on Printer Power Down
 			offonshutdown : Turn off device if true
 		'''
 		delay = self._settings.get(['powerofftime']) or 0
-		delayedtask = ResettableTimer(delay, self.printer_check_temp_power_down(self))
+		delayedtask = Timer(delay, self.printer_check_temp_power_down(self))
 
 		delayedtask.start()
 		
-
 	def printer_check_temp_power_down(self):
 		'''
 		Check if minimum temperature for shutdown is reached if defined.
@@ -196,19 +195,17 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		target_temp = int(self._settings.get(['powerofftemp'])) or 0
 		while True:
 			current_temp = int(self._printer.get_current_temperatures()['tool0']['actual'])
-			self._logger.debug(f"Safe Shutdown Requested! Tool Temp: {current_temp}, Looking for PowerOff Temp: {target_temp}")
+			self._logger.debug(f"Safe Shutdown Requested! Tool Temp: {current_temp}, Looking for Safe Cooldown Temp: {target_temp}")
 			# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
 			if current_temp <= target_temp or current_temp <= 40:
-				self._logger.debug(f"Temperature reached {current_temp}, shutting down.")
+				self._logger.debug(f"Safe Cooldown reached {current_temp}, shutting down.")
 				self.build_state(on=False, deviceid=deviceid)
 				break
 			else:
 				self._logger.debug(f"Current temperature: {current_temp}, waiting 30 seconds...")
-				# Schedule the next check after 30 seconds
 				timer = Timer(30.0, self.printer_check_temp_power_down)
 				timer.start()
-		
-
+	
 	def get_api_commands(self):
 		return dict(
 			bridge=[],
@@ -328,6 +325,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':False})
 		
 			delayedtask.start()
+		
+		if self._settings.get(['autopoweroff']) == True and event == 'PrintDone':
+			self.printer_start_power_down()
+
 
 	# General Octoprint Hooks Below
 
