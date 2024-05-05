@@ -310,7 +310,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self.printer_check_temp_power_down()
 			
 	# Trigger state on Status match
-	def on_event(self, event):
+	def on_event(self, event, payload):
 		self._logger.debug(f"Recieved Status: {event} from Printer")
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
 		if my_statusEvent: 
