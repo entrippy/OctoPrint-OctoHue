@@ -97,7 +97,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug(f"Early state: {state}")
 		if kwargs['on'] == True:
 			if "colour" in kwargs and kwargs['colour'] is not None:
-				state['xy'] = self.rgb_to_xy(kwargs.colour)
+				state['xy'] = self.rgb_to_xy(kwargs['colour'])
 
 		self._logger.debug(f"Final State: {state}")
 		return self.set_state(state, kwargs['deviceid'])
