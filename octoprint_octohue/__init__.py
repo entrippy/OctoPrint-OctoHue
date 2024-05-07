@@ -8,7 +8,7 @@ from octoprint.util import *
 import octoprint.plugin
 from flask import *
 import requests
-from threading import Timer
+#from threading import Timer
 from urllib3.exceptions import InsecureRequestWarning
  
 # Suppress the warnings from urllib3
@@ -211,7 +211,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				break
 			else:
 				self._logger.debug(f"Current temperature: {current_temp}, waiting 30 seconds...")
-				timer = Timer(30.0, self.printer_check_temp_power_down)
+				timer = ResettableTimer(30.0, self.printer_check_temp_power_down)
 				timer.start()
 	
 	def get_api_commands(self):
