@@ -3,7 +3,6 @@ import octoprint.plugin
 import octoprint.printer
 from qhue import Bridge
 from octoprint_octohue.colourfunctions import XYZColor, sRGBColor
-from octoprint_octohue.colour_constants import convert_color
 from octoprint.util import *
 import octoprint.plugin
 from flask import *
