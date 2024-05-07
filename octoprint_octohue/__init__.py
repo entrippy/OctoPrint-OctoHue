@@ -190,7 +190,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			offonshutdown : Turn off device if true
 		'''
 		delay = self._settings.get(['powerofftime']) or 0
-		delayedtask = Timer(delay, self.printer_check_temp_power_down(self))
+		delayedtask = ResettableTimer(delay, self.printer_check_temp_power_down(self))
 
 		delayedtask.start()
 		
