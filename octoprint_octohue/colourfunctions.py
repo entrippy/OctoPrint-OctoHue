@@ -318,7 +318,7 @@ class IlluminantMixin(object):
         :param str observer: One of '2' or '10'.
         """
         observer = str(observer)
-        if observer not in color_constants.OBSERVERS:
+        if observer not in colour_constants.OBSERVERS:
             raise InvalidObserverError(self)
         self.observer = observer
 
@@ -337,7 +337,7 @@ class IlluminantMixin(object):
         :param str illuminant: One of the various illuminants.
         """
         illuminant = illuminant.lower()
-        if illuminant not in color_constants.ILLUMINANTS[self.observer]:
+        if illuminant not in colour_constants.ILLUMINANTS[self.observer]:
             raise InvalidIlluminantError(illuminant)
         self.illuminant = illuminant
 
@@ -352,7 +352,7 @@ class IlluminantMixin(object):
             if observer is None:
                 observer = self.observer
 
-            illums_observer = color_constants.ILLUMINANTS[observer]
+            illums_observer = colour_constants.ILLUMINANTS[observer]
         except KeyError:
             raise InvalidObserverError(self)
 
@@ -419,13 +419,13 @@ def apply_chromatic_adaptation(
     # Get white-points for illuminant
     if isinstance(orig_illum, str):
         orig_illum = orig_illum.lower()
-        wp_src = color_constants.ILLUMINANTS[observer][orig_illum]
+        wp_src = colour_constants.ILLUMINANTS[observer][orig_illum]
     elif hasattr(orig_illum, "__iter__"):
         wp_src = orig_illum
 
     if isinstance(targ_illum, str):
         targ_illum = targ_illum.lower()
-        wp_dst = color_constants.ILLUMINANTS[observer][targ_illum]
+        wp_dst = colour_constants.ILLUMINANTS[observer][targ_illum]
     elif hasattr(targ_illum, "__iter__"):
         wp_dst = targ_illum
 
@@ -434,9 +434,10 @@ def apply_chromatic_adaptation(
     transform_matrix = _get_adaptation_matrix(wp_src, wp_dst, observer, adaptation)
 
     # Stuff the XYZ values into a NumPy matrix for conversion.
-    XYZ_matrix = numpy.array((val_x, val_y, val_z))
+    XYZ_matrix = [val_x, val_y, val_z]
     # Perform the adaptation via matrix multiplication.
-    result_matrix = numpy.dot(transform_matrix, XYZ_matrix)
+    #result_matrix = numpy.dot(transform_matrix, XYZ_matrix)
+    result_matrix = transform_matrix @ XYZ_matrix
 
     # Return individual X, Y, and Z coordinates.
     return result_matrix[0], result_matrix[1], result_matrix[2]
@@ -590,3 +591,43 @@ def convert_color(
         new_color._through_rgb_type = through_rgb_type
 
     return new_color
+
+def _get_adaptation_matrix(wp_src, wp_dst, observer, adaptation):
+    """
+    Calculate the correct transformation matrix based on origin and target
+    illuminants. The observer angle must be the same between illuminants.
+
+    See colormath.color_constants.ADAPTATION_MATRICES for a list of possible
+    adaptations.
+
+    Detailed conversion documentation is available at:
+    http://brucelindbloom.com/Eqn_ChromAdapt.html
+    """
+    # Get the appropriate transformation matrix, [MsubA].
+    m_sharp = colour_constants.ADAPTATION_MATRICES[adaptation]
+
+    # In case the white-points are still input as strings
+    # Get white-points for illuminant
+    if isinstance(wp_src, str):
+        orig_illum = wp_src.lower()
+        wp_src = colour_constants.ILLUMINANTS[observer][orig_illum]
+    elif hasattr(wp_src, "__iter__"):
+        wp_src = wp_src
+
+    if isinstance(wp_dst, str):
+        targ_illum = wp_dst.lower()
+        wp_dst = colour_constants.ILLUMINANTS[observer][targ_illum]
+    elif hasattr(wp_dst, "__iter__"):
+        wp_dst = wp_dst
+
+    # Sharpened cone responses ~ rho gamma beta ~ sharpened r g b
+    rgb_src = m_sharp @ wp_src
+    rgb_dst = m_sharp @ wp_dst
+
+    # Ratio of whitepoint sharpened responses
+    m_rat = numpy.diag(rgb_dst / rgb_src)
+
+    # Final transformation matrix
+    m_xfm = numpy.dot(numpy.dot(pinv(m_sharp), m_rat), m_sharp)
+
+    return m_xfm

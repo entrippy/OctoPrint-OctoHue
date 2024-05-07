@@ -333,10 +333,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				brightness = my_statusEvent['brightness']
 				colour = my_statusEvent['colour']
 
-				delayedtask = Timer(delay, self.build_state, kwargs={'on':True, 'colour':colour, 'bri':int(brightness), 'deviceid':deviceid})
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':True, 'colour':colour, 'bri':int(brightness), 'deviceid':deviceid})
 
 			else:
-				delayedtask = Timer(delay, self.build_state, kwargs={'on':False})
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':False})
 
 			try:
 				delayedtask.start()
