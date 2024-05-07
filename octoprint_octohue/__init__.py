@@ -50,7 +50,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		if isinstance(red, str):
 			try:
-				red, green, blue = int(red[1:], 16), int(red[3:5], 16), int(red[5:], 16)
+				red, green, blue = int(red[1:3], 16), int(red[3:5], 16), int(red[5:], 16)
 			except ValueError:
 				raise ValueError("Invalid hex string format")
 	
