@@ -46,7 +46,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				xy (list): XY Colourspace Coordinates
 		
 		'''
-		self._logger.debug(f"RGB Input - R:{red} G:{green} B:{blue}")
+		self._logger.debug(f"RGB Starting Input - R:{red} G:{green} B:{blue}")
 
 		if isinstance(red, str):
 			try:
@@ -54,6 +54,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			except ValueError:
 				raise ValueError("Invalid hex string format")
 	
+		self._logger.debug(f"RGB Split Input - R:{red} G:{green} B:{blue}")
+
 		# We need to convert the RGB value to Yxz.
 		redScale = float(red) / 255.0
 		greenScale = float(green) / 255.0
