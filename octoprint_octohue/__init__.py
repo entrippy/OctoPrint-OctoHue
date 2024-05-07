@@ -2,7 +2,8 @@ from __future__ import absolute_import
 import octoprint.plugin
 import octoprint.printer
 from qhue import Bridge
-from octoprint_octohue.colourfunctions import *
+from octoprint_octohue.colourfunctions import XYZColor, sRGBColor
+from octoprint_octohue.colour_constants import convert_color
 from octoprint.util import *
 import octoprint.plugin
 from flask import *
@@ -46,8 +47,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				xy (list): XY Colourspace Coordinates
 		
 		'''
-		self._logger.debug(f"RGB Starting Input - R:{red} G:{green} B:{blue}")
-
 		if isinstance(red, str):
 			try:
 				red, green, blue = int(red[1:3], 16), int(red[3:5], 16), int(red[5:], 16)
