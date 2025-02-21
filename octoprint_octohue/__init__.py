@@ -2,7 +2,7 @@ from __future__ import absolute_import
 import octoprint.plugin
 import octoprint.printer
 from qhue import Bridge
-from octoprint_octohue.colourfunctions import XYZColor, sRGBColor, convert_color
+#from octoprint_octohue.colourfunctions import XYZColor, sRGBColor, convert_color
 from octoprint.util import *
 import octoprint.plugin
 from flask import *
@@ -59,12 +59,27 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		greenScale = float(green) / 255.0
 		blueScale = float(blue) / 255.0
 		
-		rgb = sRGBColor(redScale, greenScale, blueScale)
-		xyz = convert_color(rgb, XYZColor)
+		# Apply gamma correction (sRGB standard)
+		if redScale <= 0.04045:
+			redScale = redScale / 12.92
+		else:
+			redScale = ((redScale + 0.055) / 1.055) ** 2.4
 
-		x = xyz.get_value_tuple()[0]
-		y = xyz.get_value_tuple()[1]
-		z = xyz.get_value_tuple()[2]
+		if greenScale <= 0.04045:
+			greenScale = greenScale / 12.92
+		else:
+			greenScale = ((greenScale + 0.055) / 1.055) ** 2.4
+
+		if blueScale <= 0.04045:
+			blueScale = blueScale / 12.92
+		else:
+			blueScale = ((blueScale + 0.055) / 1.055) ** 2.4
+
+		# Transformation matrix (sRGB to XYZ) - Manual matrix multiplication
+		x = 0.4124 * r + 0.3576 * g + 0.1805 * b
+		y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+		z = 0.0193 * r + 0.1192 * g + 0.9505 * b
+
 		#To use only X and Y, we need to noralize using Z i.e value = value / ( X + Y + Z)
 		normx = x / ( x + y + z)
 		normy = y / ( x + y + z) 

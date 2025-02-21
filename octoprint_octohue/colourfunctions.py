@@ -625,7 +625,8 @@ def _get_adaptation_matrix(wp_src, wp_dst, observer, adaptation):
     rgb_dst = m_sharp @ wp_dst
 
     # Ratio of whitepoint sharpened responses
-    m_rat = numpy.diag(rgb_dst / rgb_src)
+    #m_rat = numpy.diag(rgb_dst / rgb_src)
+    m_rat = rgb_dst / rgb_src
 
     # Final transformation matrix
     m_xfm = numpy.dot(numpy.dot(pinv(m_sharp), m_rat), m_sharp)
