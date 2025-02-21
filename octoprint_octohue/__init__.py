@@ -76,9 +76,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			blueScale = ((blueScale + 0.055) / 1.055) ** 2.4
 
 		# Transformation matrix (sRGB to XYZ) - Manual matrix multiplication
-		x = 0.4124 * r + 0.3576 * g + 0.1805 * b
-		y = 0.2126 * r + 0.7152 * g + 0.0722 * b
-		z = 0.0193 * r + 0.1192 * g + 0.9505 * b
+		x = 0.4124 * redScale + 0.3576 * greenScale + 0.1805 * blueScale
+		y = 0.2126 * redScale + 0.7152 * greenScale + 0.0722 * blueScale
+		z = 0.0193 * redScale + 0.1192 * greenScale + 0.9505 * blueScale
 
 		#To use only X and Y, we need to noralize using Z i.e value = value / ( X + Y + Z)
 		normx = x / ( x + y + z)
