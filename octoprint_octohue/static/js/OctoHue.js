@@ -82,7 +82,7 @@ $(function() {
                         self.getbridgestatus();
                         document.getElementById("bridgeaddress").value = response[0].bridgeaddr
                         document.getElementById("apikey").value = response[0].husername
-                        document.getElementById("huebridgestatus").backgroundColor = "green";
+                        document.getElementById("huebridgestatus").style.backgroundColor = "green";
                         document.getElementById("huebridgestatus").innerHTML = "Paired";
                     }, 5000);
 				}
@@ -102,7 +102,7 @@ $(function() {
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 if ( response.bridgestatus === "configured") {
-                    document.getElementById("huebridgestatus").style.background-color = "green";
+                    document.getElementById("huebridgestatus").style.backgroundColor = "green";
                     document.getElementById("huebridgestatus").innerHTML = "Configured";
                     document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
                     document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
