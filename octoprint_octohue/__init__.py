@@ -1,13 +1,9 @@
-from __future__ import absolute_import
 import octoprint.plugin
 import octoprint.printer
-from qhue import Bridge
-#from octoprint_octohue.colourfunctions import XYZColor, sRGBColor, convert_color
-from octoprint.util import *
-import octoprint.plugin
-from flask import *
+import flask
 import requests
-#from threading import Timer
+from qhue import Bridge
+from octoprint.util import ResettableTimer
 from urllib3.exceptions import InsecureRequestWarning
  
 # Suppress the warnings from urllib3
@@ -24,8 +20,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.printer.PrinterInterface):
 
 
-	pbridge=''
-	discoveryurl='https://discovery.meethue.com/'
+	pbridge = None
+	discoveryurl = 'https://discovery.meethue.com/'
+
+	def _bridge_ready(self):
+		if self.pbridge is None:
+			self._logger.warning("Hue bridge not yet initialised — skipping.")
+			return False
+		return True
 
 	def establishBridge(self, bridgeaddr, husername):
 		self._logger.debug(f"Bridge Address is {bridgeaddr if bridgeaddr else 'Please set Bridge Address in settings'}")
@@ -81,11 +83,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		z = 0.0193 * redScale + 0.1192 * greenScale + 0.9505 * blueScale
 
 		#To use only X and Y, we need to noralize using Z i.e value = value / ( X + Y + Z)
+		if x + y + z == 0:
+			# Black has no chromaticity; caller should treat None as "no colour change"
+			return None
+
 		normx = x / ( x + y + z)
-		normy = y / ( x + y + z) 
-		
+		normy = y / ( x + y + z)
+
 		xy = [normx, normy]
-		
+
 		return xy
 
 	def build_state(self, **kwargs):
@@ -105,15 +111,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		
 		self._logger.debug(f"Build_state Called with: {kwargs}")
 
-		state = {}
 		exclude_keys = {"deviceid", "colour"}
-		self._logger.debug(f"Final Kwargs: {kwargs}")
 		state = {key: value for key, value in kwargs.items() if key not in exclude_keys}
-		self._logger.debug(f"Early state: {state}")
-		if kwargs['on'] == True:
+		self._logger.debug(f"Initial state: {state}")
+		if kwargs['on']:
 			if "colour" in kwargs and kwargs['colour'] is not None:
 				colour = kwargs['colour']
-				state['xy'] = self.rgb_to_xy(colour)
+				xy = self.rgb_to_xy(colour)
+				if xy is not None:
+					state['xy'] = xy
 
 		self._logger.debug(f"Final State: {state}")
 		return self.set_state(state, kwargs['deviceid'])
@@ -123,18 +129,19 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Queries a device or devicegroups on/off state
 
 			Returns:
-				_state (bool): True for on.
+				state (bool): True for on.
 		'''
+		if not self._bridge_ready():
+			return None
+
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
 
 		self._logger.debug(f"Getting state of {deviceid}")
-		if self._settings.get(['lampisgroup']) == True:
-			self._state = self.pbridge.groups[deviceid]().get("action")['on']
+		if self._settings.get(['lampisgroup']):
+			return self.pbridge.groups[deviceid]().get("action")['on']
 		else:
-			self._state = self.pbridge.lights[deviceid]().get("state")['on']
-
-		return self._state
+			return self.pbridge.lights[deviceid]().get("state")['on']
 
 	def set_state(self, state, deviceid=None):
 		'''
@@ -143,12 +150,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Parameters:
 				state (dict): Dictionary of state settings; see build_state()
 		'''
+		if not self._bridge_ready():
+			return
+
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
 
 		self._logger.debug(f"Setting lampid: {deviceid} Is Group: {self._settings.get(['lampisgroup'])} with State: {state}")
 
-		if (self._settings.get(['lampisgroup']) == True and self._settings.get['plugid'] != deviceid):
+		if self._settings.get(['lampisgroup']) and self._settings.get(['plugid']) != deviceid:
 			self.pbridge.groups[deviceid].action(**state)
 		else:
 			self.pbridge.lights[deviceid].state(**state)
@@ -195,7 +205,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			offonshutdown : Turn off device if true
 		'''
 		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
-		if self._settings.get(['offonshutdown']) == True:
+		if self._settings.get(['offonshutdown']):
 			self.set_state({"on": False})
 
 	def printer_start_power_down(self):
@@ -204,29 +214,27 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			offonshutdown : Turn off device if true
 		'''
 		delay = self._settings.get(['powerofftime']) or 0
-		delayedtask = ResettableTimer(delay, self.printer_check_temp_power_down(self))
+		delayedtask = ResettableTimer(delay, self.printer_check_temp_power_down)
 
 		delayedtask.start()
 		
 	def printer_check_temp_power_down(self):
 		'''
 		Check if minimum temperature for shutdown is reached if defined.
-		Shutdown if below temp or not defined.
+		Shutdown if below temp or not defined.  Reschedules itself every 30 s
+		until the temperature condition is met rather than blocking in a loop.
 		'''
 		deviceid = self._settings.get(['plugid'])
-		target_temp = int(self._settings.get(['powerofftemp'])) or 0
-		while True:
-			current_temp = int(self._printer.get_current_temperatures()['tool0']['actual'])
-			self._logger.debug(f"Safe Shutdown Requested! Tool Temp: {current_temp}, Looking for Safe Cooldown Temp: {target_temp}")
-			# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
-			if current_temp <= target_temp or current_temp <= 40:
-				self._logger.debug(f"Safe Cooldown reached {current_temp}, shutting down.")
-				self.build_state(on=False, deviceid=deviceid)
-				break
-			else:
-				self._logger.debug(f"Current temperature: {current_temp}, waiting 30 seconds...")
-				timer = ResettableTimer(30.0, self.printer_check_temp_power_down)
-				timer.start()
+		target_temp = int(self._settings.get(['powerofftemp']) or 0)
+		current_temp = int(self._printer.get_current_temperatures()['tool0']['actual'])
+		self._logger.debug(f"Safe Shutdown Requested! Tool Temp: {current_temp}, Looking for Safe Cooldown Temp: {target_temp}")
+		# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
+		if current_temp <= target_temp or current_temp <= 40:
+			self._logger.debug(f"Safe Cooldown reached {current_temp}, shutting down.")
+			self.build_state(on=False, deviceid=deviceid)
+		else:
+			self._logger.debug(f"Current temperature: {current_temp}, waiting 30 seconds...")
+			ResettableTimer(30.0, self.printer_check_temp_power_down).start()
 	
 	def get_api_commands(self):
 		return dict(
@@ -240,7 +248,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		)
 	
 	def on_api_command(self, command, data):
-		import flask
 		self._logger.debug(f"Recieved API Command: {command}")
 		if command == 'bridge':
 			if "getstatus" in data:
@@ -254,24 +261,23 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					return flask.jsonify(bridgestatus="configured")
 				
 			elif "discover" in data:
-				discoveredbridge = []
 				r = requests.get(self.discoveryurl)
-				self._logger.debug(r.json())
-				for element in r.json():
-					discoveredbridge.append(element)
+				discoveredbridge = r.json()
+				self._logger.debug(discoveredbridge)
 				return flask.jsonify(discoveredbridge)
 			
 			elif "pair" in data:
 				self._logger.debug(data['bridgeaddr'])
 				bridgeaddr = data['bridgeaddr']
 				r = requests.post("https://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"}, verify=False)
-				if(list(r.json()[0].keys())[0] == "error"):
+				result = r.json()[0]
+				if "error" in result:
 					response = [{
 						'response': 'error'
 					}]
 					return flask.jsonify(response)
-				elif(list(r.json()[0].keys())[0] == "success"):
-					token = r.json()[0]['success']['username']
+				elif "success" in result:
+					token = result['success']['username']
 					response = [{
 						'response': 'success',
 						'bridgeaddr': bridgeaddr,
@@ -288,6 +294,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.jsonify(status="ok")
 
 		elif command == 'getdevices':
+			if not self._bridge_ready():
+				return flask.jsonify(devices=[])
 			self._logger.debug("Getting Devices")
 			devicedata = self.pbridge.lights()
 			if 'archetype' in data:
@@ -318,17 +326,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.jsonify(on="false")
 			
 		elif command == 'turnon':
-			if deviceid is None:
-				deviceid = self._settings.get(['lampid'])
+			deviceid = data.get('deviceid') or self._settings.get(['lampid'])
 
 			if "colour" in data:
-				self.build_state(on=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri']), deviceid=deviceid))
+				self.build_state(on=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
 			else:
 				self.build_state(on=True, bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
 
 		elif command == 'turnoff':
-			if deviceid is None:
-				deviceid = self._settings.get(['lampid'])
+			deviceid = data.get('deviceid') or self._settings.get(['lampid'])
 
 			self.build_state(on=False, deviceid=deviceid)
 
@@ -344,7 +350,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			delay = my_statusEvent['delay'] or 0
 			deviceid = self._settings.get(['lampid'])
 
-			if my_statusEvent['turnoff'] == False:
+			if not my_statusEvent['turnoff']:
 				brightness = my_statusEvent['brightness']
 				colour = my_statusEvent['colour']
 
@@ -359,7 +365,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				self._logger.error(f"Error starting delayed task: {e}")
 
 		
-		if self._settings.get(['autopoweroff']) == True and event == 'PrintDone':
+		if self._settings.get(['autopoweroff']) and event == 'PrintDone':
 			self.printer_start_power_down()
 
 	# General Octoprint Hooks Below
@@ -372,7 +378,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			husername="",
 			lampid="",
 			plugid="",
-			lampisgroup="",
+			lampisgroup=False,
 			defaultbri=255,
 			ononstartup=False,
 			ononstartupevent="",
@@ -380,8 +386,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			showhuetoggle=True,
 			showpowertoggle=False,
 			autopoweroff=False,
-			powerofftime="",
-			powerofftemp="",
+			powerofftime=0,
+			powerofftemp=0,
 			statusDict=[]
 		)
 
@@ -512,7 +518,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		)
 
 __plugin_name__ = "Octohue"
-__plugin_pythoncompat__ = ">=2.7,<4" # Compatible with python 2 and 3
+__plugin_pythoncompat__ = ">=3.6,<4"
 
 def __plugin_load__():
 	global __plugin_implementation__
