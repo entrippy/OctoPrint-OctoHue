@@ -1,5 +1,4 @@
 import octoprint.plugin
-import octoprint.printer
 import flask
 import requests
 from qhue import Bridge
@@ -16,8 +15,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.plugin.SimpleApiPlugin,
 					octoprint.plugin.AssetPlugin,
 					octoprint.plugin.TemplatePlugin,
-					octoprint.plugin.EventHandlerPlugin,
-					octoprint.printer.PrinterInterface):
+					octoprint.plugin.EventHandlerPlugin):
 
 
 	pbridge = None
@@ -37,7 +35,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def rgb_to_xy(self, red: int, green: int = None, blue: int = None):
 		'''
-		Converts RBG colour space to XY
+		Converts RGB colour space to XY
 		
 			Parameters:
 				red (int): 8bit int representing red value
@@ -185,8 +183,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Returns:
 				configuredEvents (list): A list of event names the user has configured
 		'''
-		configuredEvents = [ sub['event'] for sub in self._settings.get(['statusDict']) ]
-		return configuredEvents
+		configured_events = [ sub['event'] for sub in self._settings.get(['statusDict']) ]
+		return configured_events
 
 	def on_after_startup(self):
 		'''
@@ -195,9 +193,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		self._logger.info("Octohue is alive!")
 		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-		#if self._settings.get(['ononstartup']) == True:
-		#	my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
-		#	self.build_state(illuminate=True, colour=my_statusEvent['colour'], bri=int(self._settings.get(['defaultbri'])))
+		if self._settings.get(['ononstartup']):
+			my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
+			if my_statusEvent:
+				self.build_state(on=True, colour=my_statusEvent['colour'], bri=int(my_statusEvent['brightness']), deviceid=self._settings.get(['lampid']))
 
 	def on_shutdown(self):
 		'''
@@ -226,7 +225,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		deviceid = self._settings.get(['plugid'])
 		target_temp = int(self._settings.get(['powerofftemp']) or 0)
-		current_temp = int(self._printer.get_current_temperatures()['tool0']['actual'])
+		temps = self._printer.get_current_temperatures()
+		current_temp = max(int(v['actual']) for k, v in temps.items() if k.startswith('tool'))
 		self._logger.debug(f"Safe Shutdown Requested! Tool Temp: {current_temp}, Looking for Safe Cooldown Temp: {target_temp}")
 		# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
 		if current_temp <= target_temp or current_temp <= 40:
@@ -253,12 +253,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			if "getstatus" in data:
 				bridge = self._settings.get(['bridgeaddr'])
 				apikey = self._settings.get(['husername'])
-				if (bridge == "" and apikey == ""):
-					return flask.jsonify(bridgestatus="unconfigured")
-				elif (bridge != "" and apikey == ""):
-					return flask.jsonify(bridgestatus="unauthed")
-				elif (bridge != "" and apikey != ""):
+				if bridge and apikey:
 					return flask.jsonify(bridgestatus="configured")
+				elif bridge and not apikey:
+					return flask.jsonify(bridgestatus="unauthed")
+				else:
+					return flask.jsonify(bridgestatus="unconfigured")
 				
 			elif "discover" in data:
 				r = requests.get(self.discoveryurl)
@@ -438,7 +438,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_settings_load(self):
 		my_settings = {
-            "availableEvents": octoprint.events.all_events(),
+			"availableEvents": octoprint.events.all_events(),
 			"statusDict": self._settings.get(["statusDict"]),
 			"bridgeaddr": self._settings.get(["bridgeaddr"]),
 			"husername": self._settings.get(["husername"]),
@@ -462,8 +462,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		data.pop("availableEvents", None)
 		self._logger.debug(f"Saving: {data} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-		self.pbridge = Bridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-		self._logger.info(f"New Bridge established at: {self.pbridge.url}")
+		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		
 	def get_template_vars(self):
 		return dict(
