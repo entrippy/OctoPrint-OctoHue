@@ -69,6 +69,29 @@ const ko = {
     return comp;
   }),
 
+  observableArray: jest.fn().mockImplementation((initial) => {
+    const arr = [...(initial || [])];
+    const obs = jest.fn().mockImplementation(() => arr);
+    obs._isObservable = true;
+    obs.push   = jest.fn().mockImplementation((item) => arr.push(item));
+    obs.remove = jest.fn().mockImplementation((item) => {
+      const idx = arr.indexOf(item);
+      if (idx !== -1) arr.splice(idx, 1);
+    });
+    return obs;
+  }),
+
+  isObservable: jest.fn().mockImplementation((val) =>
+    typeof val === "function" && val._isObservable === true
+  ),
+
+  utils: {
+    arrayForEach: jest.fn().mockImplementation((arr, cb) => {
+      const items = typeof arr === "function" ? arr() : arr;
+      (items || []).forEach(cb);
+    }),
+  },
+
   extenders: {},
 };
 
@@ -134,16 +157,18 @@ beforeAll(() => {
 // Factory
 // ---------------------------------------------------------------------------
 
-function makeStatusDictMock() {
-  const items = [];
-  return {
-    push:   jest.fn().mockImplementation((item) => items.push(item)),
-    remove: jest.fn().mockImplementation((item) => {
-      const idx = items.indexOf(item);
-      if (idx !== -1) items.splice(idx, 1);
-    }),
-    _items: items,
-  };
+function makeStatusDictMock(initialItems = []) {
+  const items = [...initialItems];
+  // Must be callable: onBeforeBinding calls self.statusDict() to get the array
+  const mock = jest.fn().mockImplementation(() => items);
+  mock._isObservable = true;
+  mock.push   = jest.fn().mockImplementation((item) => items.push(item));
+  mock.remove = jest.fn().mockImplementation((item) => {
+    const idx = items.indexOf(item);
+    if (idx !== -1) items.splice(idx, 1);
+  });
+  mock._items = items;
+  return mock;
 }
 
 function makeViewModel(pluginSettingsOverrides = {}) {
@@ -496,5 +521,104 @@ describe("onSettingsShown", () => {
     vm.getbridgestatus = jest.fn();
     vm.onSettingsShown();
     expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ===========================================================================
+// setFlash
+// ===========================================================================
+
+describe("setFlash", () => {
+  test("toggles flash from false to true", () => {
+    const vm = makeViewModel();
+    const status = { flash: makeObservable(false) };
+    vm.setFlash(status);
+    expect(status.flash()).toBe(true);
+  });
+
+  test("toggles flash from true to false", () => {
+    const vm = makeViewModel();
+    const status = { flash: makeObservable(true) };
+    vm.setFlash(status);
+    expect(status.flash()).toBe(false);
+  });
+});
+
+// ===========================================================================
+// addNewStatus — flash field
+// ===========================================================================
+
+describe("addNewStatus flash", () => {
+  test("new status has flash as an observable", () => {
+    const vm = makeViewModel();
+    vm.addNewStatus();
+    const item = vm.ownSettings.statusDict._items[0];
+    expect(typeof item.flash).toBe("function");
+  });
+
+  test("new status flash defaults to false", () => {
+    const vm = makeViewModel();
+    vm.addNewStatus();
+    const item = vm.ownSettings.statusDict._items[0];
+    expect(item.flash()).toBe(false);
+  });
+});
+
+// ===========================================================================
+// statusDetails — flash field
+// ===========================================================================
+
+describe("statusDetails flash", () => {
+  test("data=false returns flash observable defaulting to false", () => {
+    const vm = makeViewModel();
+    const result = vm.statusDetails(false);
+    expect(typeof result.flash).toBe("function");
+    expect(result.flash()).toBe(false);
+  });
+
+  test("data with existing flash observable is left unchanged", () => {
+    const vm = makeViewModel();
+    const existingFlash = makeObservable(true);
+    const data = { turnoff: makeObservable(false), flash: existingFlash };
+    const result = vm.statusDetails(data);
+    expect(result.flash).toBe(existingFlash);
+  });
+
+  test("data without flash gets flash added as observable defaulting to false", () => {
+    const vm = makeViewModel();
+    const data = { turnoff: makeObservable(false) };
+    const result = vm.statusDetails(data);
+    expect(typeof result.flash).toBe("function");
+    expect(result.flash()).toBe(false);
+  });
+});
+
+// ===========================================================================
+// onBeforeBinding — flash normalisation
+// ===========================================================================
+
+describe("onBeforeBinding flash normalisation", () => {
+  test("items already having flash as an observable are left unchanged", () => {
+    const existingFlash = makeObservable(true);
+    const item = { event: makeObservable("PrintDone"), flash: existingFlash };
+    const vm = makeViewModel({ statusDict: makeStatusDictMock([item]) });
+    // onBeforeBinding was already called by makeViewModel; call again to verify
+    // idempotency — the original observable must not be replaced
+    vm.onBeforeBinding();
+    expect(item.flash).toBe(existingFlash);
+  });
+
+  test("items without flash get flash added as observable defaulting to false", () => {
+    const item = { event: makeObservable("PrintDone") }; // no flash key
+    const vm = makeViewModel({ statusDict: makeStatusDictMock([item]) });
+    expect(typeof item.flash).toBe("function");
+    expect(item.flash()).toBe(false);
+  });
+
+  test("items with plain boolean flash get it wrapped in an observable", () => {
+    const item = { event: makeObservable("PrintDone"), flash: false };
+    const vm = makeViewModel({ statusDict: makeStatusDictMock([item]) });
+    expect(typeof item.flash).toBe("function");
+    expect(item.flash()).toBe(false);
   });
 });
