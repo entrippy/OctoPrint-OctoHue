@@ -1,1 +1,13 @@
 /* TODO: Have your plugin's CSS files generated to here. */
+
+.inactiveconfig {
+    display: none;
+}
+
+input[type="color"].colour-picker {
+    width: 40px;
+    height: 30px;
+    padding: 1px;
+    cursor: pointer;
+    vertical-align: middle;
+}

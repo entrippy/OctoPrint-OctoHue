@@ -1,0 +1,17 @@
+{
+  "name": "octohue-tests",
+  "private": true,
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "<rootDir>/tests/js/**/*.test.js"
+    ],
+    "testTimeout": 5000
+  }
+}
