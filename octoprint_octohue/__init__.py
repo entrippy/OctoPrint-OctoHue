@@ -1,4 +1,5 @@
 import octoprint.plugin
+from datetime import datetime
 import flask
 import requests
 from qhue import Bridge
@@ -20,6 +21,21 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	pbridge = None
 	discoveryurl = 'https://discovery.meethue.com/'
+
+	def _is_night_mode_active(self):
+		if not self._settings.get(['nightmode_enabled']):
+			return False
+		try:
+			now = datetime.now().time()
+			start = datetime.strptime(self._settings.get(['nightmode_start']), '%H:%M').time()
+			end = datetime.strptime(self._settings.get(['nightmode_end']), '%H:%M').time()
+			if start <= end:
+				return start <= now < end
+			else:  # overnight span e.g. 22:00 - 07:00
+				return now >= start or now < end
+		except (ValueError, TypeError):
+			self._logger.warning("Night mode times could not be parsed — night mode skipped.")
+			return False
 
 	def _bridge_ready(self):
 		if self.pbridge is None:
@@ -108,6 +124,16 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		
 		self._logger.debug(f"Build_state Called with: {kwargs}")
+
+		if self._is_night_mode_active():
+			action = self._settings.get(['nightmode_action'])
+			if action == 'pause':
+				self._logger.info("Night mode active — skipping light change.")
+				return
+			elif action == 'dim' and 'bri' in kwargs:
+				maxbri = int(self._settings.get(['nightmode_maxbri']) or 64)
+				kwargs['bri'] = min(kwargs['bri'], maxbri)
+				self._logger.debug(f"Night mode active — brightness capped at {maxbri}.")
 
 		exclude_keys = {"deviceid", "colour"}
 		state = {key: value for key, value in kwargs.items() if key not in exclude_keys}
@@ -396,6 +422,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			autopoweroff=False,
 			powerofftime=0,
 			powerofftemp=0,
+			nightmode_enabled=False,
+			nightmode_start="22:00",
+			nightmode_end="07:00",
+			nightmode_action="pause",
+			nightmode_maxbri=64,
 			statusDict=[]
 		)
 
@@ -463,6 +494,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			"autopoweroff": self._settings.get(["autopoweroff"]),
 			"powerofftime": self._settings.get(["powerofftime"]),
 			"powerofftemp": self._settings.get(["powerofftemp"]),
+			"nightmode_enabled": self._settings.get(["nightmode_enabled"]),
+			"nightmode_start": self._settings.get(["nightmode_start"]),
+			"nightmode_end": self._settings.get(["nightmode_end"]),
+			"nightmode_action": self._settings.get(["nightmode_action"]),
+			"nightmode_maxbri": self._settings.get(["nightmode_maxbri"]),
 		}
 		return my_settings
 

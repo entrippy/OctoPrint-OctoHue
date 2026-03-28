@@ -68,6 +68,37 @@
                             </label>
                         </div>
                     </div>
+                    <hr>
+                    <h4>Night Mode</h4>
+                    <div class="control-group">
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" data-bind="checked: ownSettings.nightmode_enabled">Enable Night Mode
+                            </label>
+                        </div>
+                        <div data-bind="visible: ownSettings.nightmode_enabled()">
+                            <div class="controls" style="margin-top: 8px">
+                                <label class="control-label">{{ _('Active between') }}</label>
+                                <input type="time" class="input-mini" data-bind="value: ownSettings.nightmode_start">
+                                <span>&nbsp;and&nbsp;</span>
+                                <input type="time" class="input-mini" data-bind="value: ownSettings.nightmode_end">
+                            </div>
+                            <div class="controls" style="margin-top: 8px">
+                                <label class="control-label">{{ _('During night mode') }}</label>
+                                <label class="radio">
+                                    <input type="radio" value="pause" data-bind="checked: ownSettings.nightmode_action"> Pause all light changes
+                                </label>
+                                <label class="radio">
+                                    <input type="radio" value="dim" data-bind="checked: ownSettings.nightmode_action"> Limit brightness only
+                                </label>
+                            </div>
+                            <div class="controls" data-bind="visible: ownSettings.nightmode_action() === 'dim'" style="margin-top: 4px">
+                                <label class="control-label">{{ _('Max brightness') }}</label>
+                                <input type="number" min="1" max="255" class="input-mini" data-bind="value: ownSettings.nightmode_maxbri" style="width: 60px">
+                                <span class="help-inline">1–255</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
