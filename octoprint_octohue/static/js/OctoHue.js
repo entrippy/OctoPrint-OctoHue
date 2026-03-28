@@ -126,6 +126,14 @@ $(function() {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.ownSettings.statusDict;
+
+            // Ensure flash is a ko.observable on every loaded statusDict item
+            // (items saved before the flash feature was added won't have it)
+            ko.utils.arrayForEach(self.statusDict(), function(item) {
+                if (!ko.isObservable(item.flash)) {
+                    item.flash = ko.observable(item.flash || false);
+                }
+            });
         };
 
         self.onSettingsShown = function () {
