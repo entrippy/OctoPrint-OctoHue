@@ -350,14 +350,22 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			delay = my_statusEvent['delay'] or 0
 			deviceid = self._settings.get(['lampid'])
 
-			if not my_statusEvent['turnoff']:
+			flash = my_statusEvent.get('flash', False)
+			turnoff = my_statusEvent['turnoff']
+
+			if turnoff and flash:
+				# Flash first, then switch off after the 15-second alert cycle completes
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on': True, 'colour': my_statusEvent['colour'], 'bri': int(my_statusEvent['brightness']), 'alert': 'lselect', 'deviceid': deviceid})
+				ResettableTimer(delay + 15, self.build_state, kwargs={'on': False, 'deviceid': deviceid}).start()
+			elif not turnoff:
 				brightness = my_statusEvent['brightness']
 				colour = my_statusEvent['colour']
-
-				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':True, 'colour':colour, 'bri':int(brightness), 'deviceid':deviceid})
-
+				build_kwargs = {'on': True, 'colour': colour, 'bri': int(brightness), 'deviceid': deviceid}
+				if flash:
+					build_kwargs['alert'] = 'lselect'
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs=build_kwargs)
 			else:
-				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on':False, 'deviceid':deviceid})
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on': False, 'deviceid': deviceid})
 
 			try:
 				delayedtask.start()
@@ -405,32 +413,32 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					'colour':'#FFFFFF',
 					'brightness':255,
 					'delay':0,
-					'turnoff':False},
+					'turnoff':False, 'flash': False},
 					{'event': 'Disconnected',
 					'colour':'',
 					'brightness':"",
 					'delay':0,
-					'turnoff':True},
+					'turnoff':True, 'flash': False},
 					{'event': 'PrintStarted',
 					'colour':'#FFFFFF',
 					'brightness':255,
 					'delay':0,
-					'turnoff':False},
+					'turnoff':False, 'flash': False},
 					{'event': 'PrintResumed',
 					'colour':'#FFFFFF',
 					'brightness':255,
 					'delay':0,
-					'turnoff':False},
+					'turnoff':False, 'flash': False},
 					{'event': 'PrintDone',
 					'colour':'#33FF36',
 					'brightness':255,
 					'delay':0,
-					'turnoff':False},
+					'turnoff':False, 'flash': False},
 					{'event': 'PrintFailed',
 					'colour':'#FF0000',
 					'brightness':255,
 					'delay':0,
-					'turnoff':False}
+					'turnoff':False, 'flash': False}
 				])
 			self._settings.save()
 		elif current < self.get_settings_version():

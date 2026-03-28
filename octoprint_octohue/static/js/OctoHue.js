@@ -39,7 +39,8 @@ $(function() {
                 colour: ko.observable(''),
                 brightness: ko.observable('').extend({ defaultIfNull: "255" }),
                 delay: ko.observable('').extend({ defaultIfNull: "0" }),
-                turnoff: ko.observable('')
+                turnoff: ko.observable(false),
+                flash: ko.observable(false)
             };
             self.ownSettings.statusDict.push(statusObj);
         };
@@ -143,6 +144,10 @@ $(function() {
             status.turnoff(!status.turnoff());
         };
 
+        self.setFlash = function(status) {
+            status.flash(!status.flash());
+        };
+
         self.statusDetails = function (data) {
             if (data === false) {
                 return {
@@ -150,12 +155,16 @@ $(function() {
                     colour: ko.observable(""),
                     brightness: ko.observable(""),
                     delay: ko.observable(""),
-                    turnoff: ko.observable(false)
+                    turnoff: ko.observable(false),
+                    flash: ko.observable(false)
                 };
-            
+
             } else {
                 if (!data.hasOwnProperty("turnoff")) {
                     data["turnoff"] = ko.observable(true);
+                }
+                if (!data.hasOwnProperty("flash")) {
+                    data["flash"] = ko.observable(false);
                 }
                 return data;
             }
