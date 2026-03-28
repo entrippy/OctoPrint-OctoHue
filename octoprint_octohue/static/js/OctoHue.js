@@ -30,6 +30,8 @@ $(function() {
         self.selectedEvent = ko.observable();
         self.ownSettings = {};
         self.statusDict = [];
+        self.hueLamps = ko.observableArray([]);
+        self.huePlugs = ko.observableArray([]);
 
         self.addNewStatus = function () {
             var statusObj = {
@@ -116,22 +118,8 @@ $(function() {
 
         self.getDevices = function (data) {
             return OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {})
-                .then(response => response.devices); // Access devices from successful response
+                .then(response => response.devices);
         };
-          
-        self.getDevices("plug").then(devices => {
-            self.huePlugs = devices;
-        }).catch(error => {
-            console.error("Error fetching devices:", error);
-            }
-        );
-
-        self.getDevices().then(devices => {
-            self.hueLamps = devices;
-        }).catch(error => {
-            console.error("Error fetching devices:", error);
-            }
-        );
 
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
@@ -140,7 +128,9 @@ $(function() {
         };
 
         self.onSettingsShown = function () {
-           self.getbridgestatus() 
+            self.getbridgestatus();
+            self.getDevices("plug").then(devices => { self.huePlugs(devices); });
+            self.getDevices().then(devices => { self.hueLamps(devices); });
         };
 
         self.removeStatus = function (data) {
