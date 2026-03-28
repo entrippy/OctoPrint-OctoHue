@@ -102,6 +102,7 @@
                                             <th>Brightness</th>
                                             <th>Delay (Sec)</th>
                                             <th>Or Switch Off</th>
+                                            <th></th>
                                         </tr>
                                     </thead>
                                     <tbody class="control-group" data-bind="foreach: statusDict">
@@ -109,12 +110,12 @@
                                             <td><select class="input-block-level" data-bind="value: event, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select></td>
                                             <td style="white-space: nowrap">
                                                 <input type="color" class="colour-picker" data-bind="value: colour">
-                                                <input type="text" class="input-mini" data-bind="value: colour" style="width: 70px">
+                                                <input type="text" class="input-mini" data-bind="value: colour" style="width: 90px">
                                             </td>
-                                            <td><input type="number" max="255" class="input-mini" data-bind="value: brightness" value="255"></td>
-                                            <td><input type="number" class="input-mini" data-bind="value: delay" value="0"></td>
-                                            <td><i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i></td>
-                                            <td><i class="fa fa-trash-o" data-bind="click: $parent.removeStatus"></i></td>
+                                            <td><input type="number" min="1" max="255" class="input-mini" data-bind="value: brightness" style="width: 50px"></td>
+                                            <td><input type="number" min="0" class="input-mini" data-bind="value: delay" style="width: 50px"></td>
+                                            <td style="text-align: center"><i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i></td>
+                                            <td style="text-align: center"><i class="fa fa-trash-o" data-bind="click: $parent.removeStatus"></i></td>
                                         </tr>
                                     </tbody>
                                 </table>
