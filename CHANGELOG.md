@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.7.0] - Unreleased
+## [0.7.0] - 2026-03-28
+
+> It has been a while — apologies for the long gap since 0.6.0. This release brings a significant number of new features, bug fixes, and code quality improvements. Getting here was greatly helped by AI-assisted development, which made it possible to add a full test suite, catch long-standing bugs, and ship a much more solid release than would otherwise have been feasible.
 
 ### Added
 - Smart plug / power socket control — configure a separate Hue plug device to cut power to the printer after it cools down
@@ -10,6 +12,8 @@ All notable changes to this project will be documented in this file.
 - In-plugin bridge discovery and pairing UI — click Discover to find your bridge on the network, then press the bridge button and click Pair to generate an API key without ever leaving OctoPrint settings
 - `cooldown` API command — manually trigger the temperature-monitored power-down sequence
 - `togglehue` API command now accepts an optional `deviceid` parameter to target a specific device
+- "Lights On at Startup" feature — selecting a configured event in General settings now correctly triggers that light state when OctoPrint starts
+- Full unit test suite covering Python plugin logic and the KnockoutJS viewmodel
 
 ### Changed
 - Replaced numpy-based RGB→XY colour conversion with a dependency-free implementation — numpy is no longer required
@@ -18,6 +22,8 @@ All notable changes to this project will be documented in this file.
 - Temperature cooldown check now considers all extruder tools, not just `tool0`
 - `on_settings_save` now calls `establishBridge()` consistently rather than duplicating bridge initialisation logic
 - `getstatus` bridge check simplified and now always returns a response (previously could return `None` if bridge was set but API key was empty)
+- Device dropdowns in settings now populate correctly — light and plug lists are fetched each time the settings panel opens rather than once at page load
+- Status event table redesigned: colour picker and hex value combined into one column, consistent column widths, and clearer headings
 
 ### Fixed
 - `set_state` was using `get['plugid']` (subscript syntax) instead of `get(['plugid'])`, causing a `TypeError`

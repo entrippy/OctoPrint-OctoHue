@@ -2,6 +2,8 @@
 
 Illuminate your 3D print job and signal its status using Philips Hue lights — and optionally cut power to your printer automatically once it cools down.
 
+> **A note on the gap between releases:** It has been a long time since 0.6.0 and I appreciate your patience. Version 0.7.0 is a big one — new features, a full test suite, and a lot of long-standing bug fixes. Getting this release across the line was greatly helped by AI-assisted development, which made it practical to audit and test the entire codebase in a way that simply wasn't feasible before.
+
 ![Settings Screenshot](https://github.com/entrippy/OctoPrint-OctoHue/blob/master/Settings-Screenshot.png)
 
 ## Features
@@ -48,7 +50,7 @@ To control multiple lights together, first group them in the Hue app (or API) as
 
 ### 3. Event configuration
 
-Open the **Events** tab to configure which OctoPrint events trigger a light change. For each event you can set:
+Open the **Lights** tab and expand the **Event Lighting Options** section to configure which OctoPrint events trigger a light change. For each event you can set:
 
 - **Colour** — hex colour code or colour picker
 - **Brightness** — 1–255
