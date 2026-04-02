@@ -640,6 +640,13 @@ class TestOnEvent:
 
 class TestOnApiCommandBridge:
 
+    def test_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.make_response.assert_called_once()
+        assert flask.make_response.call_args[0][1] == 403
+
     def test_getstatus_unconfigured(self, plugin):
         flask = sys.modules["flask"]
         plugin._settings.get.side_effect = make_settings_getter(
@@ -744,6 +751,13 @@ class TestOnApiCommandBridge:
 
 class TestOnApiCommandGetDevices:
 
+    def test_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        plugin.on_api_command("getdevices", {})
+        flask.make_response.assert_called_once()
+        assert flask.make_response.call_args[0][1] == 403
+
     def test_returns_empty_devices_when_bridge_not_ready(self, plugin):
         flask = sys.modules["flask"]
         plugin.pbridge = None
@@ -805,6 +819,13 @@ class TestOnApiCommandMisc:
         plugin.toggle_state = MagicMock()
         plugin.on_api_command("togglehue", {})
         plugin.toggle_state.assert_called_once_with("1")
+
+    def test_getstate_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        plugin.on_api_command("getstate", {})
+        flask.make_response.assert_called_once()
+        assert flask.make_response.call_args[0][1] == 403
 
     def test_getstate_when_on_returns_true_string(self, plugin):
         flask = sys.modules["flask"]

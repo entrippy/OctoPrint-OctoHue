@@ -4,6 +4,7 @@ import flask
 import requests
 from qhue import Bridge
 from octoprint.util import ResettableTimer
+from octoprint.access.permissions import Permissions
 from urllib3.exceptions import InsecureRequestWarning
  
 # Suppress the warnings from urllib3
@@ -276,6 +277,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_api_command(self, command, data):
 		self._logger.debug(f"Recieved API Command: {command}")
 		if command == 'bridge':
+			if not Permissions.ADMIN.can():
+				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
 			if "getstatus" in data:
 				bridge = self._settings.get(['bridgeaddr'])
 				apikey = self._settings.get(['husername'])
@@ -320,6 +323,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.jsonify(status="ok")
 
 		elif command == 'getdevices':
+			if not Permissions.ADMIN.can():
+				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
 			if not self._bridge_ready():
 				return flask.jsonify(devices=[])
 			self._logger.debug("Getting Devices")
@@ -346,6 +351,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				self.toggle_state(self._settings.get(['lampid']))
 
 		elif command == 'getstate':
+			if not Permissions.ADMIN.can():
+				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
 			if self.get_state():
 				return flask.jsonify(on="true")
 			else:

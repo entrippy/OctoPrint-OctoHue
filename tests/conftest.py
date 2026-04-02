@@ -68,7 +68,12 @@ mock_octoprint.events = MagicMock()
 # flask – real module so `from flask import *` is clean
 mock_flask = types.ModuleType("flask")
 mock_flask.jsonify = MagicMock(name="flask.jsonify")
+mock_flask.make_response = MagicMock(name="flask.make_response")
 mock_flask.request = MagicMock(name="flask.request")
+
+# octoprint.access.permissions – Permissions.ADMIN.can() defaults to True
+mock_access_permissions = MagicMock(name="octoprint.access.permissions")
+mock_access_permissions.Permissions.ADMIN.can.return_value = True
 
 # Register everything before the plugin module is imported
 sys.modules["octoprint"] = mock_octoprint
@@ -76,6 +81,8 @@ sys.modules["octoprint.plugin"] = mock_op_plugin
 sys.modules["octoprint.printer"] = mock_op_printer
 sys.modules["octoprint.util"] = mock_util
 sys.modules["octoprint.events"] = mock_octoprint.events
+sys.modules["octoprint.access"] = MagicMock(name="octoprint.access")
+sys.modules["octoprint.access.permissions"] = mock_access_permissions
 sys.modules["qhue"] = MagicMock(name="qhue")
 sys.modules["requests"] = MagicMock(name="requests")
 sys.modules["urllib3"] = MagicMock(name="urllib3")
@@ -93,10 +100,14 @@ import pytest
 def _reset_shared_mocks():
     """Reset the mocks that are shared across tests before each test runs."""
     sys.modules["flask"].jsonify.reset_mock()
+    sys.modules["flask"].make_response.reset_mock()
     sys.modules["requests"].get.reset_mock()
     sys.modules["requests"].post.reset_mock()
     sys.modules["octoprint.util"].ResettableTimer.reset_mock()
     sys.modules["qhue"].Bridge.reset_mock()
+    perms = sys.modules["octoprint.access.permissions"]
+    perms.Permissions.ADMIN.can.reset_mock()
+    perms.Permissions.ADMIN.can.return_value = True
     yield
 
 
