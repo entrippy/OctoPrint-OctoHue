@@ -185,6 +185,13 @@ class TestBuildState:
         state, _ = plugin.set_state.call_args[0]
         assert "xy" not in state
 
+    def test_alert_key_passed_through_to_state(self, plugin):
+        """Extra kwargs such as alert are forwarded to set_state unchanged."""
+        self._setup(plugin)
+        plugin.build_state(on=True, bri=200, alert="lselect", deviceid="1")
+        state, _ = plugin.set_state.call_args[0]
+        assert state["alert"] == "lselect"
+
 
 # ===========================================================================
 # get_state
@@ -340,6 +347,58 @@ class TestOnAfterStartup:
         plugin.establishBridge.assert_called_once_with(
             "192.168.1.100", "test-api-key"
         )
+
+    def test_ononstartup_matching_event_calls_build_state(self, plugin):
+        """When ononstartup is True and the configured event exists in statusDict,
+        build_state must be called with the event's colour and brightness."""
+        status_entry = {
+            'event': 'PrintDone',
+            'colour': '#33FF36',
+            'brightness': 200,
+        }
+        plugin._settings.get.side_effect = make_settings_getter({
+            'ononstartup': True,
+            'ononstartupevent': 'PrintDone',
+            'statusDict': [status_entry],
+            'lampid': '1',
+        })
+        plugin.establishBridge = MagicMock()
+        plugin.build_state = MagicMock()
+        plugin.on_after_startup()
+        plugin.build_state.assert_called_once_with(
+            on=True, colour='#33FF36', bri=200, deviceid='1'
+        )
+
+    def test_ononstartup_no_matching_event_does_not_call_build_state(self, plugin):
+        """When ononstartup is True but the configured event is not in statusDict,
+        build_state must not be called."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            'ononstartup': True,
+            'ononstartupevent': 'PrintDone',
+            'statusDict': [],
+        })
+        plugin.establishBridge = MagicMock()
+        plugin.build_state = MagicMock()
+        plugin.on_after_startup()
+        plugin.build_state.assert_not_called()
+
+    def test_ononstartup_false_does_not_call_build_state(self, plugin):
+        """When ononstartup is False, build_state must not be called regardless
+        of what is in statusDict."""
+        status_entry = {
+            'event': 'PrintDone',
+            'colour': '#33FF36',
+            'brightness': 200,
+        }
+        plugin._settings.get.side_effect = make_settings_getter({
+            'ononstartup': False,
+            'ononstartupevent': 'PrintDone',
+            'statusDict': [status_entry],
+        })
+        plugin.establishBridge = MagicMock()
+        plugin.build_state = MagicMock()
+        plugin.on_after_startup()
+        plugin.build_state.assert_not_called()
 
 
 # ===========================================================================
@@ -1149,6 +1208,14 @@ class TestBuildStateNightMode:
         plugin.build_state(on=True, bri=100, colour="#FF0000", deviceid="1")
         state_arg = plugin.set_state.call_args[0][0]
         assert state_arg["bri"] == 100  # already below max, unchanged
+
+    def test_dim_action_preserves_alert_key(self, plugin):
+        """Dim mode only caps brightness — other keys like alert must not be stripped."""
+        self._make_plugin_with_night_mode(plugin, "dim", maxbri=50)
+        plugin.set_state = MagicMock()
+        plugin.build_state(on=True, bri=255, alert="lselect", deviceid="1")
+        state_arg = plugin.set_state.call_args[0][0]
+        assert state_arg.get("alert") == "lselect"
 
     def test_night_mode_inactive_passes_through_unchanged(self, plugin):
         plugin._is_night_mode_active = MagicMock(return_value=False)

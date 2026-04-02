@@ -79,9 +79,9 @@
                         <div data-bind="visible: ownSettings.nightmode_enabled()">
                             <div class="controls" style="margin-top: 8px">
                                 <label class="control-label">{{ _('Active between') }}</label>
-                                <input type="time" class="input-mini" data-bind="value: ownSettings.nightmode_start">
+                                <input type="time" class="input-mini" style="width: 100px" data-bind="value: ownSettings.nightmode_start">
                                 <span>&nbsp;and&nbsp;</span>
-                                <input type="time" class="input-mini" data-bind="value: ownSettings.nightmode_end">
+                                <input type="time" class="input-mini" style="width: 100px" data-bind="value: ownSettings.nightmode_end">
                             </div>
                             <div class="controls" style="margin-top: 8px">
                                 <label class="control-label">{{ _('During night mode') }}</label>
@@ -115,6 +115,7 @@
                     <label class="control-label">{{ _('Default Brightness') }}</label>
                     <div class="controls">
                         <input type="text" class="input-mini" data-bind="value: ownSettings.defaultbri">
+                        <span class="help-inline">1–255</span>
                     </div>
                     <div>
                         <small>

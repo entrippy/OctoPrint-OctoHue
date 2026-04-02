@@ -35,9 +35,6 @@ class _TemplatePlugin:
 class _EventHandlerPlugin:
     pass
 
-class _PrinterInterface:
-    pass
-
 
 # ---------------------------------------------------------------------------
 # Build the mock module objects
@@ -55,7 +52,6 @@ mock_op_plugin.EventHandlerPlugin = _EventHandlerPlugin
 
 # octoprint.printer
 mock_op_printer = MagicMock()
-mock_op_printer.PrinterInterface = _PrinterInterface
 
 # octoprint.util – use a real module so `from octoprint.util import *` only
 # imports the names we explicitly place there (no MagicMock noise).

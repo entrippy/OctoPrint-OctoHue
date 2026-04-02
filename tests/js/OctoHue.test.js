@@ -522,6 +522,30 @@ describe("onSettingsShown", () => {
     vm.onSettingsShown();
     expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
   });
+
+  test("populates huePlugs with devices returned for archetype plug", () => {
+    const plugDevices = [{ id: "3", name: "Smart Plug", archetype: "plug" }];
+    const lampDevices = [{ id: "1", name: "Desk Lamp", archetype: "tableShade" }];
+    const vm = makeViewModel();
+    vm.getbridgestatus = jest.fn();
+    vm.getDevices = jest.fn()
+      .mockImplementationOnce(() => new SyncResult(plugDevices))
+      .mockImplementationOnce(() => new SyncResult(lampDevices));
+    vm.onSettingsShown();
+    expect(vm.huePlugs).toHaveBeenCalledWith(plugDevices);
+  });
+
+  test("populates hueLamps with devices returned without archetype filter", () => {
+    const plugDevices = [{ id: "3", name: "Smart Plug", archetype: "plug" }];
+    const lampDevices = [{ id: "1", name: "Desk Lamp", archetype: "tableShade" }];
+    const vm = makeViewModel();
+    vm.getbridgestatus = jest.fn();
+    vm.getDevices = jest.fn()
+      .mockImplementationOnce(() => new SyncResult(plugDevices))
+      .mockImplementationOnce(() => new SyncResult(lampDevices));
+    vm.onSettingsShown();
+    expect(vm.hueLamps).toHaveBeenCalledWith(lampDevices);
+  });
 });
 
 // ===========================================================================
@@ -610,14 +634,14 @@ describe("onBeforeBinding flash normalisation", () => {
 
   test("items without flash get flash added as observable defaulting to false", () => {
     const item = { event: makeObservable("PrintDone") }; // no flash key
-    const vm = makeViewModel({ statusDict: makeStatusDictMock([item]) });
+    makeViewModel({ statusDict: makeStatusDictMock([item]) });
     expect(typeof item.flash).toBe("function");
     expect(item.flash()).toBe(false);
   });
 
   test("items with plain boolean flash get it wrapped in an observable", () => {
     const item = { event: makeObservable("PrintDone"), flash: false };
-    const vm = makeViewModel({ statusDict: makeStatusDictMock([item]) });
+    makeViewModel({ statusDict: makeStatusDictMock([item]) });
     expect(typeof item.flash).toBe("function");
     expect(item.flash()).toBe(false);
   });
