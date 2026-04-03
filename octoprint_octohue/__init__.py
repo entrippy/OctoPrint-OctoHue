@@ -609,6 +609,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Required by OctoPrint's TemplatePlugin mixin.
 		'''
 		return dict(
+			version=self._plugin_version,
 			bridgeaddr=self._settings.get(["bridgeaddr"]),
 			husername=self._settings.get(["husername"]),
 			lampid=self._settings.get(["lampid"]),
