@@ -1,4 +1,5 @@
 .vscode
+.claude/
 node_modules/
 .Python
 __init__.pyc
