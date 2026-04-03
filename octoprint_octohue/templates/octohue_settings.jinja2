@@ -130,7 +130,7 @@
                                     <thead>
                                         <tr>
                                             <th style="width: 160px">Status</th>
-                                            <th style="width: 140px">Colour</th>
+                                            <th style="width: 180px">Colour / Temp</th>
                                             <th style="width: 80px">Brightness</th>
                                             <th style="width: 80px">Delay (Sec)</th>
                                             <th style="width: 60px; text-align: center">Flash</th>
@@ -141,9 +141,16 @@
                                     <tbody class="control-group" data-bind="foreach: statusDict">
                                         <tr>
                                             <td><select class="input-block-level" data-bind="value: event, options: $root.settingsViewModel.settings.plugins.octohue.availableEvents().sort(), optionsCaption: 'Select Event', valueAllowUnset: true"></select></td>
-                                            <td style="white-space: nowrap">
-                                                <input type="color" class="colour-picker" data-bind="value: colour">
-                                                <input type="text" class="input-mini" data-bind="value: colour" style="width: 90px">
+                                            <td>
+                                                <button type="button" class="btn btn-mini" data-bind="click: $parent.toggleCtMode, css: { active: ct() }"><span data-bind="text: ct() ? 'CT' : 'RGB'"></span></button>
+                                                <span data-bind="visible: !ct()">
+                                                    <input type="color" class="colour-picker" data-bind="value: colour">
+                                                    <input type="text" class="input-mini" data-bind="value: colour" style="width: 70px">
+                                                </span>
+                                                <span data-bind="visible: ct()">
+                                                    <input type="range" min="153" max="500" data-bind="value: ct" style="width: 90px; background: linear-gradient(to right, #b3d4ff, #ffffff, #fff4e6, #ff9a00); border-radius: 4px; vertical-align: middle">
+                                                    <span data-bind="text: ct() ? Math.round(1000000 / parseInt(ct())) + 'K' : ''"></span>
+                                                </span>
                                             </td>
                                             <td><input type="number" min="1" max="255" class="input-mini" data-bind="value: brightness" style="width: 50px"></td>
                                             <td><input type="number" min="0" class="input-mini" data-bind="value: delay" style="width: 50px"></td>
