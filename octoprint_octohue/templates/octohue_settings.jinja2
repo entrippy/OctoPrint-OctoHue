@@ -148,8 +148,7 @@
                                                     <input type="text" class="input-mini" data-bind="value: colour" style="width: 70px">
                                                 </span>
                                                 <span data-bind="visible: ct()">
-                                                    <input type="range" min="153" max="500" data-bind="value: ct" style="width: 90px; background: linear-gradient(to right, #b3d4ff, #ffffff, #fff4e6, #ff9a00); border-radius: 4px; vertical-align: middle">
-                                                    <span data-bind="text: ct() ? Math.round(1000000 / parseInt(ct())) + 'K' : ''"></span>
+                                                    <input type="range" min="153" max="500" class="ct-slider" style="width: 120px" data-bind="value: ct">
                                                 </span>
                                             </td>
                                             <td><input type="number" min="1" max="255" class="input-mini" data-bind="value: brightness" style="width: 50px"></td>

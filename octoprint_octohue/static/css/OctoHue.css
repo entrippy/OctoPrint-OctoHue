@@ -11,3 +11,20 @@ input[type="color"].colour-picker {
     cursor: pointer;
     vertical-align: middle;
 }
+
+input[type="range"].ct-slider {
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+input[type="range"].ct-slider::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, #b3d4ff, #ffffff, #fff4e6, #ff9a00);
+    border-radius: 4px;
+    height: 8px;
+}
+
+input[type="range"].ct-slider::-moz-range-track {
+    background: linear-gradient(to right, #b3d4ff, #ffffff, #fff4e6, #ff9a00);
+    border-radius: 4px;
+    height: 8px;
+}
