@@ -39,7 +39,8 @@ $(function() {
                 colour: ko.observable(''),
                 brightness: ko.observable('').extend({ defaultIfNull: "255" }),
                 delay: ko.observable('').extend({ defaultIfNull: "0" }),
-                turnoff: ko.observable('')
+                turnoff: ko.observable(false),
+                flash: ko.observable(false)
             };
             self.ownSettings.statusDict.push(statusObj);
         };
@@ -125,6 +126,14 @@ $(function() {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.ownSettings.statusDict;
+
+            // Ensure flash is a ko.observable on every loaded statusDict item
+            // (items saved before the flash feature was added won't have it)
+            ko.utils.arrayForEach(self.statusDict(), function(item) {
+                if (!ko.isObservable(item.flash)) {
+                    item.flash = ko.observable(item.flash || false);
+                }
+            });
         };
 
         self.onSettingsShown = function () {
@@ -143,6 +152,10 @@ $(function() {
             status.turnoff(!status.turnoff());
         };
 
+        self.setFlash = function(status) {
+            status.flash(!status.flash());
+        };
+
         self.statusDetails = function (data) {
             if (data === false) {
                 return {
@@ -150,12 +163,16 @@ $(function() {
                     colour: ko.observable(""),
                     brightness: ko.observable(""),
                     delay: ko.observable(""),
-                    turnoff: ko.observable(false)
+                    turnoff: ko.observable(false),
+                    flash: ko.observable(false)
                 };
-            
+
             } else {
                 if (!data.hasOwnProperty("turnoff")) {
                     data["turnoff"] = ko.observable(true);
+                }
+                if (!data.hasOwnProperty("flash")) {
+                    data["flash"] = ko.observable(false);
                 }
                 return data;
             }

@@ -6,6 +6,7 @@ known bugs found during analysis with a BUG comment so they are easy to find
 and fix.
 """
 import sys
+from datetime import datetime as real_datetime, time as real_time
 from unittest.mock import MagicMock, call, patch
 import pytest
 
@@ -184,6 +185,13 @@ class TestBuildState:
         state, _ = plugin.set_state.call_args[0]
         assert "xy" not in state
 
+    def test_alert_key_passed_through_to_state(self, plugin):
+        """Extra kwargs such as alert are forwarded to set_state unchanged."""
+        self._setup(plugin)
+        plugin.build_state(on=True, bri=200, alert="lselect", deviceid="1")
+        state, _ = plugin.set_state.call_args[0]
+        assert state["alert"] == "lselect"
+
 
 # ===========================================================================
 # get_state
@@ -340,6 +348,58 @@ class TestOnAfterStartup:
             "192.168.1.100", "test-api-key"
         )
 
+    def test_ononstartup_matching_event_calls_build_state(self, plugin):
+        """When ononstartup is True and the configured event exists in statusDict,
+        build_state must be called with the event's colour and brightness."""
+        status_entry = {
+            'event': 'PrintDone',
+            'colour': '#33FF36',
+            'brightness': 200,
+        }
+        plugin._settings.get.side_effect = make_settings_getter({
+            'ononstartup': True,
+            'ononstartupevent': 'PrintDone',
+            'statusDict': [status_entry],
+            'lampid': '1',
+        })
+        plugin.establishBridge = MagicMock()
+        plugin.build_state = MagicMock()
+        plugin.on_after_startup()
+        plugin.build_state.assert_called_once_with(
+            on=True, colour='#33FF36', bri=200, deviceid='1'
+        )
+
+    def test_ononstartup_no_matching_event_does_not_call_build_state(self, plugin):
+        """When ononstartup is True but the configured event is not in statusDict,
+        build_state must not be called."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            'ononstartup': True,
+            'ononstartupevent': 'PrintDone',
+            'statusDict': [],
+        })
+        plugin.establishBridge = MagicMock()
+        plugin.build_state = MagicMock()
+        plugin.on_after_startup()
+        plugin.build_state.assert_not_called()
+
+    def test_ononstartup_false_does_not_call_build_state(self, plugin):
+        """When ononstartup is False, build_state must not be called regardless
+        of what is in statusDict."""
+        status_entry = {
+            'event': 'PrintDone',
+            'colour': '#33FF36',
+            'brightness': 200,
+        }
+        plugin._settings.get.side_effect = make_settings_getter({
+            'ononstartup': False,
+            'ononstartupevent': 'PrintDone',
+            'statusDict': [status_entry],
+        })
+        plugin.establishBridge = MagicMock()
+        plugin.build_state = MagicMock()
+        plugin.on_after_startup()
+        plugin.build_state.assert_not_called()
+
 
 # ===========================================================================
 # on_shutdown
@@ -484,14 +544,15 @@ class TestOnEvent:
     def _timer(self):
         return sys.modules["octoprint.util"].ResettableTimer
 
-    def _status_dict_entry(self, event, turnoff=False, colour="#FFFFFF",
-                           brightness=200, delay=0):
+    def _status_dict_entry(self, event, turnoff=False, flash=False,
+                           colour="#FFFFFF", brightness=200, delay=0):
         return {
             "event": event,
             "colour": colour,
             "brightness": brightness,
             "delay": delay,
             "turnoff": turnoff,
+            "flash": flash,
         }
 
     def test_known_event_turnoff_false_schedules_on(self, plugin):
@@ -578,6 +639,13 @@ class TestOnEvent:
 # ===========================================================================
 
 class TestOnApiCommandBridge:
+
+    def test_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.make_response.assert_called_once()
+        assert flask.make_response.call_args[0][1] == 403
 
     def test_getstatus_unconfigured(self, plugin):
         flask = sys.modules["flask"]
@@ -683,6 +751,13 @@ class TestOnApiCommandBridge:
 
 class TestOnApiCommandGetDevices:
 
+    def test_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        plugin.on_api_command("getdevices", {})
+        flask.make_response.assert_called_once()
+        assert flask.make_response.call_args[0][1] == 403
+
     def test_returns_empty_devices_when_bridge_not_ready(self, plugin):
         flask = sys.modules["flask"]
         plugin.pbridge = None
@@ -744,6 +819,13 @@ class TestOnApiCommandMisc:
         plugin.toggle_state = MagicMock()
         plugin.on_api_command("togglehue", {})
         plugin.toggle_state.assert_called_once_with("1")
+
+    def test_getstate_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        plugin.on_api_command("getstate", {})
+        flask.make_response.assert_called_once()
+        assert flask.make_response.call_args[0][1] == 403
 
     def test_getstate_when_on_returns_true_string(self, plugin):
         flask = sys.modules["flask"]
@@ -925,3 +1007,299 @@ class TestOnSettingsSave:
         )
         plugin.on_settings_save({"lampid": "1"})
         Bridge.assert_called_once_with("10.0.0.1", "saved-key")
+
+
+# ===========================================================================
+# on_event  –  flash behaviour
+# ===========================================================================
+
+class TestOnEventFlash:
+    """
+    on_event flash flag adds alert: lselect to the build_state call.
+    When flash and turnoff are both set, the light flashes first and a second
+    timer turns it off 15 seconds later.
+    """
+
+    @property
+    def _timer(self):
+        return sys.modules["octoprint.util"].ResettableTimer
+
+    def _entry(self, event, turnoff=False, flash=False, colour="#FF0000",
+                brightness=200, delay=0):
+        return {
+            "event": event,
+            "colour": colour,
+            "brightness": brightness,
+            "delay": delay,
+            "turnoff": turnoff,
+            "flash": flash,
+        }
+
+    def test_flash_only_adds_alert_lselect(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "statusDict": [self._entry("PrintDone", flash=True)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        _, kwargs = self._timer.call_args
+        assert kwargs["kwargs"]["alert"] == "lselect"
+        assert kwargs["kwargs"]["on"] is True
+
+    def test_flash_false_does_not_add_alert(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "statusDict": [self._entry("PrintDone", flash=False)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        _, kwargs = self._timer.call_args
+        assert "alert" not in kwargs["kwargs"]
+
+    def test_flash_missing_key_does_not_add_alert(self, plugin):
+        """Entries saved before flash feature had no flash key — must not crash."""
+        entry = {
+            "event": "PrintDone", "colour": "#FF0000",
+            "brightness": 200, "delay": 0, "turnoff": False,
+            # no 'flash' key
+        }
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "statusDict": [entry],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        _, kwargs = self._timer.call_args
+        assert "alert" not in kwargs["kwargs"]
+
+    def test_flash_and_turnoff_schedules_two_timers(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "statusDict": [self._entry("PrintDone", turnoff=True, flash=True)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        assert self._timer.call_count == 2
+
+    def test_flash_and_turnoff_first_timer_sends_alert(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "statusDict": [self._entry("PrintDone", turnoff=True, flash=True, delay=0)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        first_call = self._timer.call_args_list[0]
+        assert first_call[1]["kwargs"]["alert"] == "lselect"
+        assert first_call[1]["kwargs"]["on"] is True
+
+    def test_flash_and_turnoff_second_timer_sends_off_after_15s(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "statusDict": [self._entry("PrintDone", turnoff=True, flash=True, delay=0)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        second_call = self._timer.call_args_list[1]
+        assert second_call[0][0] == 15  # delay arg
+        assert second_call[1]["kwargs"]["on"] is False
+
+
+# ===========================================================================
+# _is_night_mode_active
+# ===========================================================================
+
+class TestIsNightModeActive:
+    """
+    _is_night_mode_active returns True only when night mode is enabled and the
+    current time falls within the configured window.  The window may span
+    midnight (e.g. 22:00–07:00).
+    """
+
+    def _settings(self, plugin, start="22:00", end="07:00", enabled=True):
+        plugin._settings.get.side_effect = make_settings_getter({
+            "nightmode_enabled": enabled,
+            "nightmode_start": start,
+            "nightmode_end": end,
+        })
+
+    def _patch_time(self, hour, minute=0):
+        """Return a patch context that fixes datetime.now().time() to HH:MM."""
+        mock_dt = MagicMock()
+        mock_dt.now.return_value.time.return_value = real_time(hour, minute)
+        mock_dt.strptime.side_effect = real_datetime.strptime
+        return patch("octoprint_octohue.datetime", mock_dt)
+
+    def test_disabled_always_returns_false(self, plugin):
+        self._settings(plugin, enabled=False)
+        with self._patch_time(23):
+            assert plugin._is_night_mode_active() is False
+
+    def test_overnight_window_returns_true_after_start(self, plugin):
+        self._settings(plugin, start="22:00", end="07:00")
+        with self._patch_time(23):
+            assert plugin._is_night_mode_active() is True
+
+    def test_overnight_window_returns_true_before_end(self, plugin):
+        self._settings(plugin, start="22:00", end="07:00")
+        with self._patch_time(6):
+            assert plugin._is_night_mode_active() is True
+
+    def test_overnight_window_returns_false_during_day(self, plugin):
+        self._settings(plugin, start="22:00", end="07:00")
+        with self._patch_time(12):
+            assert plugin._is_night_mode_active() is False
+
+    def test_same_day_window_returns_true_inside(self, plugin):
+        self._settings(plugin, start="08:00", end="20:00")
+        with self._patch_time(14):
+            assert plugin._is_night_mode_active() is True
+
+    def test_same_day_window_returns_false_outside(self, plugin):
+        self._settings(plugin, start="08:00", end="20:00")
+        with self._patch_time(21):
+            assert plugin._is_night_mode_active() is False
+
+    def test_exactly_at_start_is_active(self, plugin):
+        self._settings(plugin, start="22:00", end="07:00")
+        with self._patch_time(22, 0):
+            assert plugin._is_night_mode_active() is True
+
+    def test_exactly_at_end_is_not_active(self, plugin):
+        self._settings(plugin, start="22:00", end="07:00")
+        with self._patch_time(7, 0):
+            assert plugin._is_night_mode_active() is False
+
+    def test_bad_time_format_returns_false(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({
+            "nightmode_enabled": True,
+            "nightmode_start": "not-a-time",
+            "nightmode_end": "07:00",
+        })
+        assert plugin._is_night_mode_active() is False
+
+
+# ===========================================================================
+# build_state  –  night mode behaviour
+# ===========================================================================
+
+class TestBuildStateNightMode:
+    """
+    When night mode is active, build_state either skips the light change
+    entirely (pause) or caps the brightness (dim).
+    """
+
+    def _make_plugin_with_night_mode(self, plugin, action, maxbri=64):
+        plugin._is_night_mode_active = MagicMock(return_value=True)
+        plugin._settings.get.side_effect = make_settings_getter({
+            "nightmode_action": action,
+            "nightmode_maxbri": maxbri,
+            "lampisgroup": False,
+            "lampid": "1",
+            "plugid": "99",
+        })
+        plugin.pbridge = MagicMock()
+
+    def test_pause_action_skips_set_state(self, plugin):
+        self._make_plugin_with_night_mode(plugin, "pause")
+        plugin.set_state = MagicMock()
+        plugin.build_state(on=True, bri=255, colour="#FF0000", deviceid="1")
+        plugin.set_state.assert_not_called()
+
+    def test_pause_action_returns_none(self, plugin):
+        self._make_plugin_with_night_mode(plugin, "pause")
+        result = plugin.build_state(on=True, bri=255, colour="#FF0000", deviceid="1")
+        assert result is None
+
+    def test_dim_action_caps_brightness_at_maxbri(self, plugin):
+        self._make_plugin_with_night_mode(plugin, "dim", maxbri=50)
+        plugin.set_state = MagicMock()
+        plugin.build_state(on=True, bri=255, colour="#FF0000", deviceid="1")
+        state_arg = plugin.set_state.call_args[0][0]
+        assert state_arg["bri"] == 50
+
+    def test_dim_action_does_not_increase_brightness(self, plugin):
+        self._make_plugin_with_night_mode(plugin, "dim", maxbri=200)
+        plugin.set_state = MagicMock()
+        plugin.build_state(on=True, bri=100, colour="#FF0000", deviceid="1")
+        state_arg = plugin.set_state.call_args[0][0]
+        assert state_arg["bri"] == 100  # already below max, unchanged
+
+    def test_dim_action_preserves_alert_key(self, plugin):
+        """Dim mode only caps brightness — other keys like alert must not be stripped."""
+        self._make_plugin_with_night_mode(plugin, "dim", maxbri=50)
+        plugin.set_state = MagicMock()
+        plugin.build_state(on=True, bri=255, alert="lselect", deviceid="1")
+        state_arg = plugin.set_state.call_args[0][0]
+        assert state_arg.get("alert") == "lselect"
+
+    def test_night_mode_inactive_passes_through_unchanged(self, plugin):
+        plugin._is_night_mode_active = MagicMock(return_value=False)
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampisgroup": False, "lampid": "1", "plugid": "99",
+        })
+        plugin.pbridge = MagicMock()
+        plugin.set_state = MagicMock()
+        plugin.build_state(on=True, bri=255, colour="#FF0000", deviceid="1")
+        state_arg = plugin.set_state.call_args[0][0]
+        assert state_arg["bri"] == 255
+
+
+# ===========================================================================
+# get_settings_defaults  –  nightmode keys present
+# ===========================================================================
+
+class TestGetSettingsDefaultsNightMode:
+
+    def test_nightmode_keys_present(self, plugin):
+        defaults = plugin.get_settings_defaults()
+        for key in ["nightmode_enabled", "nightmode_start", "nightmode_end",
+                    "nightmode_action", "nightmode_maxbri"]:
+            assert key in defaults, f"Missing nightmode key: {key!r}"
+
+    def test_nightmode_defaults(self, plugin):
+        d = plugin.get_settings_defaults()
+        assert d["nightmode_enabled"] is False
+        assert d["nightmode_start"] == "22:00"
+        assert d["nightmode_end"] == "07:00"
+        assert d["nightmode_action"] == "pause"
+        assert d["nightmode_maxbri"] == 64
+
+
+# ===========================================================================
+# on_settings_load  –  nightmode keys returned
+# ===========================================================================
+
+class TestOnSettingsLoadNightMode:
+
+    def test_nightmode_keys_in_returned_dict(self, plugin):
+        sys.modules["octoprint.events"].all_events.return_value = []
+        plugin._settings.get.side_effect = make_settings_getter()
+        plugin.get_configured_events = MagicMock(return_value=[])
+        result = plugin.on_settings_load()
+        for key in ["nightmode_enabled", "nightmode_start", "nightmode_end",
+                    "nightmode_action", "nightmode_maxbri"]:
+            assert key in result, f"Missing nightmode key in on_settings_load: {key!r}"
+
+
+# ===========================================================================
+# on_settings_migrate  –  flash key in default statusDict entries
+# ===========================================================================
+
+class TestOnSettingsMigrateFlash:
+
+    def test_default_entries_include_flash_false(self, plugin):
+        plugin.on_settings_migrate(target=1, current=None)
+        set_calls = [
+            c for c in plugin._settings.set.call_args_list
+            if c[0][0] == ["statusDict"]
+        ]
+        entries = set_calls[0][0][1]
+        for entry in entries:
+            assert "flash" in entry, f"Entry {entry['event']!r} missing flash key"
+            assert entry["flash"] is False

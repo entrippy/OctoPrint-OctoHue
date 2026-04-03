@@ -1,6 +1,6 @@
 <div class="row-fluid">
     <div class="tabbable">
-        <h4>OctoHue Settings <small>Version {{ plugin_octohue_plugin_version }}:  <span data-bind="text: ownSettings.installed_version"></span></small></h4>
+        <h4>OctoHue Settings <small>Version {{ plugin_octohue_version }}</small></h4>
 		<ul class="nav nav-tabs" id="octohue_tabs">
 			<li class="active"><a data-toggle="tab" href="#octohue_settings_bridge">Bridge</a></li>
 			<li><a data-toggle="tab" href="#octohue_settings_general">General</a></li>
@@ -68,6 +68,37 @@
                             </label>
                         </div>
                     </div>
+                    <hr>
+                    <h4>Night Mode</h4>
+                    <div class="control-group">
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" data-bind="checked: ownSettings.nightmode_enabled">Enable Night Mode
+                            </label>
+                        </div>
+                        <div data-bind="visible: ownSettings.nightmode_enabled()">
+                            <div class="controls" style="margin-top: 8px">
+                                <label class="control-label">{{ _('Active between') }}</label>
+                                <input type="time" class="input-mini" style="width: 100px" data-bind="value: ownSettings.nightmode_start">
+                                <span>&nbsp;and&nbsp;</span>
+                                <input type="time" class="input-mini" style="width: 100px" data-bind="value: ownSettings.nightmode_end">
+                            </div>
+                            <div class="controls" style="margin-top: 8px">
+                                <label class="control-label">{{ _('During night mode') }}</label>
+                                <label class="radio">
+                                    <input type="radio" value="pause" data-bind="checked: ownSettings.nightmode_action"> Pause all light changes
+                                </label>
+                                <label class="radio">
+                                    <input type="radio" value="dim" data-bind="checked: ownSettings.nightmode_action"> Limit brightness only
+                                </label>
+                            </div>
+                            <div class="controls" data-bind="visible: ownSettings.nightmode_action() === 'dim'" style="margin-top: 4px">
+                                <label class="control-label">{{ _('Max brightness') }}</label>
+                                <input type="number" min="1" max="255" class="input-mini" data-bind="value: ownSettings.nightmode_maxbri" style="width: 60px">
+                                <span class="help-inline">1–255</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -84,6 +115,7 @@
                     <label class="control-label">{{ _('Default Brightness') }}</label>
                     <div class="controls">
                         <input type="text" class="input-mini" data-bind="value: ownSettings.defaultbri">
+                        <span class="help-inline">1–255</span>
                     </div>
                     <div>
                         <small>
@@ -101,6 +133,7 @@
                                             <th style="width: 140px">Colour</th>
                                             <th style="width: 80px">Brightness</th>
                                             <th style="width: 80px">Delay (Sec)</th>
+                                            <th style="width: 60px; text-align: center">Flash</th>
                                             <th style="width: 80px; text-align: center">Switch Off</th>
                                             <th style="width: 60px; text-align: center">Remove</th>
                                         </tr>
@@ -114,6 +147,7 @@
                                             </td>
                                             <td><input type="number" min="1" max="255" class="input-mini" data-bind="value: brightness" style="width: 50px"></td>
                                             <td><input type="number" min="0" class="input-mini" data-bind="value: delay" style="width: 50px"></td>
+                                            <td style="text-align: center"><i data-bind="attr: { class: flash() ? 'fa fa-bell' : 'fa fa-bell-o' }, click: $parent.setFlash"></i></td>
                                             <td style="text-align: center"><i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i></td>
                                             <td style="text-align: center"><i class="fa fa-trash-o" data-bind="click: $parent.removeStatus"></i></td>
                                         </tr>
@@ -129,7 +163,7 @@
             </div>
 
             <div id="octohue_settings_power" class="tab-pane">
-                <div class=""power-options>
+                <div class="power-options">
                     <label class="checkbox">
                         <input type="checkbox" data-bind="checked: ownSettings.showpowertoggle">Add Power Toggle Icon to Navigation Bar
                     </label>
