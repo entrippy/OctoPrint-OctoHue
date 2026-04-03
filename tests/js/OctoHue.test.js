@@ -589,6 +589,26 @@ describe("addNewStatus flash", () => {
 });
 
 // ===========================================================================
+// addNewStatus — ct field
+// ===========================================================================
+
+describe("addNewStatus ct", () => {
+  test("new status has ct as an observable", () => {
+    const vm = makeViewModel();
+    vm.addNewStatus();
+    const item = vm.ownSettings.statusDict._items[0];
+    expect(typeof item.ct).toBe("function");
+  });
+
+  test("new status ct defaults to 0", () => {
+    const vm = makeViewModel();
+    vm.addNewStatus();
+    const item = vm.ownSettings.statusDict._items[0];
+    expect(item.ct()).toBe(0);
+  });
+});
+
+// ===========================================================================
 // statusDetails — flash field
 // ===========================================================================
 
@@ -614,6 +634,35 @@ describe("statusDetails flash", () => {
     const result = vm.statusDetails(data);
     expect(typeof result.flash).toBe("function");
     expect(result.flash()).toBe(false);
+  });
+});
+
+// ===========================================================================
+// statusDetails — ct field
+// ===========================================================================
+
+describe("statusDetails ct", () => {
+  test("data=false returns ct observable defaulting to 0", () => {
+    const vm = makeViewModel();
+    const result = vm.statusDetails(false);
+    expect(typeof result.ct).toBe("function");
+    expect(result.ct()).toBe(0);
+  });
+
+  test("data with existing ct observable is left unchanged", () => {
+    const vm = makeViewModel();
+    const existingCt = makeObservable(370);
+    const data = { turnoff: makeObservable(false), flash: makeObservable(false), ct: existingCt };
+    const result = vm.statusDetails(data);
+    expect(result.ct).toBe(existingCt);
+  });
+
+  test("data without ct gets ct added as observable defaulting to 0", () => {
+    const vm = makeViewModel();
+    const data = { turnoff: makeObservable(false), flash: makeObservable(false) };
+    const result = vm.statusDetails(data);
+    expect(typeof result.ct).toBe("function");
+    expect(result.ct()).toBe(0);
   });
 });
 
@@ -644,5 +693,53 @@ describe("onBeforeBinding flash normalisation", () => {
     makeViewModel({ statusDict: makeStatusDictMock([item]) });
     expect(typeof item.flash).toBe("function");
     expect(item.flash()).toBe(false);
+  });
+});
+
+// ===========================================================================
+// onBeforeBinding — ct normalisation
+// ===========================================================================
+
+describe("onBeforeBinding ct normalisation", () => {
+  test("items already having ct as an observable are left unchanged", () => {
+    const existingCt = makeObservable(370);
+    const item = { event: makeObservable("PrintDone"), flash: makeObservable(false), ct: existingCt };
+    const vm = makeViewModel({ statusDict: makeStatusDictMock([item]) });
+    vm.onBeforeBinding();
+    expect(item.ct).toBe(existingCt);
+  });
+
+  test("items without ct get ct added as observable defaulting to 0", () => {
+    const item = { event: makeObservable("PrintDone"), flash: makeObservable(false) };
+    makeViewModel({ statusDict: makeStatusDictMock([item]) });
+    expect(typeof item.ct).toBe("function");
+    expect(item.ct()).toBe(0);
+  });
+
+  test("items with plain numeric ct get it wrapped in an observable", () => {
+    const item = { event: makeObservable("PrintDone"), flash: makeObservable(false), ct: 300 };
+    makeViewModel({ statusDict: makeStatusDictMock([item]) });
+    expect(typeof item.ct).toBe("function");
+    expect(item.ct()).toBe(300);
+  });
+});
+
+// ===========================================================================
+// toggleCtMode
+// ===========================================================================
+
+describe("toggleCtMode", () => {
+  test("when ct is 0, sets ct to 370 (warm white default)", () => {
+    const vm = makeViewModel();
+    const status = { ct: makeObservable(0) };
+    vm.toggleCtMode(status);
+    expect(status.ct()).toBe(370);
+  });
+
+  test("when ct is non-zero, resets ct to 0 (RGB mode)", () => {
+    const vm = makeViewModel();
+    const status = { ct: makeObservable(370) };
+    vm.toggleCtMode(status);
+    expect(status.ct()).toBe(0);
   });
 });

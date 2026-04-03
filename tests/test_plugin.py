@@ -382,6 +382,27 @@ class TestOnAfterStartup:
         plugin.on_after_startup()
         plugin.build_state.assert_not_called()
 
+    def test_ononstartup_ct_event_calls_build_state_with_ct(self, plugin):
+        """When the startup event has ct set, build_state should receive ct not colour."""
+        status_entry = {
+            'event': 'PrintDone',
+            'colour': '#33FF36',
+            'brightness': 200,
+            'ct': 370,
+        }
+        plugin._settings.get.side_effect = make_settings_getter({
+            'ononstartup': True,
+            'ononstartupevent': 'PrintDone',
+            'statusDict': [status_entry],
+            'lampid': '1',
+        })
+        plugin.establishBridge = MagicMock()
+        plugin.build_state = MagicMock()
+        plugin.on_after_startup()
+        plugin.build_state.assert_called_once_with(
+            on=True, ct=370, bri=200, deviceid='1'
+        )
+
     def test_ononstartup_false_does_not_call_build_state(self, plugin):
         """When ononstartup is False, build_state must not be called regardless
         of what is in statusDict."""
@@ -545,7 +566,7 @@ class TestOnEvent:
         return sys.modules["octoprint.util"].ResettableTimer
 
     def _status_dict_entry(self, event, turnoff=False, flash=False,
-                           colour="#FFFFFF", brightness=200, delay=0):
+                           colour="#FFFFFF", brightness=200, delay=0, ct=0):
         return {
             "event": event,
             "colour": colour,
@@ -553,6 +574,7 @@ class TestOnEvent:
             "delay": delay,
             "turnoff": turnoff,
             "flash": flash,
+            "ct": ct,
         }
 
     def test_known_event_turnoff_false_schedules_on(self, plugin):
@@ -632,6 +654,48 @@ class TestOnEvent:
         plugin.printer_start_power_down = MagicMock()
         plugin.on_event("PrintStarted", {})
         plugin.printer_start_power_down.assert_not_called()
+
+    def test_ct_mode_schedules_ct_not_colour(self, plugin):
+        """When an event has ct set, build_state should receive ct, not colour."""
+        plugin._settings.get.side_effect = make_settings_getter(
+            {
+                "lampid": "1",
+                "statusDict": [self._status_dict_entry("PrintStarted", ct=370)],
+                "autopoweroff": False,
+            }
+        )
+        plugin.on_event("PrintStarted", {})
+        _, kwargs = self._timer.call_args
+        assert kwargs["kwargs"]["ct"] == 370
+        assert "colour" not in kwargs["kwargs"]
+
+    def test_ct_mode_zero_falls_back_to_colour(self, plugin):
+        """When ct is 0 (falsy), colour should be used as normal."""
+        plugin._settings.get.side_effect = make_settings_getter(
+            {
+                "lampid": "1",
+                "statusDict": [self._status_dict_entry("PrintStarted", ct=0)],
+                "autopoweroff": False,
+            }
+        )
+        plugin.on_event("PrintStarted", {})
+        _, kwargs = self._timer.call_args
+        assert "colour" in kwargs["kwargs"]
+        assert "ct" not in kwargs["kwargs"]
+
+    def test_ct_mode_flash_and_turnoff_uses_ct(self, plugin):
+        """Flash+turnoff with ct set should use ct in the flash kwargs."""
+        plugin._settings.get.side_effect = make_settings_getter(
+            {
+                "lampid": "1",
+                "statusDict": [self._status_dict_entry("PrintDone", flash=True, turnoff=True, ct=300)],
+                "autopoweroff": False,
+            }
+        )
+        plugin.on_event("PrintDone", {})
+        first_call_kwargs = self._timer.call_args_list[0][1]["kwargs"]
+        assert first_call_kwargs["ct"] == 300
+        assert "colour" not in first_call_kwargs
 
 
 # ===========================================================================

@@ -140,6 +140,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				bri (int): Brightness, 1–255. 255 is maximum.
 				colour (str): '#RRGGBB' hex string converted to CIE xy for the Hue API.
 				              Ignored when on=False or when the colour resolves to black.
+				              Mutually exclusive with ct — if ct is provided, colour is ignored.
+				ct (int): Colour temperature in mirek (153–500). 153 = coolest (~6500K),
+				          500 = warmest (~2000K). Uses the white channel on RGBCCT lights.
+				          Mutually exclusive with colour.
 				deviceid (str): ID of the Hue device or group to target.
 				alert (str): Hue alert effect, e.g. 'lselect' for a 15-second flash cycle.
 				transitiontime (int): Transition duration in units of 100 ms.
@@ -270,7 +274,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._settings.get(['ononstartup']):
 			my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
 			if my_statusEvent:
-				self.build_state(on=True, colour=my_statusEvent['colour'], bri=int(my_statusEvent['brightness']), deviceid=self._settings.get(['lampid']))
+				ct = int(my_statusEvent.get('ct') or 0)
+				if ct:
+					self.build_state(on=True, ct=ct, bri=int(my_statusEvent['brightness']), deviceid=self._settings.get(['lampid']))
+				else:
+					self.build_state(on=True, colour=my_statusEvent['colour'], bri=int(my_statusEvent['brightness']), deviceid=self._settings.get(['lampid']))
 
 	def on_shutdown(self):
 		'''
@@ -452,14 +460,24 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			flash = my_statusEvent.get('flash', False)
 			turnoff = my_statusEvent['turnoff']
 
+			ct = int(my_statusEvent.get('ct') or 0)
+
 			if turnoff and flash:
 				# Flash first, then switch off after the 15-second alert cycle completes
-				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on': True, 'colour': my_statusEvent['colour'], 'bri': int(my_statusEvent['brightness']), 'alert': 'lselect', 'deviceid': deviceid})
+				flash_kwargs = {'on': True, 'bri': int(my_statusEvent['brightness']), 'alert': 'lselect', 'deviceid': deviceid}
+				if ct:
+					flash_kwargs['ct'] = ct
+				else:
+					flash_kwargs['colour'] = my_statusEvent['colour']
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs=flash_kwargs)
 				ResettableTimer(delay + 15, self.build_state, kwargs={'on': False, 'deviceid': deviceid}).start()
 			elif not turnoff:
 				brightness = my_statusEvent['brightness']
-				colour = my_statusEvent['colour']
-				build_kwargs = {'on': True, 'colour': colour, 'bri': int(brightness), 'deviceid': deviceid}
+				build_kwargs = {'on': True, 'bri': int(brightness), 'deviceid': deviceid}
+				if ct:
+					build_kwargs['ct'] = ct
+				else:
+					build_kwargs['colour'] = my_statusEvent['colour']
 				if flash:
 					build_kwargs['alert'] = 'lselect'
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs=build_kwargs)

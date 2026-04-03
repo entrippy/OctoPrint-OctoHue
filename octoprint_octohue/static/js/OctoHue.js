@@ -40,7 +40,8 @@ $(function() {
                 brightness: ko.observable('').extend({ defaultIfNull: "255" }),
                 delay: ko.observable('').extend({ defaultIfNull: "0" }),
                 turnoff: ko.observable(false),
-                flash: ko.observable(false)
+                flash: ko.observable(false),
+                ct: ko.observable(0)
             };
             self.ownSettings.statusDict.push(statusObj);
         };
@@ -127,11 +128,14 @@ $(function() {
             self.ownSettings = self.settings.plugins.octohue;
             self.statusDict = self.ownSettings.statusDict;
 
-            // Ensure flash is a ko.observable on every loaded statusDict item
-            // (items saved before the flash feature was added won't have it)
+            // Ensure flash and ct are ko.observables on every loaded statusDict item
+            // (items saved before these features were added won't have them)
             ko.utils.arrayForEach(self.statusDict(), function(item) {
                 if (!ko.isObservable(item.flash)) {
                     item.flash = ko.observable(item.flash || false);
+                }
+                if (!ko.isObservable(item.ct)) {
+                    item.ct = ko.observable(item.ct || 0);
                 }
             });
         };
@@ -164,7 +168,8 @@ $(function() {
                     brightness: ko.observable(""),
                     delay: ko.observable(""),
                     turnoff: ko.observable(false),
-                    flash: ko.observable(false)
+                    flash: ko.observable(false),
+                    ct: ko.observable(0)
                 };
 
             } else {
@@ -174,7 +179,18 @@ $(function() {
                 if (!data.hasOwnProperty("flash")) {
                     data["flash"] = ko.observable(false);
                 }
+                if (!data.hasOwnProperty("ct")) {
+                    data["ct"] = ko.observable(0);
+                }
                 return data;
+            }
+        };
+
+        self.toggleCtMode = function(status) {
+            if (status.ct()) {
+                status.ct(0);
+            } else {
+                status.ct(370); // default ~2700K warm white
             }
         };
 
