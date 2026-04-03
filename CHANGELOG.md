@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-04-03
+
+### Added
+- Colour temperature (CT) mode for RGBCCT light support — each status event can now be toggled between RGB and CT mode. CT mode sends the `ct` parameter (153–500 mirek) to the Hue API, activating the white channel on RGBCCT lights instead of the RGB LEDs. Closes #53.
+- Warm-to-cool gradient slider replaces the colour picker when CT mode is active — no numeric values needed, the gradient communicates the range visually.
+
+### Changed
+- Migrated from legacy `setup.py` / `octoprint_setuptools` to `pyproject.toml` — fixes installation failures with pip 25.3+ which enables build isolation by default
+- Minimum Python version raised to 3.9 to match current OctoPrint requirements
+- `Taskfile.yml` added for common development tasks (build, install, translations)
+
+---
+
+## [0.8.0] - 2026-04-03
+
+### Added
+- Flash/blink feature for status events — configure any event to trigger a 15-second Hue alert cycle (`lselect`), optionally followed by switching the light off
+- Night mode — define an active time window during which light changes are either paused entirely or brightness is capped at a configurable maximum (1–255)
+- Admin-only restriction on sensitive API endpoints (`bridge`, `getdevices`, `getstate`) — non-admin callers receive 403 Forbidden; light-control commands (`turnon`, `turnoff`, `togglehue`, `cooldown`) remain available to any authenticated user
+
+### Fixed
+- Flash observable not present on statusDict items saved before the flash feature was added — now normalised on load
+- Plugin version not displaying in the settings header — wrong Jinja2 variable name and missing entry in `get_template_vars()`
+- Malformed HTML on power settings tab div
+
+### Improved
+- Night mode time input boxes widened to prevent value truncation
+- Default brightness input now shows a 1–255 range hint
+- All plugin functions now have accurate docstrings
+- Test suite expanded to 127 Python tests and 40 JS tests
+
+---
+
 ## [0.7.0] - 2026-03-28
 
 > It has been a while — apologies for the long gap since 0.6.0. This release brings a significant number of new features, bug fixes, and code quality improvements. Getting here was greatly helped by AI-assisted development, which made it possible to add a full test suite, catch long-standing bugs, and ship a much more solid release than would otherwise have been feasible.
