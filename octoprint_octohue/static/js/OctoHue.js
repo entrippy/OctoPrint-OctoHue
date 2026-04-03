@@ -123,6 +123,11 @@ $(function() {
                 .then(response => response.devices);
         };
 
+        self.getGroups = function () {
+            return OctoPrint.simpleApiCommand("octohue", "getgroups", {}, {})
+                .then(response => response.groups);
+        };
+
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
@@ -143,7 +148,11 @@ $(function() {
         self.onSettingsShown = function () {
             self.getbridgestatus();
             self.getDevices("plug").then(devices => { self.huePlugs(devices); });
-            self.getDevices().then(devices => { self.hueLamps(devices); });
+            if (self.ownSettings.lampisgroup()) {
+                self.getGroups().then(groups => { self.hueLamps(groups); });
+            } else {
+                self.getDevices().then(devices => { self.hueLamps(devices); });
+            }
         };
 
         self.removeStatus = function (data) {

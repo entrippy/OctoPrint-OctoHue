@@ -83,8 +83,18 @@ sys.modules["octoprint.util"] = mock_util
 sys.modules["octoprint.events"] = mock_octoprint.events
 sys.modules["octoprint.access"] = MagicMock(name="octoprint.access")
 sys.modules["octoprint.access.permissions"] = mock_access_permissions
-sys.modules["qhue"] = MagicMock(name="qhue")
-sys.modules["requests"] = MagicMock(name="requests")
+class _HTTPAdapter:
+    """Real (empty) stand-in for requests.adapters.HTTPAdapter.
+    Using a real class lets _SignifyAdapter inherit from it normally
+    rather than inheriting from a MagicMock instance."""
+    def init_poolmanager(self, *args, **kwargs): pass
+    def proxy_manager_for(self, proxy, **kwargs): pass
+
+mock_requests = MagicMock(name="requests")
+mock_requests_adapters = MagicMock(name="requests.adapters")
+mock_requests_adapters.HTTPAdapter = _HTTPAdapter
+sys.modules["requests"] = mock_requests
+sys.modules["requests.adapters"] = mock_requests_adapters
 sys.modules["urllib3"] = MagicMock(name="urllib3")
 sys.modules["urllib3.exceptions"] = MagicMock(name="urllib3.exceptions")
 sys.modules["flask"] = mock_flask
@@ -103,8 +113,10 @@ def _reset_shared_mocks():
     sys.modules["flask"].make_response.reset_mock()
     sys.modules["requests"].get.reset_mock()
     sys.modules["requests"].post.reset_mock()
+    sys.modules["requests"].request.reset_mock()
+    sys.modules["requests"].Session.reset_mock()
+    sys.modules["requests"].request.reset_mock()
     sys.modules["octoprint.util"].ResettableTimer.reset_mock()
-    sys.modules["qhue"].Bridge.reset_mock()
     perms = sys.modules["octoprint.access.permissions"]
     perms.Permissions.ADMIN.can.reset_mock()
     perms.Permissions.ADMIN.can.return_value = True
@@ -120,8 +132,9 @@ def plugin():
     p._logger = MagicMock(name="_logger")
     p._settings = MagicMock(name="_settings")
     p._printer = MagicMock(name="_printer")
-    p._plugin_version = "0.7.0"
-    p.pbridge = MagicMock(name="pbridge")
+    p._plugin_version = "1.0.0"
+    p.pbridge = {"addr": "192.168.1.100", "key": "test-api-key"}
+    p._session = MagicMock(name="_session")
     p.discoveryurl = "https://discovery.meethue.com/"
     return p
 

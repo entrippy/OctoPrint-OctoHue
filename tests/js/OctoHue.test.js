@@ -176,6 +176,7 @@ function makeViewModel(pluginSettingsOverrides = {}) {
   const pluginSettings = {
     statusDict,
     plugid: makeObservable("2"),
+    lampisgroup: makeObservable(false),
     ...pluginSettingsOverrides,
   };
 
@@ -519,6 +520,7 @@ describe("onSettingsShown", () => {
   test("calls getbridgestatus when settings panel is shown", () => {
     const vm = makeViewModel();
     vm.getbridgestatus = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
     vm.onSettingsShown();
     expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
   });
@@ -535,16 +537,37 @@ describe("onSettingsShown", () => {
     expect(vm.huePlugs).toHaveBeenCalledWith(plugDevices);
   });
 
-  test("populates hueLamps with devices returned without archetype filter", () => {
+  test("populates hueLamps with lights when lampisgroup is false", () => {
     const plugDevices = [{ id: "3", name: "Smart Plug", archetype: "plug" }];
     const lampDevices = [{ id: "1", name: "Desk Lamp", archetype: "tableShade" }];
-    const vm = makeViewModel();
+    const vm = makeViewModel({ lampisgroup: makeObservable(false) });
     vm.getbridgestatus = jest.fn();
     vm.getDevices = jest.fn()
       .mockImplementationOnce(() => new SyncResult(plugDevices))
       .mockImplementationOnce(() => new SyncResult(lampDevices));
     vm.onSettingsShown();
     expect(vm.hueLamps).toHaveBeenCalledWith(lampDevices);
+  });
+
+  test("populates hueLamps with groups when lampisgroup is true", () => {
+    const plugDevices = [{ id: "3", name: "Smart Plug", archetype: "plug" }];
+    const groupDevices = [{ id: "gl-uuid-1", name: "Living Room" }];
+    const vm = makeViewModel({ lampisgroup: makeObservable(true) });
+    vm.getbridgestatus = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult(plugDevices));
+    vm.getGroups = jest.fn(() => new SyncResult(groupDevices));
+    vm.onSettingsShown();
+    expect(vm.hueLamps).toHaveBeenCalledWith(groupDevices);
+    expect(vm.getGroups).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not call getGroups when lampisgroup is false", () => {
+    const vm = makeViewModel({ lampisgroup: makeObservable(false) });
+    vm.getbridgestatus = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.getGroups = jest.fn(() => new SyncResult([]));
+    vm.onSettingsShown();
+    expect(vm.getGroups).not.toHaveBeenCalled();
   });
 });
 

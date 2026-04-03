@@ -1,14 +1,39 @@
 import octoprint.plugin
 from datetime import datetime
+import os
+import ssl
 import flask
 import requests
-from qhue import Bridge
+from requests.adapters import HTTPAdapter
 from octoprint.util import ResettableTimer
 from octoprint.access.permissions import Permissions
-from urllib3.exceptions import InsecureRequestWarning
- 
-# Suppress the warnings from urllib3
-requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
+# ---------------------------------------------------------------------------
+# Custom HTTPS adapter that verifies the Hue bridge certificate chain against
+# the bundled Signify root CA, but skips hostname verification.
+#
+# Hostname verification cannot succeed because the bridge certificate uses
+# the bridge serial number as its CN/SAN, not the IP address.  Verifying the
+# chain is still a meaningful improvement over verify=False: it confirms the
+# certificate was issued by Signify rather than by an arbitrary attacker.
+# ---------------------------------------------------------------------------
+_CA_BUNDLE = os.path.join(os.path.dirname(__file__), "signify-root-ca.pem")
+
+
+class _SignifyAdapter(HTTPAdapter):
+    """Mounts a custom SSLContext that checks the Signify CA chain."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = ssl.create_default_context(cafile=_CA_BUNDLE)
+        ctx.check_hostname = False
+        kwargs["ssl_context"] = ctx
+        super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        ctx = ssl.create_default_context(cafile=_CA_BUNDLE)
+        ctx.check_hostname = False
+        proxy_kwargs["ssl_context"] = ctx
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
 class OctohuePlugin(octoprint.plugin.StartupPlugin,
@@ -21,6 +46,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 
 	pbridge = None
+	_session = None
 	discoveryurl = 'https://discovery.meethue.com/'
 
 	def _is_night_mode_active(self):
@@ -53,20 +79,50 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			return False
 		return True
 
+	def _hue_request(self, method, path, payload=None):
+		'''
+		Sends an HTTPS request to the Hue v2 CLIP API using a session that
+		verifies the certificate chain against the bundled Signify root CA.
+
+			Parameters:
+				method (str): HTTP method ('GET', 'PUT', etc.)
+				path (str): Resource path relative to /clip/v2/resource/ (e.g. 'light/uuid').
+				payload (dict, optional): JSON body for PUT requests.
+
+			Returns:
+				dict: Parsed JSON response, or an empty dict on error.
+		'''
+		url = f"https://{self.pbridge['addr']}/clip/v2/resource/{path}"
+		headers = {"hue-application-key": self.pbridge['key']}
+		try:
+			r = self._session.request(method, url, headers=headers, json=payload)
+			return r.json()
+		except Exception as e:
+			self._logger.error(f"Hue API error ({method} {path}): {e}")
+			return {}
+
 	def establishBridge(self, bridgeaddr, husername):
 		'''
-		Creates (or re-creates) the qhue Bridge connection. Called on startup and
-		whenever settings are saved with updated credentials.
+		Stores the Hue bridge connection details. If both address and key are present,
+		pbridge is set to a dict with 'addr' and 'key'; otherwise pbridge is set to None.
+		Called on startup and whenever settings are saved with updated credentials.
 
 			Parameters:
 				bridgeaddr (str): IP address or hostname of the Hue bridge.
-				husername (str): Hue API key for authentication.
+				husername (str): Hue API key (application key) for authentication.
 		'''
 		self._logger.debug(f"Bridge Address is {bridgeaddr if bridgeaddr else 'Please set Bridge Address in settings'}")
 		self._logger.debug(f"Hue Username is {husername if husername else 'Please set Hue Username in settings'}")
-		self.pbridge = Bridge(bridgeaddr, husername)
-		self._logger.debug(f"Bridge established at: {self.pbridge.url}")
-	
+		if bridgeaddr and husername:
+			self.pbridge = {'addr': bridgeaddr, 'key': husername}
+			session = requests.Session()
+			session.mount("https://", _SignifyAdapter())
+			self._session = session
+			self._logger.debug(f"Bridge established at: {bridgeaddr}")
+		else:
+			self.pbridge = None
+			self._session = None
+
 	def rgb_to_xy(self, red: int, green: int = None, blue: int = None):
 		'''
 		Converts an RGB colour to CIE 1931 xy chromaticity coordinates for the Hue API.
@@ -90,14 +146,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				red, green, blue = int(red[1:3], 16), int(red[3:5], 16), int(red[5:], 16)
 			except ValueError:
 				raise ValueError("Invalid hex string format")
-	
+
 		self._logger.debug(f"RGB Split Input - R:{red} G:{green} B:{blue}")
 
 		# We need to convert the RGB value to Yxz.
 		redScale = float(red) / 255.0
 		greenScale = float(green) / 255.0
 		blueScale = float(blue) / 255.0
-		
+
 		# Apply gamma correction (sRGB standard)
 		if redScale <= 0.04045:
 			redScale = redScale / 12.92
@@ -137,15 +193,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 			Keyword Args:
 				on (bool): True to turn the light on, False to turn it off.
-				bri (int): Brightness, 1–255. 255 is maximum.
+				bri (int): Brightness, 1–254. 254 is maximum.
 				colour (str): '#RRGGBB' hex string converted to CIE xy for the Hue API.
 				              Ignored when on=False or when the colour resolves to black.
 				              Mutually exclusive with ct — if ct is provided, colour is ignored.
 				ct (int): Colour temperature in mirek (153–500). 153 = coolest (~6500K),
 				          500 = warmest (~2000K). Uses the white channel on RGBCCT lights.
 				          Mutually exclusive with colour.
-				deviceid (str): ID of the Hue device or group to target.
-				alert (str): Hue alert effect, e.g. 'lselect' for a 15-second flash cycle.
+				deviceid (str): UUID of the Hue device or group to target.
+				alert (str): Hue alert effect. 'lselect' is mapped to the v2 'breathe' action.
 				transitiontime (int): Transition duration in units of 100 ms.
 
 		Night mode:
@@ -158,7 +214,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			API. All other kwargs (including alert, transitiontime, etc.) pass through
 			to set_state() unchanged.
 		'''
-		
+
 		self._logger.debug(f"Build_state Called with: {kwargs}")
 
 		if self._is_night_mode_active():
@@ -186,15 +242,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_state(self, deviceid=None):
 		'''
-		Queries the on/off state of a Hue device or group.
+		Queries the on/off state of a Hue device or group via the v2 API.
 
 			Parameters:
-				deviceid (str, optional): ID of the device to query.
+				deviceid (str, optional): UUID of the device to query.
 				                          Defaults to the configured lampid.
 
 			Returns:
 				bool: True if the device is on, False if off.
-				None: If the bridge is not ready.
+				None: If the bridge is not ready or the response is unexpected.
 		'''
 		if not self._bridge_ready():
 			return None
@@ -204,20 +260,29 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		self._logger.debug(f"Getting state of {deviceid}")
 		if self._settings.get(['lampisgroup']):
-			return self.pbridge.groups[deviceid]().get("action")['on']
+			response = self._hue_request('GET', f"grouped_light/{deviceid}")
 		else:
-			return self.pbridge.lights[deviceid]().get("state")['on']
+			response = self._hue_request('GET', f"light/{deviceid}")
+
+		data = response.get('data', [])
+		if data:
+			return data[0]['on']['on']
+		return None
 
 	def set_state(self, state, deviceid=None):
 		'''
-		Sends a state payload to a Hue device or group via the bridge.
+		Converts a v1-style state dict to a Hue v2 CLIP API payload and PUTs it to
+		the appropriate light or grouped_light resource.
 
-		Uses the group action endpoint if lampisgroup is True and the target is not the
-		configured plug; otherwise uses the individual light state endpoint.
+		Brightness is converted from the 1–254 scale to the v2 0–100% scale.
+		xy colour coordinates are wrapped in the v2 {"x": ..., "y": ...} object.
+		CT is wrapped in color_temperature.mirek.
+		The v1 "lselect" alert value is mapped to the v2 "breathe" action.
 
 			Parameters:
-				state (dict): Hue API state attributes (e.g. {'on': True, 'bri': 200}).
-				deviceid (str, optional): ID of the device or group to target.
+				state (dict): State attributes using v1 key names:
+				              on, bri (1-254), xy ([x, y]), ct, alert, transitiontime.
+				deviceid (str, optional): UUID of the device or group to target.
 				                          Defaults to the configured lampid.
 		'''
 		if not self._bridge_ready():
@@ -228,10 +293,26 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		self._logger.debug(f"Setting lampid: {deviceid} Is Group: {self._settings.get(['lampisgroup'])} with State: {state}")
 
+		# Build v2 nested payload
+		payload = {}
+		if 'on' in state:
+			payload['on'] = {'on': state['on']}
+		if 'bri' in state:
+			payload['dimming'] = {'brightness': round(state['bri'] / 254 * 100, 1)}
+		if 'xy' in state:
+			payload['color'] = {'xy': {'x': state['xy'][0], 'y': state['xy'][1]}}
+		if 'ct' in state:
+			payload['color_temperature'] = {'mirek': state['ct']}
+		if 'alert' in state:
+			# v1 'lselect' (15s cycle) maps to v2 'breathe' (single pulse)
+			payload['alert'] = {'action': 'breathe'}
+		if 'transitiontime' in state:
+			payload['dynamics'] = {'duration': state['transitiontime'] * 100}
+
 		if self._settings.get(['lampisgroup']) and self._settings.get(['plugid']) != deviceid:
-			self.pbridge.groups[deviceid].action(**state)
+			self._hue_request('PUT', f"grouped_light/{deviceid}", payload)
 		else:
-			self.pbridge.lights[deviceid].state(**state)
+			self._hue_request('PUT', f"light/{deviceid}", payload)
 
 	def toggle_state(self, deviceid=None):
 		'''
@@ -239,7 +320,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		default brightness; plugs (plugid) are switched on without a brightness argument.
 
 			Parameters:
-				deviceid (str, optional): ID of the device to toggle.
+				deviceid (str, optional): UUID of the device to toggle.
 				                          Defaults to the configured lampid.
 		'''
 		if deviceid is None:
@@ -297,7 +378,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		delayedtask = ResettableTimer(delay, self.printer_check_temp_power_down)
 
 		delayedtask.start()
-		
+
 	def printer_check_temp_power_down(self):
 		'''
 		Check if minimum temperature for shutdown is reached if defined.
@@ -316,7 +397,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		else:
 			self._logger.debug(f"Current temperature: {current_temp}, waiting 30 seconds...")
 			ResettableTimer(30.0, self.printer_check_temp_power_down).start()
-	
+
 	def get_api_commands(self):
 		'''
 		Declares the SimpleApi commands this plugin exposes.
@@ -325,13 +406,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return dict(
 			bridge=[],
 			getdevices=[],
+			getgroups=[],
 			togglehue=[],
 			getstate=[],
 			turnon=[],
 			turnoff=[],
 			cooldown=[]
 		)
-	
+
 	def on_api_command(self, command, data):
 		'''
 		Handles SimpleApi commands dispatched by OctoPrint.
@@ -339,6 +421,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Commands:
 				bridge     (admin) getstatus / discover / pair sub-commands for bridge management.
 				getdevices (admin) Returns Hue lights, optionally filtered by archetype.
+				getgroups  (admin) Returns Hue rooms and zones as named group entries.
 				getstate   (admin) Returns the current on/off state of the configured lamp.
 				togglehue  Toggles the lamp (or a specific device) between on and off.
 				turnon     Turns a device on, optionally applying a colour hex value.
@@ -358,17 +441,20 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					return flask.jsonify(bridgestatus="unauthed")
 				else:
 					return flask.jsonify(bridgestatus="unconfigured")
-				
+
 			elif "discover" in data:
 				r = requests.get(self.discoveryurl)
 				discoveredbridge = r.json()
 				self._logger.debug(discoveredbridge)
 				return flask.jsonify(discoveredbridge)
-			
+
 			elif "pair" in data:
 				self._logger.debug(data['bridgeaddr'])
 				bridgeaddr = data['bridgeaddr']
-				r = requests.post("https://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"}, verify=False)
+				# Pairing still uses the v1 endpoint — this is correct and unchanged in v2
+				pair_session = requests.Session()
+				pair_session.mount("https://", _SignifyAdapter())
+				r = pair_session.post("https://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"})
 				result = r.json()[0]
 				if "error" in result:
 					response = [{
@@ -398,20 +484,40 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			if not self._bridge_ready():
 				return flask.jsonify(devices=[])
 			self._logger.debug("Getting Devices")
-			devicedata = self.pbridge.lights()
+			response = self._hue_request('GET', 'light')
+			devices = response.get('data', [])
 			if 'archetype' in data:
 				self._logger.debug(f"Archetype: {data['archetype']}")
 				device_elements = [
-					{"id": key, "name": value["name"], "archetype": value["config"]["archetype"]}
-					for key, value in devicedata.items()
-					if value["config"]["archetype"] == data['archetype']
+					{"id": d['id'], "name": d['metadata']['name'], "archetype": d['metadata']['archetype']}
+					for d in devices
+					if d.get('metadata', {}).get('archetype') == data['archetype']
 				]
 			else:
 				device_elements = [
-					{"id": key,"name": value["name"], "archetype": value["config"]["archetype"]}
-					for key, value in devicedata.items()
+					{"id": d['id'], "name": d['metadata']['name'], "archetype": d.get('metadata', {}).get('archetype', '')}
+					for d in devices
 				]
 			return flask.jsonify(devices=device_elements)
+
+		elif command == 'getgroups':
+			if not Permissions.ADMIN.can():
+				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
+			if not self._bridge_ready():
+				return flask.jsonify(groups=[])
+			self._logger.debug("Getting Groups")
+			groups = []
+			for resource_type in ('room', 'zone'):
+				response = self._hue_request('GET', resource_type)
+				for item in response.get('data', []):
+					name = item.get('metadata', {}).get('name', '')
+					grouped_light_id = next(
+						(s['rid'] for s in item.get('services', []) if s.get('rtype') == 'grouped_light'),
+						None
+					)
+					if grouped_light_id and name:
+						groups.append({'id': grouped_light_id, 'name': name})
+			return flask.jsonify(groups=groups)
 
 		elif command == 'togglehue':
 			self._logger.debug(f"Toggling Hue for {data}")
@@ -427,7 +533,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.jsonify(on="true")
 			else:
 				return flask.jsonify(on="false")
-			
+
 		elif command == 'turnon':
 			deviceid = data.get('deviceid') or self._settings.get(['lampid'])
 
@@ -443,7 +549,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		elif command == 'cooldown':
 			self.printer_check_temp_power_down()
-			
+
 	def on_event(self, event, payload):
 		'''
 		OctoPrint event hook. If the event matches a configured statusDict entry,
@@ -452,7 +558,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		self._logger.debug(f"Recieved Status: {event} from Printer")
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
-		if my_statusEvent: 
+		if my_statusEvent:
 			self._logger.info(f"Received Configured Status Event: {event}")
 			delay = my_statusEvent['delay'] or 0
 			deviceid = self._settings.get(['lampid'])
@@ -463,7 +569,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			ct = int(my_statusEvent.get('ct') or 0)
 
 			if turnoff and flash:
-				# Flash first, then switch off after the 15-second alert cycle completes
+				# Flash first, then switch off after the alert cycle completes
 				flash_kwargs = {'on': True, 'bri': int(my_statusEvent['brightness']), 'alert': 'lselect', 'deviceid': deviceid}
 				if ct:
 					flash_kwargs['ct'] = ct
@@ -489,7 +595,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			except Exception as e:
 				self._logger.error(f"Error starting delayed task: {e}")
 
-		
+
 		if self._settings.get(['autopoweroff']) and event == 'PrintDone':
 			self.printer_start_power_down()
 
@@ -529,18 +635,22 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Required by OctoPrint's SettingsPlugin mixin.
 		'''
 		return dict(admin=[["bridgeaddr"],["husername"]])
-	
+
 	def get_settings_version(self):
 		'''
 		Returns the current settings schema version. OctoPrint uses this to detect
 		when on_settings_migrate needs to be called.
 		'''
-		return 1
+		return 2
 
 	def on_settings_migrate(self, target, current=None):
 		'''
-		Migrates settings from an older schema version. On first install (current=None),
-		writes a set of example statusDict entries to give the user a starting point.
+		Migrates settings from an older schema version.
+
+		On first install (current=None), writes example statusDict entries.
+		On upgrade from v1 (current=1), clears lampid and plugid because the
+		Hue v2 API uses UUIDs rather than the short integer IDs stored by v1.
+		Users will need to re-select their devices in the Lights and Power settings tabs.
 		'''
 		if current is None:
 			self._logger.info("Migrating Settings: Writing example settings")
@@ -577,8 +687,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					'turnoff':False, 'flash': False}
 				])
 			self._settings.save()
-		elif current < self.get_settings_version():
-			self._logger.info("Migrating Settings: Updating a setting")
+		elif current < 2:
+			self._logger.info("Migrating Settings v1→v2: clearing device IDs (Hue v2 uses UUIDs, not integer IDs)")
+			self._settings.set(['lampid'], '')
+			self._settings.set(['plugid'], '')
+			self._settings.save()
 
 	def on_settings_load(self):
 		'''
@@ -620,7 +733,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		self._logger.debug(f"Saving: {data} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
-		
+
 	def get_template_vars(self):
 		'''
 		Exposes settings values to the Jinja2 settings template at render time.
@@ -639,7 +752,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			showhuetoggle=self._settings.get(["showhuetoggle"]),
 			statusDict=self._settings.get(["statusDict"])
 		)
-	
+
 	def get_template_configs(self):
 		'''
 		Declares a custom-bound settings panel.
@@ -682,7 +795,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		)
 
 __plugin_name__ = "Octohue"
-__plugin_pythoncompat__ = ">=3.6,<4"
+__plugin_pythoncompat__ = ">=3.9,<4"
 
 def __plugin_load__():
 	global __plugin_implementation__
@@ -692,4 +805,3 @@ def __plugin_load__():
 	__plugin_hooks__ = {
 		"octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information
 	}
-

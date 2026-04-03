@@ -6,15 +6,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "OctoHue"
-version = "0.9.0"
+version = "1.0.0"
 description = "Illuminate your printer and signal its status using Phillips Hue lights"
 authors = [
     { name = "Simon Beckett", email = "sirsimonbeckett@gmail.com" },
 ]
 requires-python = ">=3.9,<4"
-dependencies = [
-    "qhue",
-]
+dependencies = []
 dynamic = [
     "license",
 ]
