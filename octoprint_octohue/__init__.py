@@ -24,6 +24,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	discoveryurl = 'https://discovery.meethue.com/'
 
 	def _is_night_mode_active(self):
+		'''
+		Returns True if night mode is enabled and the current time falls within the
+		configured window. Handles overnight spans (e.g. 22:00–07:00). Returns False
+		if night mode is disabled or if the configured times cannot be parsed.
+		'''
 		if not self._settings.get(['nightmode_enabled']):
 			return False
 		try:
@@ -39,12 +44,24 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			return False
 
 	def _bridge_ready(self):
+		'''
+		Returns True if the Hue bridge has been initialised, False otherwise.
+		Logs a warning and returns False if pbridge is None.
+		'''
 		if self.pbridge is None:
 			self._logger.warning("Hue bridge not yet initialised — skipping.")
 			return False
 		return True
 
 	def establishBridge(self, bridgeaddr, husername):
+		'''
+		Creates (or re-creates) the qhue Bridge connection. Called on startup and
+		whenever settings are saved with updated credentials.
+
+			Parameters:
+				bridgeaddr (str): IP address or hostname of the Hue bridge.
+				husername (str): Hue API key for authentication.
+		'''
 		self._logger.debug(f"Bridge Address is {bridgeaddr if bridgeaddr else 'Please set Bridge Address in settings'}")
 		self._logger.debug(f"Hue Username is {husername if husername else 'Please set Hue Username in settings'}")
 		self.pbridge = Bridge(bridgeaddr, husername)
@@ -52,16 +69,21 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	
 	def rgb_to_xy(self, red: int, green: int = None, blue: int = None):
 		'''
-		Converts RGB colour space to XY
-		
+		Converts an RGB colour to CIE 1931 xy chromaticity coordinates for the Hue API.
+		Accepts either three 8-bit integers or a single '#RRGGBB' hex string as red.
+
 			Parameters:
-				red (int): 8bit int representing red value
-				green (int): 8bit int representing green value
-				blue (int): 8bit int representing blue
-				 
-			returns:
-				xy (list): XY Colourspace Coordinates
-		
+				red (int | str): Red channel value (0–255), or a '#RRGGBB' hex string.
+				green (int): Green channel value (0–255). Ignored when red is a hex string.
+				blue (int): Blue channel value (0–255). Ignored when red is a hex string.
+
+			Returns:
+				list | None: [x, y] chromaticity coordinates, or None for black (#000000)
+				             since black has no chromaticity and the caller should skip the
+				             colour change entirely.
+
+			Raises:
+				ValueError: If red is a string that is not a valid '#RRGGBB' hex value.
 		'''
 		if isinstance(red, str):
 			try:
@@ -111,17 +133,26 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def build_state(self, **kwargs):
 		'''
-		Assembles payload used to set a lights state
+		Assembles a Hue API state payload from keyword arguments and calls set_state().
 
-			Parameters:
-				colour (string): 6 Char RBG Hex colour string
-				transitiontime (int): Desired duration of the state transition time
-				bri (int): 8bit int representing desired brightness, 255 = max brightness
-				on (bool): True = Light On, False = Light Off
-				deviceid (int): The ID of the device to set the state for
+			Keyword Args:
+				on (bool): True to turn the light on, False to turn it off.
+				bri (int): Brightness, 1–255. 255 is maximum.
+				colour (str): '#RRGGBB' hex string converted to CIE xy for the Hue API.
+				              Ignored when on=False or when the colour resolves to black.
+				deviceid (str): ID of the Hue device or group to target.
+				alert (str): Hue alert effect, e.g. 'lselect' for a 15-second flash cycle.
+				transitiontime (int): Transition duration in units of 100 ms.
 
-			Returns:
-				set_state() with the assembled payload
+		Night mode:
+			If night mode is active and the action is 'pause', returns immediately without
+			changing the lights. If the action is 'dim', brightness is capped at
+			nightmode_maxbri before the state is sent.
+
+		Note:
+			'deviceid' and 'colour' are consumed internally and not forwarded to the Hue
+			API. All other kwargs (including alert, transitiontime, etc.) pass through
+			to set_state() unchanged.
 		'''
 		
 		self._logger.debug(f"Build_state Called with: {kwargs}")
@@ -151,10 +182,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_state(self, deviceid=None):
 		'''
-		Queries a device or devicegroups on/off state
+		Queries the on/off state of a Hue device or group.
+
+			Parameters:
+				deviceid (str, optional): ID of the device to query.
+				                          Defaults to the configured lampid.
 
 			Returns:
-				state (bool): True for on.
+				bool: True if the device is on, False if off.
+				None: If the bridge is not ready.
 		'''
 		if not self._bridge_ready():
 			return None
@@ -170,10 +206,15 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def set_state(self, state, deviceid=None):
 		'''
-		Set a device or devicegroup to the desired state
+		Sends a state payload to a Hue device or group via the bridge.
+
+		Uses the group action endpoint if lampisgroup is True and the target is not the
+		configured plug; otherwise uses the individual light state endpoint.
 
 			Parameters:
-				state (dict): Dictionary of state settings; see build_state()
+				state (dict): Hue API state attributes (e.g. {'on': True, 'bri': 200}).
+				deviceid (str, optional): ID of the device or group to target.
+				                          Defaults to the configured lampid.
 		'''
 		if not self._bridge_ready():
 			return
@@ -190,7 +231,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def toggle_state(self, deviceid=None):
 		'''
-		Queries a device or devicegroup for its state and flips it to its opposite state.
+		Flips the on/off state of a device. When turning on, lamps use the configured
+		default brightness; plugs (plugid) are switched on without a brightness argument.
+
+			Parameters:
+				deviceid (str, optional): ID of the device to toggle.
+				                          Defaults to the configured lampid.
 		'''
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
@@ -205,18 +251,19 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_configured_events(self):
 		'''
-		Fetch a list of events names the user has configured settings for
+		Returns a list of OctoPrint event names that have an entry in statusDict.
 
 			Returns:
-				configuredEvents (list): A list of event names the user has configured
+				list[str]: Event names the user has configured a light response for.
 		'''
 		configured_events = [ sub['event'] for sub in self._settings.get(['statusDict']) ]
 		return configured_events
 
 	def on_after_startup(self):
 		'''
-		Commands to call on Plugin Startup
-			pbridge : create bridge object.
+		OctoPrint startup hook. Establishes the Hue bridge connection and, if
+		"Lights On at Startup" is configured, triggers the corresponding statusDict
+		light state.
 		'''
 		self._logger.info("Octohue is alive!")
 		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
@@ -227,8 +274,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_shutdown(self):
 		'''
-		Commands to call on Plugin Shutdown
-			offonshutdown : Turn off device if true
+		OctoPrint shutdown hook. Turns off the configured lamp if offonshutdown is True.
 		'''
 		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
 		if self._settings.get(['offonshutdown']):
@@ -236,8 +282,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def printer_start_power_down(self):
 		'''
-		Commands to call on Printer Power Down
-			offonshutdown : Turn off device if true
+		Begins the temperature-monitored power-down sequence. Schedules
+		printer_check_temp_power_down to run after the configured powerofftime delay.
 		'''
 		delay = self._settings.get(['powerofftime']) or 0
 		delayedtask = ResettableTimer(delay, self.printer_check_temp_power_down)
@@ -264,6 +310,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			ResettableTimer(30.0, self.printer_check_temp_power_down).start()
 	
 	def get_api_commands(self):
+		'''
+		Declares the SimpleApi commands this plugin exposes.
+		Required by OctoPrint's SimpleApiPlugin mixin.
+		'''
 		return dict(
 			bridge=[],
 			getdevices=[],
@@ -275,6 +325,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		)
 	
 	def on_api_command(self, command, data):
+		'''
+		Handles SimpleApi commands dispatched by OctoPrint.
+
+			Commands:
+				bridge     (admin) getstatus / discover / pair sub-commands for bridge management.
+				getdevices (admin) Returns Hue lights, optionally filtered by archetype.
+				getstate   (admin) Returns the current on/off state of the configured lamp.
+				togglehue  Toggles the lamp (or a specific device) between on and off.
+				turnon     Turns a device on, optionally applying a colour hex value.
+				turnoff    Turns a device off.
+				cooldown   Triggers the temperature-monitored power-down sequence immediately.
+		'''
 		self._logger.debug(f"Recieved API Command: {command}")
 		if command == 'bridge':
 			if not Permissions.ADMIN.can():
@@ -374,8 +436,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'cooldown':
 			self.printer_check_temp_power_down()
 			
-	# Trigger state on Status match
 	def on_event(self, event, payload):
+		'''
+		OctoPrint event hook. If the event matches a configured statusDict entry,
+		schedules the appropriate light change (on/off/flash) after the configured delay.
+		Also triggers auto power-off if enabled and the event is PrintDone.
+		'''
 		self._logger.debug(f"Recieved Status: {event} from Printer")
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
 		if my_statusEvent: 
@@ -409,9 +475,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._settings.get(['autopoweroff']) and event == 'PrintDone':
 			self.printer_start_power_down()
 
-	# General Octoprint Hooks Below
-
 	def get_settings_defaults(self):
+		'''
+		Returns the default values for all plugin settings.
+		Required by OctoPrint's SettingsPlugin mixin.
+		'''
 		return dict(
 			enabled=True,
 			installed_version=self._plugin_version,
@@ -438,12 +506,24 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		)
 
 	def get_settings_restricted_paths(self):
+		'''
+		Restricts bridgeaddr and husername to admin users in OctoPrint's settings API.
+		Required by OctoPrint's SettingsPlugin mixin.
+		'''
 		return dict(admin=[["bridgeaddr"],["husername"]])
 	
 	def get_settings_version(self):
+		'''
+		Returns the current settings schema version. OctoPrint uses this to detect
+		when on_settings_migrate needs to be called.
+		'''
 		return 1
 
 	def on_settings_migrate(self, target, current=None):
+		'''
+		Migrates settings from an older schema version. On first install (current=None),
+		writes a set of example statusDict entries to give the user a starting point.
+		'''
 		if current is None:
 			self._logger.info("Migrating Settings: Writing example settings")
 			self._settings.set(["statusDict"], [
@@ -483,6 +563,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.info("Migrating Settings: Updating a setting")
 
 	def on_settings_load(self):
+		'''
+		Returns all plugin settings to the frontend, supplemented with the list of
+		available OctoPrint events and the pre-computed list of configured event names.
+		'''
 		my_settings = {
 			"availableEvents": octoprint.events.all_events(),
 			"statusDict": self._settings.get(["statusDict"]),
@@ -510,12 +594,20 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return my_settings
 
 	def on_settings_save(self, data):
+		'''
+		Persists settings and re-establishes the bridge connection with any updated
+		credentials. Strips availableEvents (frontend-only) before passing to the base class.
+		'''
 		data.pop("availableEvents", None)
 		self._logger.debug(f"Saving: {data} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		
 	def get_template_vars(self):
+		'''
+		Exposes settings values to the Jinja2 settings template at render time.
+		Required by OctoPrint's TemplatePlugin mixin.
+		'''
 		return dict(
 			bridgeaddr=self._settings.get(["bridgeaddr"]),
 			husername=self._settings.get(["husername"]),
@@ -530,27 +622,30 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		)
 	
 	def get_template_configs(self):
+		'''
+		Declares a custom-bound settings panel.
+		Required by OctoPrint's TemplatePlugin mixin.
+		'''
 		return [
 			dict(type="settings", custom_bindings=True)
 		]
 
-	##~~ AssetPlugin mixin
-
 	def get_assets(self):
-		# Define your plugin's asset files to automatically include in the
-		# core UI here.
+		'''
+		Declares the JS, CSS, and Less assets to include in the OctoPrint UI.
+		Required by OctoPrint's AssetPlugin mixin.
+		'''
 		return dict(
 			js=["js/OctoHue.js"],
 			css=["css/OctoHue.css"],
 			less=["less/OctoHue.less"]
 		)
 
-	##~~ Softwareupdate hook
-
 	def get_update_information(self):
-		# Define the configuration for your plugin to use with the Software Update
-		# Plugin here. See https://github.com/foosel/OctoPrint/wiki/Plugin:-Software-Update
-		# for details.
+		'''
+		Provides configuration for OctoPrint's Software Update plugin to check for new
+		releases on GitHub and install them via pip.
+		'''
 		return dict(
 			OctoHue=dict(
 				displayName="Octohue Plugin",
