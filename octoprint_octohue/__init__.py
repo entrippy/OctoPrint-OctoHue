@@ -400,6 +400,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.debug(f"Current temperature: {current_temp}, waiting 30 seconds...")
 			ResettableTimer(30.0, self.printer_check_temp_power_down).start()
 
+	def is_api_protected(self):
+		# Commands that need admin access perform their own Permissions.ADMIN.can()
+		# check inside on_api_command. Returning False here keeps the API open
+		# for unauthenticated callers (e.g. togglehue/turnon/turnoff/cooldown)
+		# and suppresses OctoPrint's future-deprecation warning.
+		return False
+
 	def get_api_commands(self):
 		'''
 		Declares the SimpleApi commands this plugin exposes.
