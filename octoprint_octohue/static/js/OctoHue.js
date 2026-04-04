@@ -81,7 +81,7 @@ $(function() {
 				if(response[0].response == "success")
 				{
                     clearInterval(interval_pairing);
-					text_pairing_count.innerHTML = "<font color='green'>Succesfull Pairing !</font>";
+					text_pairing_count.innerHTML = "<font color='green'><strong>Bridge paired successfully!</strong> Taking you to the Lights tab to select your light &mdash; or click Save to continue later.</font>";
                     setTimeout(function(){
                         self.getbridgestatus();
                         self.ownSettings.bridgeaddr(response[0].bridgeaddr);
