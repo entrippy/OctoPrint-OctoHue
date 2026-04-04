@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-04-04
+
+### Changed
+- Migrated from the deprecated Hue v1 CLIP API (end-of-life 2024) to the Hue v2 CLIP API — all communication now uses HTTPS with TLS chain verification against the bundled Signify root CA certificate
+- Lamp and group IDs are now UUID strings (v2 format); existing integer IDs from v1 are cleared automatically on first run — reselect your light or group in settings after upgrading
+- Groups are now fetched via the v2 `room`/`zone` resources; the previous v1 group endpoint is no longer used
+- Removed `qhue` dependency — API calls are now made directly with `requests`
+
+### Security
+- The SimpleAPI endpoint is intentionally left open (`is_api_protected = False`) to allow unauthenticated access to light-control commands (`togglehue`, `turnon`, `turnoff`, `cooldown`) — this is by design so the API can be used from external scripts and tools without requiring an OctoPrint session. Sensitive commands (`bridge`, `getdevices`, `getgroups`, `getstate`) enforce admin-only access explicitly via `Permissions.ADMIN` checks regardless of the endpoint protection setting.
+
+---
+
 ## [0.9.0] - 2026-04-03
 
 ### Added
