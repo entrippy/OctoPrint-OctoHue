@@ -461,10 +461,10 @@ describe("bridgepair", () => {
     expect(husername).toHaveBeenCalledWith("new-key");
   });
 
-  test("on success, calls getbridgestatus", () => {
+  test("on success, does not call getbridgestatus (would hide the pairing UI)", () => {
     const vm = makePairVm();
     runPairSuccess(vm);
-    expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
+    expect(vm.getbridgestatus).not.toHaveBeenCalled();
   });
 
   test("on success, reveals the Select light button", () => {

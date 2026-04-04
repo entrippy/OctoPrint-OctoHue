@@ -81,7 +81,6 @@ $(function() {
 				if(response[0].response == "success")
 				{
                     clearInterval(interval_pairing);
-                    self.getbridgestatus();
                     self.ownSettings.bridgeaddr(response[0].bridgeaddr);
                     self.ownSettings.husername(response[0].husername);
                     document.getElementById("huebridgestatus").style.backgroundColor = "green";
