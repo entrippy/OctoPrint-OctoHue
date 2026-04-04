@@ -25,7 +25,7 @@ Install via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wik
 https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip
 ```
 
-**Requirements:** Python ≥ 3.6, OctoPrint, a Philips Hue bridge on the same network.
+**Requirements:** Python ≥ 3.9, OctoPrint, a Philips Hue bridge on the same network.
 
 ## Setup
 
@@ -33,29 +33,30 @@ https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip
 
 Open OctoPrint **Settings → OctoHue → Bridge**.
 
-- Click **Discover** to locate your Hue bridge automatically.
-- Press the **physical button on your Hue bridge**, then click **Pair** within 30 seconds.
-- OctoHue will save the bridge address and API key automatically.
+![Bridge pairing screen](Settings-octohue-bridge-pair.png)
 
-If auto-discovery does not work (e.g. the bridge is on a different subnet), you can enter the bridge IP address manually and use the [Hue Getting Started guide](https://developers.meethue.com/develop/get-started-2/) to generate an API key.
+- Click **Find My Bridge** to locate your Hue bridge automatically on your network.
+- Once the bridge is found, press the **physical button on your Hue bridge**, then click **Start Pairing** within 30 seconds.
+- OctoHue saves the bridge address and API key automatically, then takes you straight to the Lights tab to select your light — no save/re-enter cycle needed.
+
+> If auto-discovery does not work (e.g. the bridge is on a different subnet), you can enter the bridge IP address and API key manually on the Bridge tab after pairing via the [Hue Getting Started guide](https://developers.meethue.com/develop/get-started-2/).
 
 ### 2. Light / group selection
 
-Once paired, use the **Lights** tab to select the light or group you want OctoHue to control.
+After pairing, OctoHue opens the **Lights** tab automatically with all of your Hue lights already populated in the dropdown — just select the one you want to control.
 
-- Individual light IDs are listed at: `https://<bridgeaddr>/api/<apikey>/lights`
-- Group IDs are listed at: `https://<bridgeaddr>/api/<apikey>/groups`
-
-To control multiple lights together, first group them in the Hue app (or API) as a Room or Zone, then enable **Is Group** in OctoHue settings.
+- To control multiple lights together, first group them in the Hue app as a Room or Zone, then tick **Use group instead of single lamp** in OctoHue settings. The dropdown will switch to listing your rooms and zones.
+- Set **Default Brightness** (1–255) to control how bright the light is when an event turns it on without an explicit brightness setting.
 
 ### 3. Event configuration
 
-Open the **Lights** tab and expand the **Event Lighting Options** section to configure which OctoPrint events trigger a light change. For each event you can set:
+Still on the **Lights** tab, expand **Event Lighting Options** to configure which OctoPrint events trigger a light change. For each event you can set:
 
-- **Colour** — hex colour code or colour picker
+- **Colour** — hex colour code or colour picker (or switch to CT mode for white-spectrum lights)
 - **Brightness** — 1–255
 - **Delay** — seconds to wait before applying the change
-- **Turn off** — switch the light off instead of changing its colour
+- **Flash** — trigger a 15-second alert cycle instead of a static colour change
+- **Turn off** — switch the light off after the event fires
 
 ### 4. Power control (optional)
 
