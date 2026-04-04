@@ -27,12 +27,14 @@ class _SignifyAdapter(HTTPAdapter):
         ctx = ssl.create_default_context(cafile=_CA_BUNDLE)
         ctx.check_hostname = False
         kwargs["ssl_context"] = ctx
+        kwargs["assert_hostname"] = False
         super().init_poolmanager(*args, **kwargs)
 
     def proxy_manager_for(self, proxy, **proxy_kwargs):
         ctx = ssl.create_default_context(cafile=_CA_BUNDLE)
         ctx.check_hostname = False
         proxy_kwargs["ssl_context"] = ctx
+        proxy_kwargs["assert_hostname"] = False
         return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
