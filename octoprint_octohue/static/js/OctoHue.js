@@ -81,22 +81,13 @@ $(function() {
 				if(response[0].response == "success")
 				{
                     clearInterval(interval_pairing);
-					text_pairing_count.innerHTML = "<font color='green'><strong>Bridge paired successfully!</strong> Taking you to the Lights tab to select your light &mdash; or click Save to continue later.</font>";
-                    setTimeout(function(){
-                        self.getbridgestatus();
-                        self.ownSettings.bridgeaddr(response[0].bridgeaddr);
-                        self.ownSettings.husername(response[0].husername);
-                        document.getElementById("huebridgestatus").style.backgroundColor = "green";
-                        document.getElementById("huebridgestatus").innerHTML = "Paired";
-                        self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
-                        var fetchLamps = self.ownSettings.lampisgroup()
-                            ? self.getGroups()
-                            : self.getDevices();
-                        fetchLamps.then(function(lamps) {
-                            self.hueLamps(lamps);
-                            $('#octohue_tabs a[href="#octohue_settings_lights"]').tab('show');
-                        });
-                    }, 5000);
+                    self.getbridgestatus();
+                    self.ownSettings.bridgeaddr(response[0].bridgeaddr);
+                    self.ownSettings.husername(response[0].husername);
+                    document.getElementById("huebridgestatus").style.backgroundColor = "green";
+                    document.getElementById("huebridgestatus").innerHTML = "Paired";
+					text_pairing_count.innerHTML = "<font color='green'><strong>Bridge paired successfully!</strong> Click the button below to select your light, or click Save to continue later.</font>";
+                    document.getElementById("huebridge_paired_actions").classList.remove("inactiveconfig");
 				}
 			})
 
@@ -111,6 +102,18 @@ $(function() {
 		}, 1000);
         };
     
+        self.goToLights = function() {
+            document.getElementById("huebridge_paired_actions").classList.add("inactiveconfig");
+            self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+            var fetchLamps = self.ownSettings.lampisgroup()
+                ? self.getGroups()
+                : self.getDevices();
+            fetchLamps.then(function(lamps) {
+                self.hueLamps(lamps);
+                $('#octohue_tabs a[href="#octohue_settings_lights"]').tab('show');
+            });
+        };
+
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 if ( response.bridgestatus === "configured") {

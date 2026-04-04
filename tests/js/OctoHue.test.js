@@ -444,8 +444,7 @@ describe("bridgepair", () => {
     vm.bridgediscovery();
     OctoPrint.simpleApiCommand.mockReturnValueOnce(SUCCESS_RESPONSE);
     vm.bridgepair();
-    jest.advanceTimersByTime(1000); // first interval tick → pair success → schedules 5 s timeout
-    jest.advanceTimersByTime(5000); // fires post-pair timeout
+    jest.advanceTimersByTime(1000); // first interval tick → pair success
   }
 
   test("on success, updates bridgeaddr observable", () => {
@@ -462,38 +461,30 @@ describe("bridgepair", () => {
     expect(husername).toHaveBeenCalledWith("new-key");
   });
 
-  test("on success, fetches lights and populates hueLamps", () => {
-    const lamps = [{ id: "abc-1", name: "Desk Lamp" }];
-    const vm = makePairVm();
-    vm.getDevices = jest.fn(() => new SyncResult(lamps));
-    runPairSuccess(vm);
-    expect(vm.hueLamps).toHaveBeenCalledWith(lamps);
-  });
-
-  test("on success when lampisgroup, fetches groups and populates hueLamps", () => {
-    const groups = [{ id: "gl-uuid-1", name: "Living Room" }];
-    const vm = makePairVm({ lampisgroup: makeObservable(true) });
-    vm.getGroups = jest.fn(() => new SyncResult(groups));
-    runPairSuccess(vm);
-    expect(vm.getGroups).toHaveBeenCalled();
-    expect(vm.hueLamps).toHaveBeenCalledWith(groups);
-  });
-
-  test("on success, switches to the Lights tab", () => {
-    const vm = makePairVm();
-    runPairSuccess(vm);
-    expect($).toHaveBeenCalledWith('#octohue_tabs a[href="#octohue_settings_lights"]');
-  });
-
   test("on success, calls getbridgestatus", () => {
     const vm = makePairVm();
     runPairSuccess(vm);
     expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
   });
 
-  test("on error response, does not update observables or navigate", () => {
+  test("on success, reveals the Select light button", () => {
+    const vm = makePairVm();
+    runPairSuccess(vm);
+    const actions = document.getElementById("huebridge_paired_actions");
+    expect(actions.classList.remove).toHaveBeenCalledWith("inactiveconfig");
+  });
+
+  test("on success, does not immediately navigate to the Lights tab", () => {
+    const vm = makePairVm();
+    runPairSuccess(vm);
+    expect($).not.toHaveBeenCalledWith('#octohue_tabs a[href="#octohue_settings_lights"]');
+  });
+
+  test("on error response, does not update observables or show button", () => {
     const bridgeaddr = makeObservable("");
     const vm = makePairVm({ bridgeaddr });
+    // Clear call history so previous success tests don't pollute this assertion
+    document.getElementById("huebridge_paired_actions").classList.remove.mockClear();
     OctoPrint.simpleApiCommand.mockReturnValueOnce(
       new SyncResult([{ internalipaddress: "192.168.1.100" }])
     );
@@ -504,7 +495,51 @@ describe("bridgepair", () => {
     vm.bridgepair();
     jest.advanceTimersByTime(1000); // one interval tick → error response → interval not cleared
     expect(bridgeaddr).not.toHaveBeenCalledWith(expect.anything());
-    expect($).not.toHaveBeenCalledWith('#octohue_tabs a[href="#octohue_settings_lights"]');
+    const actions = document.getElementById("huebridge_paired_actions");
+    expect(actions.classList.remove).not.toHaveBeenCalledWith("inactiveconfig");
+  });
+});
+
+// ===========================================================================
+// goToLights
+// ===========================================================================
+
+describe("goToLights", () => {
+  function makeLightsVm(overrides = {}) {
+    const vm = makeViewModel(overrides);
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.getGroups  = jest.fn(() => new SyncResult([]));
+    return vm;
+  }
+
+  test("fetches lights and populates hueLamps when not a group", () => {
+    const lamps = [{ id: "abc-1", name: "Desk Lamp" }];
+    const vm = makeLightsVm();
+    vm.getDevices = jest.fn(() => new SyncResult(lamps));
+    vm.goToLights();
+    expect(vm.hueLamps).toHaveBeenCalledWith(lamps);
+  });
+
+  test("fetches groups and populates hueLamps when lampisgroup is true", () => {
+    const groups = [{ id: "gl-uuid-1", name: "Living Room" }];
+    const vm = makeLightsVm({ lampisgroup: makeObservable(true) });
+    vm.getGroups = jest.fn(() => new SyncResult(groups));
+    vm.goToLights();
+    expect(vm.getGroups).toHaveBeenCalled();
+    expect(vm.hueLamps).toHaveBeenCalledWith(groups);
+  });
+
+  test("switches to the Lights tab", () => {
+    const vm = makeLightsVm();
+    vm.goToLights();
+    expect($).toHaveBeenCalledWith('#octohue_tabs a[href="#octohue_settings_lights"]');
+  });
+
+  test("hides the Select light button", () => {
+    const vm = makeLightsVm();
+    vm.goToLights();
+    const actions = document.getElementById("huebridge_paired_actions");
+    expect(actions.classList.add).toHaveBeenCalledWith("inactiveconfig");
   });
 });
 
