@@ -132,7 +132,10 @@ beforeAll(() => {
   const domElements = {};
 
   // Globals the source file expects
-  global.$ = (fn) => { if (typeof fn === "function") fn(); };
+  global.$ = jest.fn().mockImplementation((arg) => {
+    if (typeof arg === "function") arg();
+    return { tab: jest.fn() };
+  });
   global.ko = ko;
   global.OctoPrint = OctoPrint;
   global.OCTOPRINT_VIEWMODELS = [];
@@ -177,6 +180,8 @@ function makeViewModel(pluginSettingsOverrides = {}) {
     statusDict,
     plugid: makeObservable("2"),
     lampisgroup: makeObservable(false),
+    bridgeaddr: makeObservable(""),
+    husername: makeObservable(""),
     ...pluginSettingsOverrides,
   };
 
@@ -202,6 +207,7 @@ beforeEach(() => {
   ko.computed.mockClear();
   OctoPrint.simpleApiCommand.mockClear();
   document.getElementById.mockClear();
+  $.mockClear();
 });
 
 // ===========================================================================
@@ -406,6 +412,99 @@ describe("togglepower", () => {
       { deviceid: "5" },
       {}
     );
+  });
+});
+
+// ===========================================================================
+// bridgepair
+// ===========================================================================
+
+describe("bridgepair", () => {
+  beforeEach(() => { jest.useFakeTimers(); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  function makePairVm(overrides = {}) {
+    const vm = makeViewModel(overrides);
+    vm.getbridgestatus = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.getGroups  = jest.fn(() => new SyncResult([]));
+    return vm;
+  }
+
+  const SUCCESS_RESPONSE = new SyncResult([{
+    response: "success", bridgeaddr: "10.0.0.1", husername: "new-key"
+  }]);
+
+  function runPairSuccess(vm) {
+    // bridgepair reads the module-level `bridgeaddr` closure variable that is set
+    // by bridgediscovery. Run discovery first so the variable is defined.
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult([{ internalipaddress: "192.168.1.100" }])
+    );
+    vm.bridgediscovery();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(SUCCESS_RESPONSE);
+    vm.bridgepair();
+    jest.advanceTimersByTime(1000); // first interval tick → pair success → schedules 5 s timeout
+    jest.advanceTimersByTime(5000); // fires post-pair timeout
+  }
+
+  test("on success, updates bridgeaddr observable", () => {
+    const bridgeaddr = makeObservable("");
+    const vm = makePairVm({ bridgeaddr });
+    runPairSuccess(vm);
+    expect(bridgeaddr).toHaveBeenCalledWith("10.0.0.1");
+  });
+
+  test("on success, updates husername observable", () => {
+    const husername = makeObservable("");
+    const vm = makePairVm({ husername });
+    runPairSuccess(vm);
+    expect(husername).toHaveBeenCalledWith("new-key");
+  });
+
+  test("on success, fetches lights and populates hueLamps", () => {
+    const lamps = [{ id: "abc-1", name: "Desk Lamp" }];
+    const vm = makePairVm();
+    vm.getDevices = jest.fn(() => new SyncResult(lamps));
+    runPairSuccess(vm);
+    expect(vm.hueLamps).toHaveBeenCalledWith(lamps);
+  });
+
+  test("on success when lampisgroup, fetches groups and populates hueLamps", () => {
+    const groups = [{ id: "gl-uuid-1", name: "Living Room" }];
+    const vm = makePairVm({ lampisgroup: makeObservable(true) });
+    vm.getGroups = jest.fn(() => new SyncResult(groups));
+    runPairSuccess(vm);
+    expect(vm.getGroups).toHaveBeenCalled();
+    expect(vm.hueLamps).toHaveBeenCalledWith(groups);
+  });
+
+  test("on success, switches to the Lights tab", () => {
+    const vm = makePairVm();
+    runPairSuccess(vm);
+    expect($).toHaveBeenCalledWith('#octohue_tabs a[href="#octohue_settings_lights"]');
+  });
+
+  test("on success, calls getbridgestatus", () => {
+    const vm = makePairVm();
+    runPairSuccess(vm);
+    expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
+  });
+
+  test("on error response, does not update observables or navigate", () => {
+    const bridgeaddr = makeObservable("");
+    const vm = makePairVm({ bridgeaddr });
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult([{ internalipaddress: "192.168.1.100" }])
+    );
+    vm.bridgediscovery();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult([{ response: "error" }])
+    );
+    vm.bridgepair();
+    jest.advanceTimersByTime(1000); // one interval tick → error response → interval not cleared
+    expect(bridgeaddr).not.toHaveBeenCalledWith(expect.anything());
+    expect($).not.toHaveBeenCalledWith('#octohue_tabs a[href="#octohue_settings_lights"]');
   });
 });
 

@@ -84,10 +84,18 @@ $(function() {
 					text_pairing_count.innerHTML = "<font color='green'>Succesfull Pairing !</font>";
                     setTimeout(function(){
                         self.getbridgestatus();
-                        document.getElementById("bridgeaddress").value = response[0].bridgeaddr
-                        document.getElementById("apikey").value = response[0].husername
+                        self.ownSettings.bridgeaddr(response[0].bridgeaddr);
+                        self.ownSettings.husername(response[0].husername);
                         document.getElementById("huebridgestatus").style.backgroundColor = "green";
                         document.getElementById("huebridgestatus").innerHTML = "Paired";
+                        self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+                        var fetchLamps = self.ownSettings.lampisgroup()
+                            ? self.getGroups()
+                            : self.getDevices();
+                        fetchLamps.then(function(lamps) {
+                            self.hueLamps(lamps);
+                            $('#octohue_tabs a[href="#octohue_settings_lights"]').tab('show');
+                        });
                     }, 5000);
 				}
 			})
