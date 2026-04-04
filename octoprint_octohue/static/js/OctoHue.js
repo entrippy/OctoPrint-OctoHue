@@ -101,16 +101,24 @@ $(function() {
 		}, 1000);
         };
     
+        self.fetchAllLamps = function() {
+            self.getDevices().then(function(lights) {
+                var nonPlugs = (lights || [])
+                    .filter(function(d) { return d.archetype !== "plug"; })
+                    .map(function(d) { return {id: d.id, name: d.name, type: "light"}; });
+                self.getGroups().then(function(groups) {
+                    var groupItems = (groups || [])
+                        .map(function(g) { return {id: g.id, name: g.name + " (Group)", type: "group"}; });
+                    self.hueLamps(nonPlugs.concat(groupItems));
+                });
+            });
+        };
+
         self.goToLights = function() {
             document.getElementById("huebridge_paired_actions").classList.add("inactiveconfig");
             self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
-            var fetchLamps = self.ownSettings.lampisgroup()
-                ? self.getGroups()
-                : self.getDevices();
-            fetchLamps.then(function(lamps) {
-                self.hueLamps(lamps);
-                $('#octohue_tabs a[href="#octohue_settings_lights"]').tab('show');
-            });
+            self.fetchAllLamps();
+            $('#octohue_tabs a[href="#octohue_settings_lights"]').tab('show');
         };
 
         self.getbridgestatus = function() {
@@ -153,16 +161,21 @@ $(function() {
                     item.ct = ko.observable(item.ct || 0);
                 }
             });
+
+            // Auto-set lampisgroup when the user picks a device from the combined
+            // dropdown, so the backend still knows which API endpoint to use.
+            self.ownSettings.lampid.subscribe(function(newId) {
+                var lamp = ko.utils.arrayFirst(self.hueLamps(), function(l) { return l.id === newId; });
+                if (lamp) {
+                    self.ownSettings.lampisgroup(lamp.type === "group");
+                }
+            });
         };
 
         self.onSettingsShown = function () {
             self.getbridgestatus();
-            self.getDevices("plug").then(devices => { self.huePlugs(devices); });
-            if (self.ownSettings.lampisgroup()) {
-                self.getGroups().then(groups => { self.hueLamps(groups); });
-            } else {
-                self.getDevices().then(devices => { self.hueLamps(devices); });
-            }
+            self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+            self.fetchAllLamps();
         };
 
         self.removeStatus = function (data) {

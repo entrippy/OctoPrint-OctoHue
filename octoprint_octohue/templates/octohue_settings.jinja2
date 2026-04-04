@@ -107,13 +107,9 @@
 
             <div id="octohue_settings_lights" class="tab-pane">
                 <div class="light_options">
-                    <label class="control-label">{{ _('Hue Lamp or Group ID') }}</label>
+                    <label class="control-label">{{ _('Hue Light or Group') }}</label>
                     <div class="controls">
-                        <input type="text" class="input-mini" data-bind="value: ownSettings.lampid">
-                        <select class="input-block-level" data-bind="value: ownSettings.lampid, options: hueLamps, optionsText: 'name', optionsValue: 'id', optionsCaption: ownSettings.lampisgroup() ? 'Select Group' : 'Select Light', valueAllowUnset: true"></select>
-                        <label class="checkbox">
-                            <input type="checkbox" data-bind="checked: ownSettings.lampisgroup">Use group instead of single lamp
-                        </label>
+                        <select class="input-block-level" data-bind="value: ownSettings.lampid, options: hueLamps, optionsText: 'name', optionsValue: 'id', optionsCaption: 'Select light or group', valueAllowUnset: true"></select>
                     </div>
                     <label class="control-label">{{ _('Default Brightness') }}</label>
                     <div class="controls">
