@@ -48,12 +48,20 @@ class SyncResult {
 /** Create a simple observable that acts as a getter/setter function. */
 function makeObservable(initial) {
   let _val = initial;
+  const _subscribers = [];
   const obs = jest.fn().mockImplementation((newVal) => {
-    if (newVal !== undefined) _val = newVal;
+    if (newVal !== undefined) {
+      _val = newVal;
+      _subscribers.forEach((cb) => cb(newVal));
+    }
     return _val;
   });
   obs._isObservable = true;
   obs.extend = jest.fn().mockImplementation(() => obs);
+  obs.subscribe = jest.fn().mockImplementation((callback) => {
+    _subscribers.push(callback);
+    return { dispose: jest.fn() };
+  });
   return obs;
 }
 
@@ -70,8 +78,11 @@ const ko = {
   }),
 
   observableArray: jest.fn().mockImplementation((initial) => {
-    const arr = [...(initial || [])];
-    const obs = jest.fn().mockImplementation(() => arr);
+    let arr = [...(initial || [])];
+    const obs = jest.fn().mockImplementation((newArr) => {
+      if (newArr !== undefined) arr = [...newArr];
+      return arr;
+    });
     obs._isObservable = true;
     obs.push   = jest.fn().mockImplementation((item) => arr.push(item));
     obs.remove = jest.fn().mockImplementation((item) => {
@@ -89,6 +100,10 @@ const ko = {
     arrayForEach: jest.fn().mockImplementation((arr, cb) => {
       const items = typeof arr === "function" ? arr() : arr;
       (items || []).forEach(cb);
+    }),
+    arrayFirst: jest.fn().mockImplementation((arr, predicate) => {
+      const items = typeof arr === "function" ? arr() : arr;
+      return (items || []).find(predicate) || null;
     }),
   },
 
@@ -132,7 +147,10 @@ beforeAll(() => {
   const domElements = {};
 
   // Globals the source file expects
-  global.$ = (fn) => { if (typeof fn === "function") fn(); };
+  global.$ = jest.fn().mockImplementation((arg) => {
+    if (typeof arg === "function") arg();
+    return { tab: jest.fn() };
+  });
   global.ko = ko;
   global.OctoPrint = OctoPrint;
   global.OCTOPRINT_VIEWMODELS = [];
@@ -175,7 +193,14 @@ function makeViewModel(pluginSettingsOverrides = {}) {
   const statusDict = makeStatusDictMock();
   const pluginSettings = {
     statusDict,
+    lampid: makeObservable(""),
     plugid: makeObservable("2"),
+    lampisgroup: makeObservable(false),
+    bridgeaddr: makeObservable(""),
+    husername: makeObservable(""),
+    togglebri: makeObservable(100),
+    togglecolour: makeObservable("#FFFFFF"),
+    togglect: makeObservable(0),
     ...pluginSettingsOverrides,
   };
 
@@ -201,6 +226,7 @@ beforeEach(() => {
   ko.computed.mockClear();
   OctoPrint.simpleApiCommand.mockClear();
   document.getElementById.mockClear();
+  $.mockClear();
 });
 
 // ===========================================================================
@@ -409,6 +435,131 @@ describe("togglepower", () => {
 });
 
 // ===========================================================================
+// bridgepair
+// ===========================================================================
+
+describe("bridgepair", () => {
+  beforeEach(() => { jest.useFakeTimers(); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  function makePairVm(overrides = {}) {
+    const vm = makeViewModel(overrides);
+    vm.getbridgestatus = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.getGroups  = jest.fn(() => new SyncResult([]));
+    return vm;
+  }
+
+  const SUCCESS_RESPONSE = new SyncResult([{
+    response: "success", bridgeaddr: "10.0.0.1", husername: "new-key"
+  }]);
+
+  function runPairSuccess(vm) {
+    // bridgepair reads the module-level `bridgeaddr` closure variable that is set
+    // by bridgediscovery. Run discovery first so the variable is defined.
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult([{ internalipaddress: "192.168.1.100" }])
+    );
+    vm.bridgediscovery();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(SUCCESS_RESPONSE);
+    vm.bridgepair();
+    jest.advanceTimersByTime(1000); // first interval tick → pair success
+  }
+
+  test("on success, updates bridgeaddr observable", () => {
+    const bridgeaddr = makeObservable("");
+    const vm = makePairVm({ bridgeaddr });
+    runPairSuccess(vm);
+    expect(bridgeaddr).toHaveBeenCalledWith("10.0.0.1");
+  });
+
+  test("on success, updates husername observable", () => {
+    const husername = makeObservable("");
+    const vm = makePairVm({ husername });
+    runPairSuccess(vm);
+    expect(husername).toHaveBeenCalledWith("new-key");
+  });
+
+  test("on success, does not call getbridgestatus (would hide the pairing UI)", () => {
+    const vm = makePairVm();
+    runPairSuccess(vm);
+    expect(vm.getbridgestatus).not.toHaveBeenCalled();
+  });
+
+  test("on success, reveals the Select light button", () => {
+    const vm = makePairVm();
+    runPairSuccess(vm);
+    const actions = document.getElementById("huebridge_paired_actions");
+    expect(actions.classList.remove).toHaveBeenCalledWith("inactiveconfig");
+  });
+
+  test("on success, does not immediately navigate to the Lights tab", () => {
+    const vm = makePairVm();
+    runPairSuccess(vm);
+    expect($).not.toHaveBeenCalledWith('#octohue_tabs a[href="#octohue_settings_lights"]');
+  });
+
+  test("on error response, does not update observables or show button", () => {
+    const bridgeaddr = makeObservable("");
+    const vm = makePairVm({ bridgeaddr });
+    // Clear call history so previous success tests don't pollute this assertion
+    document.getElementById("huebridge_paired_actions").classList.remove.mockClear();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult([{ internalipaddress: "192.168.1.100" }])
+    );
+    vm.bridgediscovery();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult([{ response: "error" }])
+    );
+    vm.bridgepair();
+    jest.advanceTimersByTime(1000); // one interval tick → error response → interval not cleared
+    expect(bridgeaddr).not.toHaveBeenCalledWith(expect.anything());
+    const actions = document.getElementById("huebridge_paired_actions");
+    expect(actions.classList.remove).not.toHaveBeenCalledWith("inactiveconfig");
+  });
+});
+
+// ===========================================================================
+// goToLights
+// ===========================================================================
+
+describe("goToLights", () => {
+  function makeLightsVm(overrides = {}) {
+    const vm = makeViewModel(overrides);
+    vm.getDevices    = jest.fn(() => new SyncResult([]));
+    vm.fetchAllLamps = jest.fn();
+    return vm;
+  }
+
+  test("switches to the Lights tab", () => {
+    const vm = makeLightsVm();
+    vm.goToLights();
+    expect($).toHaveBeenCalledWith('#octohue_tabs a[href="#octohue_settings_lights"]');
+  });
+
+  test("hides the Select light button", () => {
+    const vm = makeLightsVm();
+    vm.goToLights();
+    const actions = document.getElementById("huebridge_paired_actions");
+    expect(actions.classList.add).toHaveBeenCalledWith("inactiveconfig");
+  });
+
+  test("fetches plugs for the Power tab dropdown", () => {
+    const plugs = [{ id: "plug-1", name: "Smart Plug", archetype: "plug" }];
+    const vm = makeLightsVm();
+    vm.getDevices = jest.fn(() => new SyncResult(plugs));
+    vm.goToLights();
+    expect(vm.huePlugs).toHaveBeenCalledWith(plugs);
+  });
+
+  test("calls fetchAllLamps to populate the combined lamp/group list", () => {
+    const vm = makeLightsVm();
+    vm.goToLights();
+    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ===========================================================================
 // getbridgestatus
 // ===========================================================================
 
@@ -515,36 +666,109 @@ describe("onBeforeBinding", () => {
   });
 });
 
+// ===========================================================================
+// fetchAllLamps
+// ===========================================================================
+
+describe("fetchAllLamps", () => {
+  test("combines lights and groups into hueLamps", () => {
+    const lights = [{ id: "abc-1", name: "Desk Lamp", archetype: "tableShade" }];
+    const groups = [{ id: "gl-uuid-1", name: "Living Room" }];
+    const vm = makeViewModel();
+    vm.getDevices = jest.fn(() => new SyncResult(lights));
+    vm.getGroups  = jest.fn(() => new SyncResult(groups));
+    vm.fetchAllLamps();
+    expect(vm.hueLamps).toHaveBeenCalledWith([
+      { id: "abc-1", name: "Desk Lamp",            type: "light" },
+      { id: "gl-uuid-1", name: "Living Room (Group)", type: "group" },
+    ]);
+  });
+
+  test("filters out plug archetypes from the lights list", () => {
+    const lights = [
+      { id: "abc-1", name: "Desk Lamp", archetype: "tableShade" },
+      { id: "abc-2", name: "Smart Plug", archetype: "plug" },
+    ];
+    const vm = makeViewModel();
+    vm.getDevices = jest.fn(() => new SyncResult(lights));
+    vm.getGroups  = jest.fn(() => new SyncResult([]));
+    vm.fetchAllLamps();
+    const [called] = vm.hueLamps.mock.calls.slice(-1);
+    expect(called[0]).toEqual([{ id: "abc-1", name: "Desk Lamp", type: "light" }]);
+  });
+
+  test("appends (Group) suffix to group display names", () => {
+    const vm = makeViewModel();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.getGroups  = jest.fn(() => new SyncResult([{ id: "gl-1", name: "Bedroom" }]));
+    vm.fetchAllLamps();
+    const [called] = vm.hueLamps.mock.calls.slice(-1);
+    expect(called[0][0].name).toBe("Bedroom (Group)");
+  });
+});
+
+// ===========================================================================
+// lampid subscription (auto-sets lampisgroup)
+// ===========================================================================
+
+describe("lampid subscription", () => {
+  test("sets lampisgroup to false when a light is selected", () => {
+    const lampisgroup = makeObservable(true);
+    const lampid      = makeObservable("");
+    const vm = makeViewModel({ lampisgroup, lampid });
+    // Populate hueLamps with a known light
+    vm.hueLamps([{ id: "abc-1", name: "Desk Lamp", type: "light" }]);
+    // Simulate user selecting a light — trigger the subscription
+    lampid("abc-1");
+    expect(lampisgroup).toHaveBeenCalledWith(false);
+  });
+
+  test("sets lampisgroup to true when a group is selected", () => {
+    const lampisgroup = makeObservable(false);
+    const lampid      = makeObservable("");
+    const vm = makeViewModel({ lampisgroup, lampid });
+    vm.hueLamps([{ id: "gl-uuid-1", name: "Living Room (Group)", type: "group" }]);
+    lampid("gl-uuid-1");
+    expect(lampisgroup).toHaveBeenCalledWith(true);
+  });
+
+  test("does not update lampisgroup when id is not in hueLamps", () => {
+    const lampisgroup = makeObservable(false);
+    const lampid      = makeObservable("");
+    const vm = makeViewModel({ lampisgroup, lampid });
+    vm.hueLamps([]);
+    lampid("unknown-id");
+    expect(lampisgroup).not.toHaveBeenCalledWith(expect.anything());
+  });
+});
+
 describe("onSettingsShown", () => {
   test("calls getbridgestatus when settings panel is shown", () => {
     const vm = makeViewModel();
     vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps   = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
     vm.onSettingsShown();
     expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
   });
 
   test("populates huePlugs with devices returned for archetype plug", () => {
     const plugDevices = [{ id: "3", name: "Smart Plug", archetype: "plug" }];
-    const lampDevices = [{ id: "1", name: "Desk Lamp", archetype: "tableShade" }];
     const vm = makeViewModel();
     vm.getbridgestatus = jest.fn();
-    vm.getDevices = jest.fn()
-      .mockImplementationOnce(() => new SyncResult(plugDevices))
-      .mockImplementationOnce(() => new SyncResult(lampDevices));
+    vm.fetchAllLamps   = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult(plugDevices));
     vm.onSettingsShown();
     expect(vm.huePlugs).toHaveBeenCalledWith(plugDevices);
   });
 
-  test("populates hueLamps with devices returned without archetype filter", () => {
-    const plugDevices = [{ id: "3", name: "Smart Plug", archetype: "plug" }];
-    const lampDevices = [{ id: "1", name: "Desk Lamp", archetype: "tableShade" }];
+  test("calls fetchAllLamps to populate the combined lamp/group list", () => {
     const vm = makeViewModel();
     vm.getbridgestatus = jest.fn();
-    vm.getDevices = jest.fn()
-      .mockImplementationOnce(() => new SyncResult(plugDevices))
-      .mockImplementationOnce(() => new SyncResult(lampDevices));
+    vm.fetchAllLamps   = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
     vm.onSettingsShown();
-    expect(vm.hueLamps).toHaveBeenCalledWith(lampDevices);
+    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -741,5 +965,25 @@ describe("toggleCtMode", () => {
     const status = { ct: makeObservable(370) };
     vm.toggleCtMode(status);
     expect(status.ct()).toBe(0);
+  });
+});
+
+// ===========================================================================
+// toggleToggleCtMode
+// ===========================================================================
+
+describe("toggleToggleCtMode", () => {
+  test("when togglect is 0, sets it to 370 (warm white default)", () => {
+    const togglect = makeObservable(0);
+    const vm = makeViewModel({ togglect });
+    vm.toggleToggleCtMode();
+    expect(togglect).toHaveBeenCalledWith(370);
+  });
+
+  test("when togglect is non-zero, resets it to 0 (RGB mode)", () => {
+    const togglect = makeObservable(370);
+    const vm = makeViewModel({ togglect });
+    vm.toggleToggleCtMode();
+    expect(togglect).toHaveBeenCalledWith(0);
   });
 });

@@ -198,32 +198,41 @@ class TestBuildState:
 # ===========================================================================
 
 class TestGetState:
-    """get_state queries the bridge and returns a bool."""
+    """get_state queries the v2 API and returns a bool."""
 
     def test_returns_none_when_bridge_not_ready(self, plugin):
         plugin.pbridge = None
         assert plugin.get_state("1") is None
 
-    def test_group_reads_action_key(self, plugin):
+    def test_group_calls_grouped_light_endpoint(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": True})
-        plugin.pbridge.groups.__getitem__.return_value.return_value = {
-            "action": {"on": True}
+        plugin._session.request.return_value.json.return_value = {
+            "data": [{"on": {"on": True}}]
         }
         assert plugin.get_state("1") is True
+        url = plugin._session.request.call_args[0][1]
+        assert "grouped_light/1" in url
 
-    def test_light_reads_state_key(self, plugin):
+    def test_light_calls_light_endpoint(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
-        plugin.pbridge.lights.__getitem__.return_value.return_value = {
-            "state": {"on": False}
+        plugin._session.request.return_value.json.return_value = {
+            "data": [{"on": {"on": False}}]
         }
         assert plugin.get_state("1") is False
+        url = plugin._session.request.call_args[0][1]
+        assert "light/1" in url
+
+    def test_returns_none_when_data_empty(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
+        plugin._session.request.return_value.json.return_value = {"data": []}
+        assert plugin.get_state("1") is None
 
     def test_defaults_to_settings_lampid_when_none(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter(
             {"lampisgroup": False, "lampid": "5"}
         )
-        plugin.pbridge.lights.__getitem__.return_value.return_value = {
-            "state": {"on": True}
+        plugin._session.request.return_value.json.return_value = {
+            "data": [{"on": {"on": True}}]
         }
         plugin.get_state()
         plugin._settings.get.assert_any_call(["lampid"])
@@ -234,44 +243,90 @@ class TestGetState:
 # ===========================================================================
 
 class TestSetState:
-    """set_state dispatches to pbridge groups or lights depending on config."""
+    """set_state builds a v2 payload and PUTs it to the correct endpoint."""
 
     def test_does_nothing_when_bridge_not_ready(self, plugin):
         plugin.pbridge = None
+        plugin._session = None
         plugin.set_state({"on": False}, "1")  # must not raise
         plugin._logger.warning.assert_called()
 
-    def test_group_calls_action(self, plugin):
-        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": True})
-        state = {"on": True, "bri": 200}
-        plugin.set_state(state, "1")
-        plugin.pbridge.groups.__getitem__.return_value.action.assert_called_once_with(
-            **state
+    def test_group_puts_to_grouped_light_endpoint(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"lampisgroup": True, "plugid": "99"}
         )
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": True, "bri": 200}, "1")
+        url = plugin._session.request.call_args[0][1]
+        assert "grouped_light/1" in url
 
-    def test_light_calls_state(self, plugin):
+    def test_light_puts_to_light_endpoint(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
-        state = {"on": False}
-        plugin.set_state(state, "1")
-        plugin.pbridge.lights.__getitem__.return_value.state.assert_called_once_with(
-            **state
-        )
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": False}, "1")
+        url = plugin._session.request.call_args[0][1]
+        assert "light/1" in url
 
-    def test_plug_always_uses_lights_not_groups(self, plugin):
-        """Even when lampisgroup=True, the plug device must use lights not groups."""
+    def test_plug_always_uses_light_endpoint_not_grouped(self, plugin):
+        """Even when lampisgroup=True, the plug device must use the light endpoint."""
         plugin._settings.get.side_effect = make_settings_getter(
             {"lampisgroup": True, "plugid": "2"}
         )
+        plugin._session.request.return_value.json.return_value = {}
         plugin.set_state({"on": True}, "2")  # deviceid == plugid
-        plugin.pbridge.lights.__getitem__.return_value.state.assert_called_once_with(
-            on=True
-        )
-        plugin.pbridge.groups.__getitem__.return_value.action.assert_not_called()
+        url = plugin._session.request.call_args[0][1]
+        assert "light/2" in url
+        assert "grouped_light" not in url
+
+    def test_on_false_builds_nested_on_payload(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": False}, "1")
+        payload = plugin._session.request.call_args[1]["json"]
+        assert payload["on"] == {"on": False}
+
+    def test_brightness_passed_as_percentage(self, plugin):
+        """bri is now stored and passed as a 0-100 percentage — no conversion applied."""
+        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": True, "bri": 75}, "1")
+        payload = plugin._session.request.call_args[1]["json"]
+        assert payload["dimming"]["brightness"] == 75.0
+
+    def test_brightness_clamped_to_100(self, plugin):
+        """Values above 100 are clamped — guards against stale settings from pre-v3."""
+        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": True, "bri": 255}, "1")
+        payload = plugin._session.request.call_args[1]["json"]
+        assert payload["dimming"]["brightness"] == 100.0
+
+    def test_xy_colour_wrapped_in_color_object(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": True, "xy": [0.64, 0.33]}, "1")
+        payload = plugin._session.request.call_args[1]["json"]
+        assert payload["color"] == {"xy": {"x": 0.64, "y": 0.33}}
+
+    def test_ct_wrapped_in_color_temperature(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": True, "ct": 370}, "1")
+        payload = plugin._session.request.call_args[1]["json"]
+        assert payload["color_temperature"] == {"mirek": 370}
+
+    def test_alert_lselect_mapped_to_breathe(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": True, "alert": "lselect"}, "1")
+        payload = plugin._session.request.call_args[1]["json"]
+        assert payload["alert"] == {"action": "breathe"}
 
     def test_defaults_to_settings_lampid_when_none(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter(
             {"lampisgroup": False, "lampid": "3"}
         )
+        plugin._session.request.return_value.json.return_value = {}
         plugin.set_state({"on": False})
         plugin._settings.get.assert_any_call(["lampid"])
 
@@ -290,14 +345,36 @@ class TestToggleState:
         plugin.toggle_state("1")
         plugin.build_state.assert_called_once_with(on=False, deviceid="1")
 
-    def test_when_off_lamp_turns_on_with_brightness(self, plugin):
+    def test_when_off_lamp_turns_on_with_toggle_colour(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter(
-            {"plugid": "2", "defaultbri": 200}
+            {"plugid": "2", "togglebri": 80, "togglecolour": "#FF8800", "togglect": 0,
+             "defaultbri": 100}
         )
         plugin.get_state = MagicMock(return_value=False)
         plugin.build_state = MagicMock()
         plugin.toggle_state("1")  # deviceid "1" != plugid "2"
-        plugin.build_state.assert_called_once_with(on=True, bri=200, deviceid="1")
+        plugin.build_state.assert_called_once_with(on=True, colour="#FF8800", bri=80, deviceid="1")
+
+    def test_when_off_lamp_uses_toggle_ct_when_set(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"plugid": "2", "togglebri": 80, "togglecolour": "#FFFFFF", "togglect": 370,
+             "defaultbri": 100}
+        )
+        plugin.get_state = MagicMock(return_value=False)
+        plugin.build_state = MagicMock()
+        plugin.toggle_state("1")
+        plugin.build_state.assert_called_once_with(on=True, ct=370, bri=80, deviceid="1")
+
+    def test_when_off_lamp_falls_back_to_defaultbri_if_togglebri_missing(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"plugid": "2", "togglebri": None, "togglecolour": "#FFFFFF", "togglect": 0,
+             "defaultbri": 60}
+        )
+        plugin.get_state = MagicMock(return_value=False)
+        plugin.build_state = MagicMock()
+        plugin.toggle_state("1")
+        call_kwargs = plugin.build_state.call_args[1]
+        assert call_kwargs["bri"] == 60
 
     def test_when_off_plug_turns_on_without_brightness(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter({"plugid": "2"})
@@ -332,6 +409,38 @@ class TestGetConfiguredEvents:
     def test_empty_status_dict_returns_empty_list(self, plugin):
         plugin._settings.get.return_value = []
         assert plugin.get_configured_events() == []
+
+
+# ===========================================================================
+# establishBridge
+# ===========================================================================
+
+class TestEstablishBridge:
+
+    def test_sets_pbridge_dict_with_addr_and_key(self, plugin):
+        plugin.pbridge = None
+        plugin.establishBridge("192.168.1.100", "my-key")
+        assert plugin.pbridge == {"addr": "192.168.1.100", "key": "my-key"}
+
+    def test_creates_session_when_bridge_configured(self, plugin):
+        plugin.establishBridge("192.168.1.100", "my-key")
+        assert plugin._session is not None
+
+    def test_missing_addr_sets_pbridge_to_none(self, plugin):
+        plugin.establishBridge("", "my-key")
+        assert plugin.pbridge is None
+
+    def test_missing_addr_sets_session_to_none(self, plugin):
+        plugin.establishBridge("", "my-key")
+        assert plugin._session is None
+
+    def test_missing_key_sets_pbridge_to_none(self, plugin):
+        plugin.establishBridge("192.168.1.100", "")
+        assert plugin.pbridge is None
+
+    def test_both_missing_sets_pbridge_to_none(self, plugin):
+        plugin.establishBridge("", "")
+        assert plugin.pbridge is None
 
 
 # ===========================================================================
@@ -699,6 +808,16 @@ class TestOnEvent:
 
 
 # ===========================================================================
+# is_api_protected
+# ===========================================================================
+
+class TestIsApiProtected:
+
+    def test_returns_false(self, plugin):
+        assert plugin.is_api_protected() is False
+
+
+# ===========================================================================
 # on_api_command  –  bridge sub-commands
 # ===========================================================================
 
@@ -758,10 +877,10 @@ class TestOnApiCommandBridge:
         requests.get.return_value.json.assert_called_once()
 
     def test_pair_success_saves_credentials(self, plugin):
-        requests = sys.modules["requests"]
         plugin._settings.get.side_effect = make_settings_getter()
         plugin.establishBridge = MagicMock()
-        requests.post.return_value.json.return_value = [
+        pair_session = sys.modules["requests"].Session.return_value
+        pair_session.post.return_value.json.return_value = [
             {"success": {"username": "new-api-key"}}
         ]
         plugin.on_api_command(
@@ -772,10 +891,10 @@ class TestOnApiCommandBridge:
         plugin._settings.save.assert_called()
 
     def test_pair_success_re_establishes_bridge(self, plugin):
-        requests = sys.modules["requests"]
         plugin._settings.get.side_effect = make_settings_getter()
         plugin.establishBridge = MagicMock()
-        requests.post.return_value.json.return_value = [
+        pair_session = sys.modules["requests"].Session.return_value
+        pair_session.post.return_value.json.return_value = [
             {"success": {"username": "new-api-key"}}
         ]
         plugin.on_api_command(
@@ -785,8 +904,8 @@ class TestOnApiCommandBridge:
 
     def test_pair_error_returns_error_response(self, plugin):
         flask = sys.modules["flask"]
-        requests = sys.modules["requests"]
-        requests.post.return_value.json.return_value = [
+        pair_session = sys.modules["requests"].Session.return_value
+        pair_session.post.return_value.json.return_value = [
             {"error": {"description": "link button not pressed"}}
         ]
         plugin.on_api_command(
@@ -797,16 +916,16 @@ class TestOnApiCommandBridge:
         assert args[0]["response"] == "error"
 
     def test_pair_parses_response_once(self, plugin):
-        requests = sys.modules["requests"]
         plugin._settings.get.side_effect = make_settings_getter()
         plugin.establishBridge = MagicMock()
-        requests.post.return_value.json.return_value = [
+        pair_session = sys.modules["requests"].Session.return_value
+        pair_session.post.return_value.json.return_value = [
             {"success": {"username": "key"}}
         ]
         plugin.on_api_command(
             "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
         )
-        requests.post.return_value.json.assert_called_once()
+        pair_session.post.return_value.json.assert_called_once()
 
 
 # ===========================================================================
@@ -814,6 +933,12 @@ class TestOnApiCommandBridge:
 # ===========================================================================
 
 class TestOnApiCommandGetDevices:
+
+    _V2_DEVICES = [
+        {"id": "uuid-1", "metadata": {"name": "Desk Lamp", "archetype": "tableShade"}},
+        {"id": "uuid-2", "metadata": {"name": "Smart Plug", "archetype": "plug"}},
+        {"id": "uuid-3", "metadata": {"name": "Floor Lamp", "archetype": "floorShade"}},
+    ]
 
     def test_non_admin_returns_403(self, plugin):
         flask = sys.modules["flask"]
@@ -828,22 +953,16 @@ class TestOnApiCommandGetDevices:
         plugin.on_api_command("getdevices", {})
         flask.jsonify.assert_called_once_with(devices=[])
 
-    _DEVICES = {
-        "1": {"name": "Desk Lamp", "config": {"archetype": "tableShade"}},
-        "2": {"name": "Smart Plug", "config": {"archetype": "plug"}},
-        "3": {"name": "Floor Lamp", "config": {"archetype": "floorShade"}},
-    }
-
     def test_returns_all_devices_when_no_archetype(self, plugin):
         flask = sys.modules["flask"]
-        plugin.pbridge.lights.return_value = self._DEVICES
+        plugin._session.request.return_value.json.return_value = {"data": self._V2_DEVICES}
         plugin.on_api_command("getdevices", {})
         devices = flask.jsonify.call_args[1]["devices"]
         assert len(devices) == 3
 
     def test_filters_by_archetype(self, plugin):
         flask = sys.modules["flask"]
-        plugin.pbridge.lights.return_value = self._DEVICES
+        plugin._session.request.return_value.json.return_value = {"data": self._V2_DEVICES}
         plugin.on_api_command("getdevices", {"archetype": "plug"})
         devices = flask.jsonify.call_args[1]["devices"]
         assert len(devices) == 1
@@ -851,7 +970,7 @@ class TestOnApiCommandGetDevices:
 
     def test_device_dict_contains_id_name_archetype(self, plugin):
         flask = sys.modules["flask"]
-        plugin.pbridge.lights.return_value = self._DEVICES
+        plugin._session.request.return_value.json.return_value = {"data": self._V2_DEVICES}
         plugin.on_api_command("getdevices", {})
         devices = flask.jsonify.call_args[1]["devices"]
         for d in devices:
@@ -859,12 +978,98 @@ class TestOnApiCommandGetDevices:
             assert "name" in d
             assert "archetype" in d
 
+    def test_device_ids_are_uuids(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._session.request.return_value.json.return_value = {"data": self._V2_DEVICES}
+        plugin.on_api_command("getdevices", {})
+        devices = flask.jsonify.call_args[1]["devices"]
+        assert devices[0]["id"] == "uuid-1"
+
     def test_empty_archetype_filter_returns_nothing(self, plugin):
         flask = sys.modules["flask"]
-        plugin.pbridge.lights.return_value = self._DEVICES
+        plugin._session.request.return_value.json.return_value = {"data": self._V2_DEVICES}
         plugin.on_api_command("getdevices", {"archetype": "nonexistent"})
         devices = flask.jsonify.call_args[1]["devices"]
         assert devices == []
+
+
+# ===========================================================================
+# on_api_command  –  getgroups
+# ===========================================================================
+
+class TestOnApiCommandGetGroups:
+
+    def test_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        plugin.on_api_command("getgroups", {})
+        flask.make_response.assert_called_once()
+        assert flask.make_response.call_args[0][1] == 403
+
+    def test_returns_empty_groups_when_bridge_not_ready(self, plugin):
+        flask = sys.modules["flask"]
+        plugin.pbridge = None
+        plugin.on_api_command("getgroups", {})
+        flask.jsonify.assert_called_once_with(groups=[])
+
+    def test_returns_named_groups_from_rooms(self, plugin):
+        flask = sys.modules["flask"]
+        room_data = [{"metadata": {"name": "Living Room"}, "services": [{"rid": "gl-uuid-1", "rtype": "grouped_light"}]}]
+        zone_data = []
+
+        def fake_request(method, url, **kwargs):
+            mock = MagicMock()
+            if "room" in url:
+                mock.json.return_value = {"data": room_data}
+            else:
+                mock.json.return_value = {"data": zone_data}
+            return mock
+
+        plugin._session.request.side_effect = fake_request
+        plugin.on_api_command("getgroups", {})
+        groups = flask.jsonify.call_args[1]["groups"]
+        assert len(groups) == 1
+        assert groups[0]["id"] == "gl-uuid-1"
+        assert groups[0]["name"] == "Living Room"
+
+    def test_returns_groups_from_both_rooms_and_zones(self, plugin):
+        flask = sys.modules["flask"]
+        room_data = [{"metadata": {"name": "Living Room"}, "services": [{"rid": "gl-uuid-1", "rtype": "grouped_light"}]}]
+        zone_data = [{"metadata": {"name": "Office Zone"}, "services": [{"rid": "gl-uuid-2", "rtype": "grouped_light"}]}]
+
+        def fake_request(method, url, **kwargs):
+            mock = MagicMock()
+            if url.endswith("/room"):
+                mock.json.return_value = {"data": room_data}
+            else:
+                mock.json.return_value = {"data": zone_data}
+            return mock
+
+        plugin._session.request.side_effect = fake_request
+        plugin.on_api_command("getgroups", {})
+        groups = flask.jsonify.call_args[1]["groups"]
+        assert len(groups) == 2
+
+    def test_skips_items_without_grouped_light_service(self, plugin):
+        flask = sys.modules["flask"]
+        room_data = [
+            {"metadata": {"name": "Room A"}, "services": [{"rid": "dev-uuid", "rtype": "device"}]},
+            {"metadata": {"name": "Room B"}, "services": [{"rid": "gl-uuid-2", "rtype": "grouped_light"}]},
+        ]
+
+        def fake_request(method, url, **kwargs):
+            mock = MagicMock()
+            if url.endswith("/room"):
+                mock.json.return_value = {"data": room_data}
+            else:
+                mock.json.return_value = {"data": []}
+            return mock
+
+        plugin._session.request.side_effect = fake_request
+        plugin.on_api_command("getgroups", {})
+        groups = flask.jsonify.call_args[1]["groups"]
+        assert len(groups) == 1
+        assert groups[0]["name"] == "Room B"
 
 
 # ===========================================================================
@@ -969,7 +1174,7 @@ class TestGetSettingsDefaults:
         assert d["bridgeaddr"] == ""
         assert d["husername"] == ""
         assert d["lampid"] == ""
-        assert d["defaultbri"] == 255
+        assert d["defaultbri"] == 100
         assert d["offonshutdown"] is True
         assert d["showhuetoggle"] is True
         assert d["autopoweroff"] is False
@@ -1004,8 +1209,110 @@ class TestOnSettingsMigrate:
 
     def test_up_to_date_does_not_modify_settings(self, plugin):
         """current == target → nothing should change."""
-        plugin.on_settings_migrate(target=1, current=1)
+        plugin.on_settings_migrate(target=4, current=4)
         plugin._settings.set.assert_not_called()
+
+    def test_first_install_example_brightnesses_are_percentages(self, plugin):
+        """First-install example entries must use the 0-100 scale, not 1-255."""
+        plugin.on_settings_migrate(target=3, current=None)
+        set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
+        entries = set_calls[0][0][1]
+        for entry in entries:
+            bri = entry.get("brightness")
+            if bri != "":  # Disconnected has empty brightness
+                assert bri <= 100, f"brightness {bri} exceeds 100 for event {entry['event']}"
+
+    def test_v1_to_v2_clears_lamp_and_plug_ids(self, plugin):
+        """Upgrading from v1: integer IDs must be cleared since v2 uses UUIDs."""
+        plugin._settings.get.side_effect = make_settings_getter()
+        plugin.on_settings_migrate(target=3, current=1)
+        plugin._settings.set.assert_any_call(['lampid'], '')
+        plugin._settings.set.assert_any_call(['plugid'], '')
+        plugin._settings.save.assert_called()
+
+    def test_v2_to_v3_does_not_clear_device_ids(self, plugin):
+        """The v2→v3 migration must not touch lampid/plugid — only v1→v2 does."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": []
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        calls = [c[0][0] for c in plugin._settings.set.call_args_list]
+        assert ['lampid'] not in calls
+        assert ['plugid'] not in calls
+
+    def test_v2_to_v3_converts_defaultbri(self, plugin):
+        """defaultbri 255 → 100, 128 → 50."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": []
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        plugin._settings.set.assert_any_call(['defaultbri'], 100)
+
+    def test_v2_to_v3_converts_nightmode_maxbri(self, plugin):
+        """nightmode_maxbri 64 → 25 (64/255*100 ≈ 25)."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 100, "nightmode_maxbri": 64, "statusDict": []
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        plugin._settings.set.assert_any_call(['nightmode_maxbri'], 25)
+
+    def test_v2_to_v3_converts_status_dict_brightnesses(self, plugin):
+        """statusDict brightness values are converted from 1-255 to 0-100 scale."""
+        old_dict = [
+            {"event": "PrintDone", "brightness": 255, "colour": "#33FF36",
+             "delay": 0, "turnoff": False, "flash": False, "ct": 0},
+            {"event": "PrintFailed", "brightness": 128, "colour": "#FF0000",
+             "delay": 0, "turnoff": False, "flash": False, "ct": 0},
+        ]
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": old_dict
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
+        migrated = set_calls[0][0][1]
+        assert migrated[0]["brightness"] == 100
+        assert migrated[1]["brightness"] == 50
+
+    def test_v2_to_v3_skips_empty_brightness(self, plugin):
+        """Entries with empty brightness (e.g. Disconnected/turnoff) are left unchanged."""
+        old_dict = [{"event": "Disconnected", "brightness": "", "colour": "",
+                     "delay": 0, "turnoff": True, "flash": False, "ct": 0}]
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": old_dict
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
+        migrated = set_calls[0][0][1]
+        assert migrated[0]["brightness"] == ""
+
+    def test_v1_to_v3_applies_both_migrations(self, plugin):
+        """Direct v1→v3 upgrade applies both the UUID clear and brightness conversion."""
+        old_dict = [{"event": "PrintDone", "brightness": 255, "colour": "#33FF36",
+                     "delay": 0, "turnoff": False, "flash": False, "ct": 0}]
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": old_dict
+        })
+        plugin.on_settings_migrate(target=4, current=1)
+        plugin._settings.set.assert_any_call(['lampid'], '')
+        plugin._settings.set.assert_any_call(['plugid'], '')
+        set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
+        migrated = set_calls[0][0][1]
+        assert migrated[0]["brightness"] == 100
+
+    def test_v3_to_v4_adds_toggle_settings(self, plugin):
+        """v3→v4 migration seeds togglebri from defaultbri and adds togglecolour/togglect."""
+        plugin._settings.get.side_effect = make_settings_getter({"defaultbri": 75})
+        plugin.on_settings_migrate(target=4, current=3)
+        plugin._settings.set.assert_any_call(['togglebri'], 75)
+        plugin._settings.set.assert_any_call(['togglecolour'], '#FFFFFF')
+        plugin._settings.set.assert_any_call(['togglect'], 0)
+
+    def test_v3_to_v4_does_not_touch_brightness_conversion(self, plugin):
+        """v3→v4 must not re-run the brightness conversion — values are already percentages."""
+        plugin._settings.get.side_effect = make_settings_getter({"defaultbri": 75})
+        plugin.on_settings_migrate(target=4, current=3)
+        calls = [c[0][0] for c in plugin._settings.set.call_args_list]
+        assert ['defaultbri'] not in calls
 
 
 # ===========================================================================
@@ -1059,18 +1366,18 @@ class TestOnSettingsSave:
         assert "availableEvents" not in data
 
     def test_re_establishes_bridge_after_save(self, plugin):
-        Bridge = sys.modules["qhue"].Bridge
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.on_settings_save({"lampid": "1"})
-        Bridge.assert_called_once()
+        plugin.establishBridge = MagicMock()
+        plugin.on_settings_save({"lampid": "uuid-1"})
+        plugin.establishBridge.assert_called_once()
 
     def test_bridge_created_with_saved_addr_and_key(self, plugin):
-        Bridge = sys.modules["qhue"].Bridge
         plugin._settings.get.side_effect = make_settings_getter(
             {"bridgeaddr": "10.0.0.1", "husername": "saved-key"}
         )
-        plugin.on_settings_save({"lampid": "1"})
-        Bridge.assert_called_once_with("10.0.0.1", "saved-key")
+        plugin.establishBridge = MagicMock()
+        plugin.on_settings_save({"lampid": "uuid-1"})
+        plugin.establishBridge.assert_called_once_with("10.0.0.1", "saved-key")
 
 
 # ===========================================================================
@@ -1267,7 +1574,7 @@ class TestBuildStateNightMode:
             "lampid": "1",
             "plugid": "99",
         })
-        plugin.pbridge = MagicMock()
+        plugin._session.request.return_value.json.return_value = {}
 
     def test_pause_action_skips_set_state(self, plugin):
         self._make_plugin_with_night_mode(plugin, "pause")
@@ -1307,7 +1614,7 @@ class TestBuildStateNightMode:
         plugin._settings.get.side_effect = make_settings_getter({
             "lampisgroup": False, "lampid": "1", "plugid": "99",
         })
-        plugin.pbridge = MagicMock()
+        plugin._session.request.return_value.json.return_value = {}
         plugin.set_state = MagicMock()
         plugin.build_state(on=True, bri=255, colour="#FF0000", deviceid="1")
         state_arg = plugin.set_state.call_args[0][0]
@@ -1332,7 +1639,7 @@ class TestGetSettingsDefaultsNightMode:
         assert d["nightmode_start"] == "22:00"
         assert d["nightmode_end"] == "07:00"
         assert d["nightmode_action"] == "pause"
-        assert d["nightmode_maxbri"] == 64
+        assert d["nightmode_maxbri"] == 25
 
 
 # ===========================================================================

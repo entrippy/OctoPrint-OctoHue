@@ -81,28 +81,46 @@ $(function() {
 				if(response[0].response == "success")
 				{
                     clearInterval(interval_pairing);
-					text_pairing_count.innerHTML = "<font color='green'>Succesfull Pairing !</font>";
-                    setTimeout(function(){
-                        self.getbridgestatus();
-                        document.getElementById("bridgeaddress").value = response[0].bridgeaddr
-                        document.getElementById("apikey").value = response[0].husername
-                        document.getElementById("huebridgestatus").style.backgroundColor = "green";
-                        document.getElementById("huebridgestatus").innerHTML = "Paired";
-                    }, 5000);
+                    self.ownSettings.bridgeaddr(response[0].bridgeaddr);
+                    self.ownSettings.husername(response[0].husername);
+                    document.getElementById("huebridgestatus").style.backgroundColor = "green";
+                    document.getElementById("huebridgestatus").innerHTML = "Paired";
+					text_pairing_count.innerHTML = "<font color='green'><strong>Bridge paired successfully!</strong> Click the button below to select your light, or click Save to continue later.</font>";
+                    document.getElementById("huebridge_paired_actions").classList.remove("inactiveconfig");
 				}
 			})
 
 			if(pairing_try_count == 30)
 			{
 				clearInterval(interval_pairing);
-				pairing_bridge_button.innerHTML = '<i class="fa fa-link"></i> Start Pairing';
-				pairing_bridge_button.disabled = false;
+				bridgebutton.innerHTML = '<i class="fa fa-link"></i> Start Pairing';
+				bridgebutton.disabled = false;
 				text_pairing_count.innerHTML = "<font color='red'>Unable to pair. Please try again</font>";
 				document.getElementById("huebridge_startsearch").disabled = false;
 			}
 		}, 1000);
         };
     
+        self.fetchAllLamps = function() {
+            self.getDevices().then(function(lights) {
+                var nonPlugs = (lights || [])
+                    .filter(function(d) { return d.archetype !== "plug"; })
+                    .map(function(d) { return {id: d.id, name: d.name, type: "light"}; });
+                self.getGroups().then(function(groups) {
+                    var groupItems = (groups || [])
+                        .map(function(g) { return {id: g.id, name: g.name + " (Group)", type: "group"}; });
+                    self.hueLamps(nonPlugs.concat(groupItems));
+                });
+            });
+        };
+
+        self.goToLights = function() {
+            document.getElementById("huebridge_paired_actions").classList.add("inactiveconfig");
+            self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+            self.fetchAllLamps();
+            $('#octohue_tabs a[href="#octohue_settings_lights"]').tab('show');
+        };
+
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
                 if ( response.bridgestatus === "configured") {
@@ -123,6 +141,11 @@ $(function() {
                 .then(response => response.devices);
         };
 
+        self.getGroups = function () {
+            return OctoPrint.simpleApiCommand("octohue", "getgroups", {}, {})
+                .then(response => response.groups);
+        };
+
         self.onBeforeBinding = function () {
             self.settings = self.settingsViewModel.settings;
             self.ownSettings = self.settings.plugins.octohue;
@@ -138,12 +161,21 @@ $(function() {
                     item.ct = ko.observable(item.ct || 0);
                 }
             });
+
+            // Auto-set lampisgroup when the user picks a device from the combined
+            // dropdown, so the backend still knows which API endpoint to use.
+            self.ownSettings.lampid.subscribe(function(newId) {
+                var lamp = ko.utils.arrayFirst(self.hueLamps(), function(l) { return l.id === newId; });
+                if (lamp) {
+                    self.ownSettings.lampisgroup(lamp.type === "group");
+                }
+            });
         };
 
         self.onSettingsShown = function () {
             self.getbridgestatus();
-            self.getDevices("plug").then(devices => { self.huePlugs(devices); });
-            self.getDevices().then(devices => { self.hueLamps(devices); });
+            self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+            self.fetchAllLamps();
         };
 
         self.removeStatus = function (data) {
@@ -191,6 +223,14 @@ $(function() {
                 status.ct(0);
             } else {
                 status.ct(370); // default ~2700K warm white
+            }
+        };
+
+        self.toggleToggleCtMode = function() {
+            if (self.ownSettings.togglect()) {
+                self.ownSettings.togglect(0);
+            } else {
+                self.ownSettings.togglect(370);
             }
         };
 
