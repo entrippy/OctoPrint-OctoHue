@@ -308,7 +308,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if 'on' in state:
 			payload['on'] = {'on': state['on']}
 		if 'bri' in state:
-			payload['dimming'] = {'brightness': min(round(state['bri'] / 254 * 100, 1), 100.0)}
+			payload['dimming'] = {'brightness': min(float(state['bri']), 100.0)}
 		if 'xy' in state:
 			payload['color'] = {'xy': {'x': state['xy'][0], 'y': state['xy'][1]}}
 		if 'ct' in state:
@@ -629,7 +629,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			lampid="",
 			plugid="",
 			lampisgroup=False,
-			defaultbri=255,
+			defaultbri=100,
 			ononstartup=False,
 			ononstartupevent="",
 			offonshutdown=True,
@@ -642,7 +642,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			nightmode_start="22:00",
 			nightmode_end="07:00",
 			nightmode_action="pause",
-			nightmode_maxbri=64,
+			nightmode_maxbri=25,
 			statusDict=[]
 		)
 
@@ -658,57 +658,83 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Returns the current settings schema version. OctoPrint uses this to detect
 		when on_settings_migrate needs to be called.
 		'''
-		return 2
+		return 3
 
 	def on_settings_migrate(self, target, current=None):
 		'''
 		Migrates settings from an older schema version.
 
-		On first install (current=None), writes example statusDict entries.
-		On upgrade from v1 (current=1), clears lampid and plugid because the
-		Hue v2 API uses UUIDs rather than the short integer IDs stored by v1.
-		Users will need to re-select their devices in the Lights and Power settings tabs.
+		current=None (first install): writes example statusDict entries.
+		current<2  (v1→v2): clears lampid/plugid — Hue v2 uses UUIDs, not integer IDs.
+		current<3  (v2→v3): converts all brightness values from 1–255 scale to
+		                     0–100 percentage scale used by the Hue v2 API.
+
+		Cascading if-blocks (not elif) ensure users upgrading across multiple
+		versions in one step receive all intermediate migrations.
 		'''
 		if current is None:
 			self._logger.info("Migrating Settings: Writing example settings")
 			self._settings.set(["statusDict"], [
 					{'event': 'Connected',
 					'colour':'#FFFFFF',
-					'brightness':255,
+					'brightness':100,
 					'delay':0,
-					'turnoff':False, 'flash': False},
+					'turnoff':False, 'flash': False, 'ct': 0},
 					{'event': 'Disconnected',
 					'colour':'',
 					'brightness':"",
 					'delay':0,
-					'turnoff':True, 'flash': False},
+					'turnoff':True, 'flash': False, 'ct': 0},
 					{'event': 'PrintStarted',
 					'colour':'#FFFFFF',
-					'brightness':255,
+					'brightness':100,
 					'delay':0,
-					'turnoff':False, 'flash': False},
+					'turnoff':False, 'flash': False, 'ct': 0},
 					{'event': 'PrintResumed',
 					'colour':'#FFFFFF',
-					'brightness':255,
+					'brightness':100,
 					'delay':0,
-					'turnoff':False, 'flash': False},
+					'turnoff':False, 'flash': False, 'ct': 0},
 					{'event': 'PrintDone',
 					'colour':'#33FF36',
-					'brightness':255,
+					'brightness':100,
 					'delay':0,
-					'turnoff':False, 'flash': False},
+					'turnoff':False, 'flash': False, 'ct': 0},
 					{'event': 'PrintFailed',
 					'colour':'#FF0000',
-					'brightness':255,
+					'brightness':100,
 					'delay':0,
-					'turnoff':False, 'flash': False}
+					'turnoff':False, 'flash': False, 'ct': 0}
 				])
 			self._settings.save()
-		elif current < 2:
+			return
+
+		if current < 2:
 			self._logger.info("Migrating Settings v1→v2: clearing device IDs (Hue v2 uses UUIDs, not integer IDs)")
 			self._settings.set(['lampid'], '')
 			self._settings.set(['plugid'], '')
-			self._settings.save()
+
+		if current < 3:
+			self._logger.info("Migrating Settings v2→v3: converting brightness values from 1–255 to 0–100 percentage scale")
+
+			def to_pct(value):
+				try:
+					return min(round(int(value) / 255 * 100), 100)
+				except (ValueError, TypeError):
+					return value
+
+			old_bri = self._settings.get(['defaultbri'])
+			self._settings.set(['defaultbri'], to_pct(old_bri))
+
+			old_maxbri = self._settings.get(['nightmode_maxbri'])
+			self._settings.set(['nightmode_maxbri'], to_pct(old_maxbri))
+
+			status_dict = self._settings.get(['statusDict'])
+			for entry in status_dict:
+				entry['brightness'] = to_pct(entry.get('brightness'))
+			self._settings.set(['statusDict'], status_dict)
+
+		self._settings.save()
 
 	def on_settings_load(self):
 		'''

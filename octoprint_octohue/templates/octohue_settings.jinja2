@@ -97,8 +97,8 @@
                             </div>
                             <div class="controls" data-bind="visible: ownSettings.nightmode_action() === 'dim'" style="margin-top: 4px">
                                 <label class="control-label">{{ _('Max brightness') }}</label>
-                                <input type="number" min="1" max="255" class="input-mini" data-bind="value: ownSettings.nightmode_maxbri" style="width: 60px">
-                                <span class="help-inline">1–255</span>
+                                <input type="number" min="1" max="100" class="input-mini" data-bind="value: ownSettings.nightmode_maxbri" style="width: 60px">
+                                <span class="help-inline">1–100%</span>
                             </div>
                         </div>
                     </div>
@@ -113,8 +113,8 @@
                     </div>
                     <label class="control-label">{{ _('Default Brightness') }}</label>
                     <div class="controls">
-                        <input type="text" class="input-mini" data-bind="value: ownSettings.defaultbri">
-                        <span class="help-inline">1–255</span>
+                        <input type="number" min="1" max="100" class="input-mini" data-bind="value: ownSettings.defaultbri">
+                        <span class="help-inline">1–100%</span>
                     </div>
                     <div>
                         <small>
@@ -150,7 +150,7 @@
                                                     <input type="range" min="153" max="500" class="ct-slider" style="width: 120px" data-bind="value: ct">
                                                 </span>
                                             </td>
-                                            <td><input type="number" min="1" max="255" class="input-mini" data-bind="value: brightness" style="width: 50px"></td>
+                                            <td><input type="number" min="1" max="100" class="input-mini" data-bind="value: brightness" style="width: 50px"></td>
                                             <td><input type="number" min="0" class="input-mini" data-bind="value: delay" style="width: 50px"></td>
                                             <td style="text-align: center"><i data-bind="attr: { class: flash() ? 'fa fa-bell' : 'fa fa-bell-o' }, click: $parent.setFlash"></i></td>
                                             <td style="text-align: center"><i data-bind="attr: { class: turnoff() ? 'fa fa-check-square-o' : 'fa fa-square-o' }, click: $parent.setSwitchOff"></i></td>

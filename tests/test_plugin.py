@@ -285,16 +285,16 @@ class TestSetState:
         payload = plugin._session.request.call_args[1]["json"]
         assert payload["on"] == {"on": False}
 
-    def test_brightness_converted_to_percentage(self, plugin):
-        """bri 254 → 100%, bri 127 → ~50%."""
+    def test_brightness_passed_as_percentage(self, plugin):
+        """bri is now stored and passed as a 0-100 percentage — no conversion applied."""
         plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
         plugin._session.request.return_value.json.return_value = {}
-        plugin.set_state({"on": True, "bri": 254}, "1")
+        plugin.set_state({"on": True, "bri": 75}, "1")
         payload = plugin._session.request.call_args[1]["json"]
-        assert payload["dimming"]["brightness"] == 100.0
+        assert payload["dimming"]["brightness"] == 75.0
 
-    def test_brightness_255_clamped_to_100(self, plugin):
-        """bri 255 must not exceed 100.0 — the v2 API rejects values above 100."""
+    def test_brightness_clamped_to_100(self, plugin):
+        """Values above 100 are clamped — guards against stale settings from pre-v3."""
         plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
         plugin._session.request.return_value.json.return_value = {}
         plugin.set_state({"on": True, "bri": 255}, "1")
@@ -1152,7 +1152,7 @@ class TestGetSettingsDefaults:
         assert d["bridgeaddr"] == ""
         assert d["husername"] == ""
         assert d["lampid"] == ""
-        assert d["defaultbri"] == 255
+        assert d["defaultbri"] == 100
         assert d["offonshutdown"] is True
         assert d["showhuetoggle"] is True
         assert d["autopoweroff"] is False
@@ -1187,21 +1187,95 @@ class TestOnSettingsMigrate:
 
     def test_up_to_date_does_not_modify_settings(self, plugin):
         """current == target → nothing should change."""
-        plugin.on_settings_migrate(target=2, current=2)
+        plugin.on_settings_migrate(target=3, current=3)
         plugin._settings.set.assert_not_called()
+
+    def test_first_install_example_brightnesses_are_percentages(self, plugin):
+        """First-install example entries must use the 0-100 scale, not 1-255."""
+        plugin.on_settings_migrate(target=3, current=None)
+        set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
+        entries = set_calls[0][0][1]
+        for entry in entries:
+            bri = entry.get("brightness")
+            if bri != "":  # Disconnected has empty brightness
+                assert bri <= 100, f"brightness {bri} exceeds 100 for event {entry['event']}"
 
     def test_v1_to_v2_clears_lamp_and_plug_ids(self, plugin):
         """Upgrading from v1: integer IDs must be cleared since v2 uses UUIDs."""
-        plugin.on_settings_migrate(target=2, current=1)
+        plugin._settings.get.side_effect = make_settings_getter()
+        plugin.on_settings_migrate(target=3, current=1)
         plugin._settings.set.assert_any_call(['lampid'], '')
         plugin._settings.set.assert_any_call(['plugid'], '')
         plugin._settings.save.assert_called()
 
-    def test_v1_to_v2_does_not_overwrite_status_dict(self, plugin):
-        """The v1→v2 migration must not touch statusDict entries."""
-        plugin.on_settings_migrate(target=2, current=1)
+    def test_v2_to_v3_does_not_clear_device_ids(self, plugin):
+        """The v2→v3 migration must not touch lampid/plugid — only v1→v2 does."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": []
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        calls = [c[0][0] for c in plugin._settings.set.call_args_list]
+        assert ['lampid'] not in calls
+        assert ['plugid'] not in calls
+
+    def test_v2_to_v3_converts_defaultbri(self, plugin):
+        """defaultbri 255 → 100, 128 → 50."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": []
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        plugin._settings.set.assert_any_call(['defaultbri'], 100)
+
+    def test_v2_to_v3_converts_nightmode_maxbri(self, plugin):
+        """nightmode_maxbri 64 → 25 (64/255*100 ≈ 25)."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 100, "nightmode_maxbri": 64, "statusDict": []
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        plugin._settings.set.assert_any_call(['nightmode_maxbri'], 25)
+
+    def test_v2_to_v3_converts_status_dict_brightnesses(self, plugin):
+        """statusDict brightness values are converted from 1-255 to 0-100 scale."""
+        old_dict = [
+            {"event": "PrintDone", "brightness": 255, "colour": "#33FF36",
+             "delay": 0, "turnoff": False, "flash": False, "ct": 0},
+            {"event": "PrintFailed", "brightness": 128, "colour": "#FF0000",
+             "delay": 0, "turnoff": False, "flash": False, "ct": 0},
+        ]
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": old_dict
+        })
+        plugin.on_settings_migrate(target=3, current=2)
         set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
-        assert len(set_calls) == 0
+        migrated = set_calls[0][0][1]
+        assert migrated[0]["brightness"] == 100
+        assert migrated[1]["brightness"] == 50
+
+    def test_v2_to_v3_skips_empty_brightness(self, plugin):
+        """Entries with empty brightness (e.g. Disconnected/turnoff) are left unchanged."""
+        old_dict = [{"event": "Disconnected", "brightness": "", "colour": "",
+                     "delay": 0, "turnoff": True, "flash": False, "ct": 0}]
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": old_dict
+        })
+        plugin.on_settings_migrate(target=3, current=2)
+        set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
+        migrated = set_calls[0][0][1]
+        assert migrated[0]["brightness"] == ""
+
+    def test_v1_to_v3_applies_both_migrations(self, plugin):
+        """Direct v1→v3 upgrade applies both the UUID clear and brightness conversion."""
+        old_dict = [{"event": "PrintDone", "brightness": 255, "colour": "#33FF36",
+                     "delay": 0, "turnoff": False, "flash": False, "ct": 0}]
+        plugin._settings.get.side_effect = make_settings_getter({
+            "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": old_dict
+        })
+        plugin.on_settings_migrate(target=3, current=1)
+        plugin._settings.set.assert_any_call(['lampid'], '')
+        plugin._settings.set.assert_any_call(['plugid'], '')
+        set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
+        migrated = set_calls[0][0][1]
+        assert migrated[0]["brightness"] == 100
 
 
 # ===========================================================================
@@ -1528,7 +1602,7 @@ class TestGetSettingsDefaultsNightMode:
         assert d["nightmode_start"] == "22:00"
         assert d["nightmode_end"] == "07:00"
         assert d["nightmode_action"] == "pause"
-        assert d["nightmode_maxbri"] == 64
+        assert d["nightmode_maxbri"] == 25
 
 
 # ===========================================================================
