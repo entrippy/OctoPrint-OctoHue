@@ -137,7 +137,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self.pbridge = None
 			self._session = None
 
-	def rgb_to_xy(self, red: int, green: int = None, blue: int = None):
+	def rgb_to_xy(self, red: int | str, green: int | None = None, blue: int | None = None):
 		'''
 		Converts an RGB colour to CIE 1931 xy chromaticity coordinates for the Hue API.
 		Accepts either three 8-bit integers or a single '#RRGGBB' hex string as red.
@@ -160,6 +160,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				red, green, blue = int(red[1:3], 16), int(red[3:5], 16), int(red[5:], 16)
 			except ValueError:
 				raise ValueError("Invalid hex string format")
+		elif green is None or blue is None:
+			raise ValueError("green and blue are required when red is an integer")
 
 		self._logger.debug(f"RGB Split Input - R:{red} G:{green} B:{blue}")
 
