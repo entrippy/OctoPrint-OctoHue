@@ -96,9 +96,17 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		url = f"https://{self.pbridge['addr']}/clip/v2/resource/{path}"
 		headers = {"hue-application-key": self.pbridge['key']}
+		self._logger.info(f"Hue API {method} {url}" + (f" payload={payload}" if payload else ""))
 		try:
 			r = self._session.request(method, url, headers=headers, json=payload)
-			return r.json()
+			body = r.json()
+			if r.status_code not in (200, 207):
+				self._logger.warning(f"Hue API {method} {path} returned HTTP {r.status_code}: {body}")
+			else:
+				errors = body.get('errors', [])
+				if errors:
+					self._logger.warning(f"Hue API {method} {path} returned errors: {errors}")
+			return body
 		except Exception as e:
 			self._logger.error(f"Hue API error ({method} {path}): {e}")
 			return {}
