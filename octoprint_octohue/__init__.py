@@ -308,7 +308,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if 'on' in state:
 			payload['on'] = {'on': state['on']}
 		if 'bri' in state:
-			payload['dimming'] = {'brightness': round(state['bri'] / 254 * 100, 1)}
+			payload['dimming'] = {'brightness': min(round(state['bri'] / 254 * 100, 1), 100.0)}
 		if 'xy' in state:
 			payload['color'] = {'xy': {'x': state['xy'][0], 'y': state['xy'][1]}}
 		if 'ct' in state:

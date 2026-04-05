@@ -293,6 +293,14 @@ class TestSetState:
         payload = plugin._session.request.call_args[1]["json"]
         assert payload["dimming"]["brightness"] == 100.0
 
+    def test_brightness_255_clamped_to_100(self, plugin):
+        """bri 255 must not exceed 100.0 — the v2 API rejects values above 100."""
+        plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
+        plugin._session.request.return_value.json.return_value = {}
+        plugin.set_state({"on": True, "bri": 255}, "1")
+        payload = plugin._session.request.call_args[1]["json"]
+        assert payload["dimming"]["brightness"] == 100.0
+
     def test_xy_colour_wrapped_in_color_object(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter({"lampisgroup": False})
         plugin._session.request.return_value.json.return_value = {}
