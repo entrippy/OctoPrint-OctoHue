@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+---
+
+## [1.0.4] - 2026-04-05
+
 ### Added
 - `CLAUDE.md` — project context file for [Claude Code](https://claude.ai/code); documents project structure, test commands, branching workflow, release channels, and Hue v2 API conventions
 
