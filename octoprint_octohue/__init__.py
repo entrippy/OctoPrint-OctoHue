@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import octoprint.plugin
 from datetime import datetime
 import os
@@ -47,8 +49,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.plugin.EventHandlerPlugin):
 
 
-	pbridge = None
-	_session = None
+	pbridge: dict | None = None
+	_session: requests.Session | None = None
 	discoveryurl = 'https://discovery.meethue.com/'
 
 	def _is_night_mode_active(self):
@@ -98,6 +100,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		headers = {"hue-application-key": self.pbridge['key']}
 		self._logger.info(f"Hue API {method} {url}" + (f" payload={payload}" if payload else ""))
 		try:
+			if self._session is None:
+				return {}
 			r = self._session.request(method, url, headers=headers, json=payload)
 			body = r.json()
 			if r.status_code not in (200, 207):

@@ -1,0 +1,7 @@
+{
+  "include": ["octoprint_octohue"],
+  "ignore": ["tests"],
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "none",
+  "pythonVersion": "3.9"
+}
