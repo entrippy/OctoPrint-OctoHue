@@ -1,12 +1,28 @@
-.vscode
-.claude/
-node_modules/
-.Python
-__init__.pyc
-OctoHue.egg-info
-# Byte-compiled / optimized / DLL files
+# Python build artefacts
+dist/
+build/
+*.egg-info/
+*.egg
+*.so
+
+# Byte-compiled / optimised
 __pycache__/
 *.py[cod]
+.Python
 
-# C extensions
-*.so
+# Test & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Jest
+node_modules/
+coverage/
+
+# Editors & OS
+.vscode/
+.idea/
+.DS_Store
+
+# Claude Code
+.claude/
