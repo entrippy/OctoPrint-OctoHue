@@ -63,6 +63,22 @@ When adding or changing a plugin setting:
 - `lampisgroup` is set automatically by the JS frontend based on whether the selected dropdown item is a `light` or `group` type
 - Brightness is stored as a percentage (0–100); the v2 API rejects values above 100.0
 
+## Issue triage
+
+Issues are categorised as follows. Apply the appropriate label and handle accordingly.
+
+**Bug** (`bug` label)
+Apply the label and work to reproduce and fix. Bug fixes take priority over feature work. Follow the standard branching workflow — `fix/description` branch, PR, tests required.
+
+**Feature request** (`enhancement` label)
+Triage for suitability. If accepted, add to the roadmap using a GitHub milestone. Feature work is scheduled when there are no outstanding bugs. Follow the standard branching workflow — `feature/description` branch, PR, tests required.
+
+**Help request** (no label required)
+Review promptly to understand the underlying problem and reply with guidance directly on the issue. If a code change turns out to be needed, convert to a bug or feature and handle accordingly.
+
+**Offer of contribution**
+Direct the contributor to [CONTRIBUTING.md](.github/CONTRIBUTING.md). Confirm the scope is welcome before they invest effort, and point them to any relevant open issues or milestones.
+
 ## Commit style
 
 Include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` in commit messages when Claude assisted with the change. Do not add attribution footers to PR descriptions or release notes.
