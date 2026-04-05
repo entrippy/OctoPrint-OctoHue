@@ -96,12 +96,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Returns:
 				dict: Parsed JSON response, or an empty dict on error.
 		'''
+		if self.pbridge is None or self._session is None:
+			return {}
 		url = f"https://{self.pbridge['addr']}/clip/v2/resource/{path}"
 		headers = {"hue-application-key": self.pbridge['key']}
 		self._logger.info(f"Hue API {method} {url}" + (f" payload={payload}" if payload else ""))
 		try:
-			if self._session is None:
-				return {}
 			r = self._session.request(method, url, headers=headers, json=payload)
 			body = r.json()
 			if r.status_code not in (200, 207):
