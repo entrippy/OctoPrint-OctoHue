@@ -2,16 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.0] - 2026-04-04
+## [1.0.0] - 2026-04-05
 
 ### Changed
-- Migrated from the deprecated Hue v1 CLIP API (end-of-life 2024) to the Hue v2 CLIP API — all communication now uses HTTPS with TLS chain verification against the bundled Signify root CA certificate
-- Lamp and group IDs are now UUID strings (v2 format); existing integer IDs from v1 are cleared automatically on first run — reselect your light or group in settings after upgrading
+- **Breaking:** Migrated from the deprecated Hue v1 CLIP API (end-of-life 2024) to the Hue v2 CLIP API — all communication now uses HTTPS with TLS chain verification against the bundled Signify root CA certificate
+- **Breaking:** Lamp and group IDs are now UUID strings (v2 format); existing integer IDs from v1 are cleared automatically on first run — reselect your light or group in Settings → Lights after upgrading
+- **Breaking:** Brightness values are now stored as percentages (0–100) instead of the old 1–255 scale — existing settings are migrated automatically on first run
 - Groups are now fetched via the v2 `room`/`zone` resources; the previous v1 group endpoint is no longer used
+- Lights and groups are combined into a single dropdown in the Lights tab — no more manual "Use group" checkbox; the type is detected automatically from your selection
 - Removed `qhue` dependency — API calls are now made directly with `requests`
+- Brightness inputs throughout the UI now use a 1–100% scale
+
+### Added
+- **Configurable toggle colour and brightness** — when the navbar Hue toggle button turns the light on, it now uses a dedicated colour, CT, and brightness configured in Settings → General, rather than always restoring the last state at default brightness
+- **Guided bridge pairing flow** — after a successful pairing the Bridge tab shows a persistent success message and a "Select your light →" button; clicking it fetches your lights and switches directly to the Lights tab, no save/re-enter cycle required
+- `getgroups` API command — returns all Hue rooms and zones as named group entries with their `grouped_light` UUIDs (admin only)
+
+### Fixed
+- Pairing timeout error path referenced an undefined variable (`pairing_bridge_button`) — would throw a `ReferenceError` when 30 pairing attempts were exhausted without success
+- Brightness value of 255 (maximum on the old scale) sent as 100.39% to the v2 API, which rejected it with HTTP 400 (schema validation: maximum is 100)
+- Power tab cooldown delay fields were wrapped in a `<tbody>` with no enclosing `<table>` — invalid HTML
+- `statusDict` entries missing the `delay` key (created before delay was added in 0.7.0) would raise a `KeyError` when an event fired
+- Temperature cooldown check would crash with `ValueError` if no extruder temperatures were available
 
 ### Security
-- The SimpleAPI endpoint is intentionally left open (`is_api_protected = False`) to allow unauthenticated access to light-control commands (`togglehue`, `turnon`, `turnoff`, `cooldown`) — this is by design so the API can be used from external scripts and tools without requiring an OctoPrint session. Sensitive commands (`bridge`, `getdevices`, `getgroups`, `getstate`) enforce admin-only access explicitly via `Permissions.ADMIN` checks regardless of the endpoint protection setting.
+- The SimpleAPI endpoint is intentionally left open (`is_api_protected = False`) to allow unauthenticated access to light-control commands (`togglehue`, `turnon`, `turnoff`, `cooldown`) — this is by design so the API can be used from external scripts and tools without requiring an OctoPrint session
+- Sensitive commands (`bridge`, `getdevices`, `getgroups`, `getstate`) enforce admin-only access explicitly via `Permissions.ADMIN` checks regardless of the endpoint protection setting
+
+### Upgrading from 0.x
+1. After updating, open **Settings → Lights** and reselect your light or group from the dropdown — your previous integer ID is no longer valid with the v2 API
+2. Brightness values in your event table have been automatically converted to percentages — review them to confirm they look correct
+3. If you use the navbar toggle button, set your preferred toggle-on colour and brightness in **Settings → General**
 
 ---
 

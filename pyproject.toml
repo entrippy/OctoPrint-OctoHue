@@ -11,7 +11,7 @@ description = "Illuminate your printer and signal its status using Phillips Hue 
 authors = [
     { name = "Simon Beckett", email = "sirsimonbeckett@gmail.com" },
 ]
-requires-python = ">=3.9,<4"
+requires-python = ">=3.9"
 dependencies = []
 dynamic = [
     "license",
