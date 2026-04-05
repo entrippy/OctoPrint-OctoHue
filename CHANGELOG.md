@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-04-05
+
+This is an administrative release with no functional changes for end users. It consolidates housekeeping work done after 1.0.1.
+
+### Changed
+- `__init__.py`: added `from __future__ import annotations` and type annotations for `pbridge` and `_session` class variables; added early-return None guards in `_hue_request` and `rgb_to_xy` to satisfy static analysis — no behaviour change
+- Added `pyrightconfig.json` to suppress Pylance false-positives from uninstalled dev dependencies
+
+### Added
+- `CONTRIBUTING.md` — development setup, test requirements, settings migration guide
+- `CODE_OF_CONDUCT.md` — Contributor Covenant 2.1
+- `SECURITY.md` — supported versions and private vulnerability reporting (GitHub private advisories enabled)
+- Pull request template
+- `.gitignore` — covers build artefacts, caches, and editor files
+
+---
+
 ## [1.0.1] - 2026-04-05
 
 ### Fixed
