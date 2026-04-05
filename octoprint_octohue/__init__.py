@@ -340,7 +340,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self.build_state(on=False, deviceid=deviceid)
 		else:
 			if deviceid != self._settings.get(['plugid']):
-				self.build_state(on=True, bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
+				ct = int(self._settings.get(['togglect']) or 0)
+				bri = int(self._settings.get(['togglebri']) or self._settings.get(['defaultbri']))
+				if ct:
+					self.build_state(on=True, ct=ct, bri=bri, deviceid=deviceid)
+				else:
+					colour = self._settings.get(['togglecolour']) or None
+					self.build_state(on=True, colour=colour, bri=bri, deviceid=deviceid)
 			else:
 				self.build_state(on=True, deviceid=deviceid)
 
@@ -630,6 +636,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			plugid="",
 			lampisgroup=False,
 			defaultbri=100,
+			togglebri=100,
+			togglecolour='#FFFFFF',
+			togglect=0,
 			ononstartup=False,
 			ononstartupevent="",
 			offonshutdown=True,
@@ -658,7 +667,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Returns the current settings schema version. OctoPrint uses this to detect
 		when on_settings_migrate needs to be called.
 		'''
-		return 3
+		return 4
 
 	def on_settings_migrate(self, target, current=None):
 		'''
@@ -734,6 +743,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				entry['brightness'] = to_pct(entry.get('brightness'))
 			self._settings.set(['statusDict'], status_dict)
 
+		if current < 4:
+			self._logger.info("Migrating Settings v3→v4: adding toggle colour/brightness settings")
+			self._settings.set(['togglebri'], self._settings.get(['defaultbri']))
+			self._settings.set(['togglecolour'], '#FFFFFF')
+			self._settings.set(['togglect'], 0)
+
 		self._settings.save()
 
 	def on_settings_load(self):
@@ -750,6 +765,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			"plugid": self._settings.get(["plugid"]),
 			"lampisgroup": self._settings.get(["lampisgroup"]),
 			"defaultbri": self._settings.get(["defaultbri"]),
+			"togglebri": self._settings.get(["togglebri"]),
+			"togglecolour": self._settings.get(["togglecolour"]),
+			"togglect": self._settings.get(["togglect"]),
 			"ononstartup": self._settings.get(["ononstartup"]),
 			"configuredEvents": self.get_configured_events(),
 			"ononstartupevent": self._settings.get(["ononstartupevent"]),

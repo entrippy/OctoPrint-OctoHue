@@ -69,6 +69,21 @@
                             <label class="checkbox">
                                 <input type="checkbox" data-bind="checked: ownSettings.showhuetoggle">Add Hue Toggle Icon to Navigation Bar
                             </label>
+                            <div data-bind="visible: ownSettings.showhuetoggle()" style="margin-top: 6px; margin-left: 20px;">
+                                <label class="control-label" style="text-align: left; width: auto;">Toggle-on colour &amp; brightness</label>
+                                <div style="margin-top: 4px;">
+                                    <button type="button" class="btn btn-mini" style="width: 40px" data-bind="click: toggleToggleCtMode, css: { active: ownSettings.togglect() }"><span data-bind="text: ownSettings.togglect() ? 'CT' : 'RGB'"></span></button>
+                                    <span data-bind="visible: !ownSettings.togglect()">
+                                        <input type="color" class="colour-picker" data-bind="value: ownSettings.togglecolour">
+                                        <input type="text" class="input-mini" data-bind="value: ownSettings.togglecolour" style="width: 70px">
+                                    </span>
+                                    <span data-bind="visible: ownSettings.togglect()">
+                                        <input type="range" min="153" max="500" class="ct-slider" style="width: 120px" data-bind="value: ownSettings.togglect">
+                                    </span>
+                                    <input type="number" min="1" max="100" class="input-mini" data-bind="value: ownSettings.togglebri" style="width: 45px">
+                                    <span class="help-inline">%</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <hr>

@@ -345,14 +345,36 @@ class TestToggleState:
         plugin.toggle_state("1")
         plugin.build_state.assert_called_once_with(on=False, deviceid="1")
 
-    def test_when_off_lamp_turns_on_with_brightness(self, plugin):
+    def test_when_off_lamp_turns_on_with_toggle_colour(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter(
-            {"plugid": "2", "defaultbri": 200}
+            {"plugid": "2", "togglebri": 80, "togglecolour": "#FF8800", "togglect": 0,
+             "defaultbri": 100}
         )
         plugin.get_state = MagicMock(return_value=False)
         plugin.build_state = MagicMock()
         plugin.toggle_state("1")  # deviceid "1" != plugid "2"
-        plugin.build_state.assert_called_once_with(on=True, bri=200, deviceid="1")
+        plugin.build_state.assert_called_once_with(on=True, colour="#FF8800", bri=80, deviceid="1")
+
+    def test_when_off_lamp_uses_toggle_ct_when_set(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"plugid": "2", "togglebri": 80, "togglecolour": "#FFFFFF", "togglect": 370,
+             "defaultbri": 100}
+        )
+        plugin.get_state = MagicMock(return_value=False)
+        plugin.build_state = MagicMock()
+        plugin.toggle_state("1")
+        plugin.build_state.assert_called_once_with(on=True, ct=370, bri=80, deviceid="1")
+
+    def test_when_off_lamp_falls_back_to_defaultbri_if_togglebri_missing(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"plugid": "2", "togglebri": None, "togglecolour": "#FFFFFF", "togglect": 0,
+             "defaultbri": 60}
+        )
+        plugin.get_state = MagicMock(return_value=False)
+        plugin.build_state = MagicMock()
+        plugin.toggle_state("1")
+        call_kwargs = plugin.build_state.call_args[1]
+        assert call_kwargs["bri"] == 60
 
     def test_when_off_plug_turns_on_without_brightness(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter({"plugid": "2"})
@@ -1187,7 +1209,7 @@ class TestOnSettingsMigrate:
 
     def test_up_to_date_does_not_modify_settings(self, plugin):
         """current == target → nothing should change."""
-        plugin.on_settings_migrate(target=3, current=3)
+        plugin.on_settings_migrate(target=4, current=4)
         plugin._settings.set.assert_not_called()
 
     def test_first_install_example_brightnesses_are_percentages(self, plugin):
@@ -1270,12 +1292,27 @@ class TestOnSettingsMigrate:
         plugin._settings.get.side_effect = make_settings_getter({
             "defaultbri": 255, "nightmode_maxbri": 64, "statusDict": old_dict
         })
-        plugin.on_settings_migrate(target=3, current=1)
+        plugin.on_settings_migrate(target=4, current=1)
         plugin._settings.set.assert_any_call(['lampid'], '')
         plugin._settings.set.assert_any_call(['plugid'], '')
         set_calls = [c for c in plugin._settings.set.call_args_list if c[0][0] == ["statusDict"]]
         migrated = set_calls[0][0][1]
         assert migrated[0]["brightness"] == 100
+
+    def test_v3_to_v4_adds_toggle_settings(self, plugin):
+        """v3→v4 migration seeds togglebri from defaultbri and adds togglecolour/togglect."""
+        plugin._settings.get.side_effect = make_settings_getter({"defaultbri": 75})
+        plugin.on_settings_migrate(target=4, current=3)
+        plugin._settings.set.assert_any_call(['togglebri'], 75)
+        plugin._settings.set.assert_any_call(['togglecolour'], '#FFFFFF')
+        plugin._settings.set.assert_any_call(['togglect'], 0)
+
+    def test_v3_to_v4_does_not_touch_brightness_conversion(self, plugin):
+        """v3→v4 must not re-run the brightness conversion — values are already percentages."""
+        plugin._settings.get.side_effect = make_settings_getter({"defaultbri": 75})
+        plugin.on_settings_migrate(target=4, current=3)
+        calls = [c[0][0] for c in plugin._settings.set.call_args_list]
+        assert ['defaultbri'] not in calls
 
 
 # ===========================================================================

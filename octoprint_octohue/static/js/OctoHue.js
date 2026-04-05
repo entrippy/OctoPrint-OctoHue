@@ -226,6 +226,14 @@ $(function() {
             }
         };
 
+        self.toggleToggleCtMode = function() {
+            if (self.ownSettings.togglect()) {
+                self.ownSettings.togglect(0);
+            } else {
+                self.ownSettings.togglect(370);
+            }
+        };
+
         self.togglehue = function() {
             OctoPrint.simpleApiCommand("octohue", "togglehue", {}, {});
         };

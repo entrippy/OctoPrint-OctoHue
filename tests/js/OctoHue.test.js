@@ -198,6 +198,9 @@ function makeViewModel(pluginSettingsOverrides = {}) {
     lampisgroup: makeObservable(false),
     bridgeaddr: makeObservable(""),
     husername: makeObservable(""),
+    togglebri: makeObservable(100),
+    togglecolour: makeObservable("#FFFFFF"),
+    togglect: makeObservable(0),
     ...pluginSettingsOverrides,
   };
 
@@ -962,5 +965,25 @@ describe("toggleCtMode", () => {
     const status = { ct: makeObservable(370) };
     vm.toggleCtMode(status);
     expect(status.ct()).toBe(0);
+  });
+});
+
+// ===========================================================================
+// toggleToggleCtMode
+// ===========================================================================
+
+describe("toggleToggleCtMode", () => {
+  test("when togglect is 0, sets it to 370 (warm white default)", () => {
+    const togglect = makeObservable(0);
+    const vm = makeViewModel({ togglect });
+    vm.toggleToggleCtMode();
+    expect(togglect).toHaveBeenCalledWith(370);
+  });
+
+  test("when togglect is non-zero, resets it to 0 (RGB mode)", () => {
+    const togglect = makeObservable(370);
+    const vm = makeViewModel({ togglect });
+    vm.toggleToggleCtMode();
+    expect(togglect).toHaveBeenCalledWith(0);
   });
 });
