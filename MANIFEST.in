@@ -2,3 +2,4 @@ include README.md
 recursive-include octoprint_octohue/templates *
 recursive-include octoprint_octohue/translations *
 recursive-include octoprint_octohue/static *
+include octoprint_octohue/*.pem

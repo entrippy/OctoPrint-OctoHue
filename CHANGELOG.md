@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2026-04-05
+
+### Fixed
+- `signify-root-ca.pem` was missing from the installed package — `MANIFEST.in` did not include `*.pem` files, so the Signify root CA certificate was not shipped. This caused a `FileNotFoundError` on first use, leaving `self._session` uninitialised and causing all subsequent API calls to fail with `'NoneType' object has no attribute 'request'`. Closes #62.
+
+---
+
 ## [1.0.0] - 2026-04-05
 
 ### Changed
