@@ -860,6 +860,24 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				repo="OctoPrint-OctoHue",
 				current=self._plugin_version,
 
+				stable_branch=dict(
+					name="Stable",
+					branch="master",
+					comittish=["master"]
+				),
+				prerelease_branches=[
+					dict(
+						name="Release Candidate",
+						branch="rc",
+						comittish=["rc", "master"]
+					),
+					dict(
+						name="Development",
+						branch="devel",
+						comittish=["devel", "rc", "master"]
+					),
+				],
+
 				# update method: pip
 				pip="https://github.com/entrippy/OctoPrint-OctoHue/archive/{target_version}.zip"
 			)

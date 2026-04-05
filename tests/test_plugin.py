@@ -1674,3 +1674,45 @@ class TestOnSettingsMigrateFlash:
         for entry in entries:
             assert "flash" in entry, f"Entry {entry['event']!r} missing flash key"
             assert entry["flash"] is False
+
+
+# ===========================================================================
+# get_update_information
+# ===========================================================================
+
+class TestGetUpdateInformation:
+
+    @pytest.fixture
+    def info(self, plugin):
+        plugin._plugin_version = "1.0.2"
+        return plugin.get_update_information()["OctoHue"]
+
+    def test_repo_coordinates(self, info):
+        assert info["user"] == "entrippy"
+        assert info["repo"] == "OctoPrint-OctoHue"
+        assert info["type"] == "github_release"
+
+    def test_pip_url_contains_target_version_placeholder(self, info):
+        assert "{target_version}" in info["pip"]
+        assert "entrippy/OctoPrint-OctoHue" in info["pip"]
+
+    def test_stable_branch_points_to_master(self, info):
+        stable = info["stable_branch"]
+        assert stable["branch"] == "master"
+        assert stable["comittish"] == ["master"]
+
+    def test_rc_branch_receives_rc_and_stable(self, info):
+        rc = next(b for b in info["prerelease_branches"] if b["branch"] == "rc")
+        assert "rc" in rc["comittish"]
+        assert "master" in rc["comittish"]
+
+    def test_devel_branch_receives_all_channels(self, info):
+        devel = next(b for b in info["prerelease_branches"] if b["branch"] == "devel")
+        assert "devel" in devel["comittish"]
+        assert "rc" in devel["comittish"]
+        assert "master" in devel["comittish"]
+
+    def test_devel_comittish_is_broader_than_rc(self, info):
+        rc = next(b for b in info["prerelease_branches"] if b["branch"] == "rc")
+        devel = next(b for b in info["prerelease_branches"] if b["branch"] == "devel")
+        assert set(rc["comittish"]).issubset(set(devel["comittish"]))
