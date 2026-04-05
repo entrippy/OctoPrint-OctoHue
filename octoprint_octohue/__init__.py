@@ -824,6 +824,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			statusDict=self._settings.get(["statusDict"])
 		)
 
+	def is_template_autoescaped(self):
+		return True
+
 	def get_template_configs(self):
 		'''
 		Declares a custom-bound settings panel.
