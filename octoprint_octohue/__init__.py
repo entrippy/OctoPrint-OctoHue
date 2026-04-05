@@ -404,7 +404,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		deviceid = self._settings.get(['plugid'])
 		target_temp = int(self._settings.get(['powerofftemp']) or 0)
 		temps = self._printer.get_current_temperatures()
-		current_temp = max(int(v['actual']) for k, v in temps.items() if k.startswith('tool'))
+		tool_temps = [int(v['actual']) for k, v in temps.items() if k.startswith('tool')]
+		if not tool_temps:
+			self._logger.warning("No extruder temperatures available — skipping cooldown check.")
+			return
+		current_temp = max(tool_temps)
 		self._logger.debug(f"Safe Shutdown Requested! Tool Temp: {current_temp}, Looking for Safe Cooldown Temp: {target_temp}")
 		# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
 		if current_temp <= target_temp or current_temp <= 40:
@@ -583,7 +587,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
 		if my_statusEvent:
 			self._logger.info(f"Received Configured Status Event: {event}")
-			delay = my_statusEvent['delay'] or 0
+			delay = my_statusEvent.get('delay') or 0
 			deviceid = self._settings.get(['lampid'])
 
 			flash = my_statusEvent.get('flash', False)

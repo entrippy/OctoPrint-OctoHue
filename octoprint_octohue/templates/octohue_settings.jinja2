@@ -194,12 +194,10 @@
                     <label class="checkbox">
                         <input type="checkbox" data-bind="checked: ownSettings.autopoweroff">Power off printer after print (time and temperature, if both slowest value wins)
                     </label>
-                    <tbody class="control-group">
-                        <tr>
-                            <td>Temp(c): </td><td><input type="number" max="255" class="input-mini" data-bind="value: ownSettings.powerofftemp" value="0"></td>
-                            <td>Time(s): </td><td><input type="number" max="900" class="input-mini" data-bind="value: ownSettings.powerofftime" value="0"></td>
-                        </tr>
-                    </tbody>
+                    <div class="control-group" style="margin-top: 4px;">
+                        <span>Temp (°C): </span><input type="number" max="255" class="input-mini" data-bind="value: ownSettings.powerofftemp" value="0">
+                        <span style="margin-left: 8px;">Time (s): </span><input type="number" max="900" class="input-mini" data-bind="value: ownSettings.powerofftime" value="0">
+                    </div>
                 </div>
 
             </div>

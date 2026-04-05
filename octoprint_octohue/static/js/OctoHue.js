@@ -93,8 +93,8 @@ $(function() {
 			if(pairing_try_count == 30)
 			{
 				clearInterval(interval_pairing);
-				pairing_bridge_button.innerHTML = '<i class="fa fa-link"></i> Start Pairing';
-				pairing_bridge_button.disabled = false;
+				bridgebutton.innerHTML = '<i class="fa fa-link"></i> Start Pairing';
+				bridgebutton.disabled = false;
 				text_pairing_count.innerHTML = "<font color='red'>Unable to pair. Please try again</font>";
 				document.getElementById("huebridge_startsearch").disabled = false;
 			}
