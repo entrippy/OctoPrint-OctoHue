@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2026-04-05
+
+### Added
+- Release channels: users can now opt in to **Release Candidate** (`rc`) or **Development** (`devel`) channels via OctoPrint's Software Update settings to receive pre-release builds ahead of stable
+- `extras/octohue.md` updated to the current plugin registry entry and is now the source of truth for `plugins.octoprint.org`
+
+### Removed
+- `colourfunctions.py` and `colour_constants.py` — unused since the v2 API migration
+- Cookiecutter boilerplate (`extras/README.txt`, `translations/README.txt`, `translations/` directory)
+
+---
+
 ## [1.0.2] - 2026-04-05
 
 This is an administrative release with no functional changes for end users. It consolidates housekeeping work done after 1.0.1.
