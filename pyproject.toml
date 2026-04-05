@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "OctoHue"
-version = "1.0.2"
+version = "1.0.3"
 description = "Illuminate your printer and signal its status using Phillips Hue lights"
 authors = [
     { name = "Simon Beckett", email = "sirsimonbeckett@gmail.com" },
