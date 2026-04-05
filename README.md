@@ -101,6 +101,12 @@ OctoHue exposes a [SimpleAPI](https://docs.octoprint.org/en/master/plugins/mixin
 
 For a full list of OctoPrint events available for triggering light changes, see the [OctoPrint Events documentation](https://docs.octoprint.org/en/master/events/index.html).
 
+## Contributing
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for development setup, test requirements, and the branching and release workflow.
+
+This project includes a [CLAUDE.md](CLAUDE.md) file that provides context for [Claude Code](https://claude.ai/code) (Anthropic's AI coding assistant). If you use Claude Code, it will automatically read this file and have the project conventions, test commands, and release workflow available from the start of each session.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a full history of changes.
