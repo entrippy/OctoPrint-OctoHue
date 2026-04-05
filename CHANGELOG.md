@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 - `CLAUDE.md` — project context file for [Claude Code](https://claude.ai/code); documents project structure, test commands, branching workflow, release channels, and Hue v2 API conventions
 
+### Fixed
+- Overrode `is_template_autoescaped()` to return `True`, opting in to Jinja2 autoescaping ahead of it becoming mandatory in OctoPrint 1.13.0
+
 ---
 
 ## [1.0.3] - 2026-04-05
