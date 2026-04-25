@@ -127,14 +127,34 @@ def _reset_shared_mocks():
 def plugin():
     """Bare OctohuePlugin instance with mocked OctoPrint internals."""
     from octoprint_octohue import OctohuePlugin
+    from octoprint_octohue.providers.base import LightProvider
 
     p = OctohuePlugin.__new__(OctohuePlugin)
     p._logger = MagicMock(name="_logger")
     p._settings = MagicMock(name="_settings")
     p._printer = MagicMock(name="_printer")
     p._plugin_version = "1.0.0"
+
+    # Provide a mock provider so plugin-level tests can assert on provider
+    # calls without importing real provider classes or making HTTP requests.
+    mock_provider = MagicMock(spec=LightProvider)
+    mock_provider.is_ready = True
+    mock_provider.get_state.return_value = None
+    mock_provider.get_lights.return_value = []
+    mock_provider.get_groups.return_value = []
+    mock_provider.get_plugs.return_value = []
+    mock_provider.discover.return_value = []
+    mock_provider.pair.return_value = {"response": "error"}
+    p._provider = mock_provider
+
+    # Keep pbridge/_session on the plugin so that tests which reach directly
+    # into the Hue-specific internals (TestEstablishBridge, TestSetState, etc.)
+    # continue to work.  These are also forwarded into the provider fixture
+    # used by those test classes via a separate plugin_with_hue_provider fixture.
     p.pbridge = {"addr": "192.168.1.100", "key": "test-api-key"}
     p._session = MagicMock(name="_session")
+    p._session.request.return_value.status_code = 200
+    p._session.request.return_value.json.return_value = {}
     p.discoveryurl = "https://discovery.meethue.com/"
     return p
 

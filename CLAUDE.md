@@ -12,6 +12,15 @@ OctoHue is an OctoPrint plugin (Python + KnockoutJS) that controls Philips Hue l
 - `octoprint_octohue/templates/octohue_settings.jinja2` — settings UI
 - `extras/octohue.md` — source of truth for the OctoPrint plugin registry entry; copy to `~/git/plugins.octoprint.org/_plugins/octohue.md` when updating
 
+## Local OctoPrint install
+
+A local OctoPrint instance is available for live testing:
+- Virtual environment: `~/oprint/`
+- Install plugin for development: `~/oprint/bin/pip install -e .`
+- Run: `~/oprint/bin/octoprint serve`
+- Logs (macOS): `~/Library/Application Support/OctoPrint/logs/octoprint.log`
+- Logs (Linux): typically `~/.octoprint/logs/octoprint.log`
+
 ## Running tests
 
 ```bash
@@ -78,6 +87,12 @@ Review promptly to understand the underlying problem and reply with guidance dir
 
 **Offer of contribution**
 Direct the contributor to [CONTRIBUTING.md](.github/CONTRIBUTING.md). Confirm the scope is welcome before they invest effort, and point them to any relevant open issues or milestones.
+
+## Claude Code commands
+
+Project-specific commands are in `extras/claude/commands/`. Read the relevant command file before performing that task. When using a command, if you spot a gap or inaccuracy in it, update the file in-place.
+
+Before merging any PR, perform an adversarial review using `extras/claude/commands/reviewer.md`. Do not skip this step.
 
 ## Commit style
 
