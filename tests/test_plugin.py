@@ -1194,19 +1194,19 @@ class TestOnSettingsSave:
         plugin.on_settings_save(data)
         assert "availableEvents" not in data
 
-    def test_re_establishes_bridge_after_save(self, plugin):
+    def test_reinitialises_provider_after_save(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.on_settings_save({"lampid": "uuid-1"})
-        plugin.establishBridge.assert_called_once()
+        plugin._init_provider.assert_called_once()
 
-    def test_bridge_created_with_saved_addr_and_key(self, plugin):
+    def test_provider_reinitialised_regardless_of_provider_type(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter(
-            {"bridgeaddr": "10.0.0.1", "husername": "saved-key"}
+            {"provider": "wled", "bridgeaddr": "192.168.1.200"}
         )
-        plugin.establishBridge = MagicMock()
-        plugin.on_settings_save({"lampid": "uuid-1"})
-        plugin.establishBridge.assert_called_once_with("10.0.0.1", "saved-key")
+        plugin._init_provider = MagicMock()
+        plugin.on_settings_save({"bridgeaddr": "192.168.1.200"})
+        plugin._init_provider.assert_called_once()
 
 
 # ===========================================================================

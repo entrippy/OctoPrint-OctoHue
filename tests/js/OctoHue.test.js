@@ -198,6 +198,7 @@ function makeViewModel(pluginSettingsOverrides = {}) {
     lampisgroup: makeObservable(false),
     bridgeaddr: makeObservable(""),
     husername: makeObservable(""),
+    provider: makeObservable("hue"),
     togglebri: makeObservable(100),
     togglecolour: makeObservable("#FFFFFF"),
     togglect: makeObservable(0),
@@ -743,7 +744,7 @@ describe("lampid subscription", () => {
 });
 
 describe("onSettingsShown", () => {
-  test("calls getbridgestatus when settings panel is shown", () => {
+  test("calls getbridgestatus when provider is hue", () => {
     const vm = makeViewModel();
     vm.getbridgestatus = jest.fn();
     vm.fetchAllLamps   = jest.fn();
@@ -769,6 +770,16 @@ describe("onSettingsShown", () => {
     vm.getDevices = jest.fn(() => new SyncResult([]));
     vm.onSettingsShown();
     expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
+  });
+
+  test("skips hue calls when provider is wled", () => {
+    const vm = makeViewModel({ provider: makeObservable("wled") });
+    vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps   = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.onSettingsShown();
+    expect(vm.getbridgestatus).not.toHaveBeenCalled();
+    expect(vm.fetchAllLamps).not.toHaveBeenCalled();
   });
 });
 

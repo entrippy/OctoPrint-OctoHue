@@ -10,39 +10,49 @@
         <div class="tab-content">
             <div id="octohue_settings_bridge" class="tab-pane active">
                 <div class="control-group">
-                    <h4>Hue Configuration</h4>
-                    Hue Bridge Status: <span id="huebridgestatus" class="badge badge-danger" style="background-color: #ff4b4b;">Unconfigured</span>
-                    <div id="huebridge_unconfigured">
-                        <h4 id="pairbridge">Pair with your Hue Bridge</h4>
-                        <button id="huebridge_startsearch" type="button" class="btn" data-bind="click: bridgediscovery"><i class="fa fa-search"></i> Find My Bridge</button>
-                        <br /><br />
-                        <span id="huebridge_searchstatus" class="inactiveconfig"></span>
-                        <br />
-                        <div id="huebridge_found" class="inactiveconfig">
-                            <p>Click on "Start Pairing" button below and push the pairing button on your Bridge</p>
-                            <button id="huebridge_pairingbutton" class="btn" data-bind="click: bridgepair"><i class="fa fa-link"></i> Start Pairing</button>
-                            <span id="huebridge_pairingreties"></span>
+
+                    <!-- Hue configuration -->
+                    <div data-bind="visible: ownSettings.provider() === 'hue'">
+                        <h4>Hue Configuration</h4>
+                        Hue Bridge Status: <span id="huebridgestatus" class="badge badge-danger" style="background-color: #ff4b4b;">Unconfigured</span>
+                        <div id="huebridge_unconfigured">
+                            <h4 id="pairbridge">Pair with your Hue Bridge</h4>
+                            <button id="huebridge_startsearch" type="button" class="btn" data-bind="click: bridgediscovery"><i class="fa fa-search"></i> Find My Bridge</button>
+                            <br /><br />
+                            <span id="huebridge_searchstatus" class="inactiveconfig"></span>
                             <br />
-                            <img src="plugin/octohue/static/images/huebridge.png" />
-                            <div id="huebridge_paired_actions" class="inactiveconfig" style="margin-top: 12px;">
-                                <button class="btn btn-success" data-bind="click: goToLights"><i class="fa fa-lightbulb-o"></i> Select your light &rarr;</button>
+                            <div id="huebridge_found" class="inactiveconfig">
+                                <p>Click on "Start Pairing" button below and push the pairing button on your Bridge</p>
+                                <button id="huebridge_pairingbutton" class="btn" data-bind="click: bridgepair"><i class="fa fa-link"></i> Start Pairing</button>
+                                <span id="huebridge_pairingreties"></span>
+                                <br />
+                                <img src="plugin/octohue/static/images/huebridge.png" />
+                                <div id="huebridge_paired_actions" class="inactiveconfig" style="margin-top: 12px;">
+                                    <button class="btn btn-success" data-bind="click: goToLights"><i class="fa fa-lightbulb-o"></i> Select your light &rarr;</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="huebridge_configured">
+                            <label class="control-label">{{ _('Hue Bridge Address') }}</label>
+                            <div class="controls">
+                                <input id="bridgeaddress" type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
+                            </div>
+                            <label class="control-label">{{ _('Hue Username') }}</label>
+                            <div class="controls">
+                                <input id="apikey" type="text" class="input-block-level" data-bind="value: ownSettings.husername">
                             </div>
                         </div>
                     </div>
-                    
-                    <div id="huebridge_configured">
-                        <label class="control-label">{{ _('Hue Bridge Address') }}</label>
+
+                    <!-- WLED configuration -->
+                    <div data-bind="visible: ownSettings.provider() === 'wled'">
+                        <h4>WLED Configuration</h4>
+                        <label class="control-label">{{ _('WLED Controller Address') }}</label>
                         <div class="controls">
-                            <input id= "bridgeaddress" type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
+                            <input type="text" class="input-block-level" placeholder="192.168.1.x" data-bind="value: ownSettings.bridgeaddr">
                         </div>
-                        <label class="control-label">{{ _('Hue Username') }}</label>
-                        <div class="controls">
-                            <input id="apikey" type="text" class="input-block-level" data-bind="value: ownSettings.husername">
-                        </div>
-<!--                       <div>
-                            <button id="huebridge_startsearch" type="button" class="btn" data-bind="click: bridgediscovery"><i class="fa fa-search"></i> Find a New Bridge</button>
-                            <br /><br />
-                        </div>-->
+                        <span class="help-block">Enter the IP address or hostname of your WLED controller.</span>
                     </div>
 
                 </div>

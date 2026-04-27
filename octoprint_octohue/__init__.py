@@ -67,6 +67,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				'lampisgroup': self._settings.get(['lampisgroup']),
 				'plugid': self._settings.get(['plugid']),
 			}
+		if name == 'wled':
+			# bridgeaddr is the generic controller-address field shared across providers
+			return {
+				'bridgeaddr': self._settings.get(['bridgeaddr']),
+			}
 		return {}
 
 	def establishBridge(self, bridgeaddr, husername):
@@ -568,20 +573,20 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			"nightmode_end": self._settings.get(["nightmode_end"]),
 			"nightmode_action": self._settings.get(["nightmode_action"]),
 			"nightmode_maxbri": self._settings.get(["nightmode_maxbri"]),
-			# Note: 'provider' is intentionally omitted until the provider-selector UI is added.
+			"provider": self._settings.get(["provider"]),
 		}
 		return my_settings
 
 	def on_settings_save(self, data):
 		'''
-		Persists settings and re-establishes the provider connection with any
-		updated credentials. Strips availableEvents (frontend-only) before
-		passing to the base class.
+		Persists settings and re-initialises the provider with any updated
+		credentials. Strips availableEvents (frontend-only) before passing to
+		the base class.
 		'''
 		data.pop("availableEvents", None)
 		self._logger.debug(f"Saving: {data} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+		self._init_provider()
 
 	def get_template_vars(self):
 		'''

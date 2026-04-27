@@ -173,9 +173,11 @@ $(function() {
         };
 
         self.onSettingsShown = function () {
-            self.getbridgestatus();
-            self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
-            self.fetchAllLamps();
+            if (self.ownSettings.provider() === "hue") {
+                self.getbridgestatus();
+                self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+                self.fetchAllLamps();
+            }
         };
 
         self.removeStatus = function (data) {
