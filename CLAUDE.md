@@ -96,4 +96,4 @@ Before merging any PR, perform an adversarial review using `extras/claude/comman
 
 ## Commit style
 
-Include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` in commit messages when Claude assisted with the change. Do not add attribution footers to PR descriptions or release notes.
+Commits are authored by the project owner. Do not add `Co-Authored-By` or any AI attribution footers to commit messages, PR descriptions, or release notes.
