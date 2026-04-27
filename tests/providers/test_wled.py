@@ -4,7 +4,7 @@ Unit tests for WledProvider.
 Tests the provider in isolation — no OctoPrint plugin involved.
 All network calls are intercepted via a mock session.
 """
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import pytest
 
 from octoprint_octohue.providers.wled import (

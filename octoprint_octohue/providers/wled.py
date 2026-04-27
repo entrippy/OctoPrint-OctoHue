@@ -18,7 +18,7 @@ def _mirek_to_wled_cct(mirek: int) -> int:
     """Convert a mirek colour-temperature value to a WLED CCT byte (0–255)."""
     clamped = max(_MIREK_MIN, min(_MIREK_MAX, mirek))
     normalised = (clamped - _MIREK_MIN) / (_MIREK_MAX - _MIREK_MIN)
-    return round(normalised * _WLED_CCT_MAX)
+    return round(_WLED_CCT_MIN + normalised * (_WLED_CCT_MAX - _WLED_CCT_MIN))
 
 
 def _pct_to_wled_bri(pct: float) -> int:
@@ -45,7 +45,8 @@ class WledProvider(LightProvider):
     WLED API reference: https://kno.wled.ge/interfaces/json-api/
 
     Settings keys expected by ``setup()``:
-        ``wled_address`` — hostname or IP address of the WLED controller.
+        ``bridgeaddr`` — hostname or IP address of the WLED controller
+        (shared generic key across all providers).
     """
 
     def __init__(self, logger) -> None:
