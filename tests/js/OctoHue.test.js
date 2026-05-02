@@ -633,6 +633,23 @@ describe("getbridgestatus", () => {
     expect(unconfigured.classList.remove).toHaveBeenCalledWith("inactiveconfig");
   });
 
+  test("unauthed status sets badge to orange and shows unconfigured panel", () => {
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult({ bridgestatus: "unauthed" })
+    );
+    const vm = makeViewModel();
+    vm.getbridgestatus();
+
+    const badge = document.getElementById("huebridgestatus");
+    expect(badge.style.backgroundColor).toBe("orange");
+
+    const unconfigured = document.getElementById("huebridge_unconfigured");
+    expect(unconfigured.classList.remove).toHaveBeenCalledWith("inactiveconfig");
+
+    const configured = document.getElementById("huebridge_configured");
+    expect(configured.classList.add).toHaveBeenCalledWith("inactiveconfig");
+  });
+
   test("issues the correct API command", () => {
     const vm = makeViewModel();
     vm.getbridgestatus();

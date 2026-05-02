@@ -126,16 +126,20 @@ $(function() {
 
         self.getbridgestatus = function() {
             OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
-                if ( response.bridgestatus === "configured") {
+                if (response.bridgestatus === "configured") {
                     document.getElementById("huebridgestatus").style.backgroundColor = "green";
                     document.getElementById("huebridgestatus").innerHTML = "Configured";
-                    document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig")
-                    document.getElementById("huebridge_configured").classList.remove("inactiveconfig")
-                } else if (response.bridgestatus === "unconfigured") {
-                    document.getElementById("huebridge_configured").classList.add("inactiveconfig")
-                    document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig")
+                    document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig");
+                    document.getElementById("huebridge_configured").classList.remove("inactiveconfig");
+                } else if (response.bridgestatus === "unauthed") {
+                    document.getElementById("huebridgestatus").style.backgroundColor = "orange";
+                    document.getElementById("huebridgestatus").innerHTML = "Address set, not paired";
+                    document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig");
+                    document.getElementById("huebridge_configured").classList.add("inactiveconfig");
+                } else {
+                    document.getElementById("huebridge_configured").classList.add("inactiveconfig");
+                    document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig");
                 }
-                
             });
         };
 

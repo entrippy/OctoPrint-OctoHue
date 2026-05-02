@@ -1302,6 +1302,21 @@ class TestOnEventFlash:
         assert second_call[0][0] == 15  # delay arg
         assert second_call[1]["kwargs"]["on"] is False
 
+    def test_flash_and_turnoff_wled_schedules_one_turnoff_timer(self, plugin):
+        """WLED doesn't support flash — flash+turnoff should schedule one off timer, no alert."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "provider": "wled",
+            "statusDict": [self._entry("PrintDone", turnoff=True, flash=True, delay=0)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        assert self._timer.call_count == 1
+        _, kwargs = self._timer.call_args
+        assert kwargs["kwargs"]["on"] is False
+        assert "alert" not in kwargs["kwargs"]
+
 
 # ===========================================================================
 # _is_night_mode_active

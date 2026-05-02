@@ -166,6 +166,7 @@ def make_settings_getter(overrides=None):
     the plugin.
     """
     defaults = {
+        "provider": "hue",
         "bridgeaddr": "192.168.1.100",
         "husername": "test-api-key",
         "lampid": "1",
@@ -181,7 +182,6 @@ def make_settings_getter(overrides=None):
         "powerofftemp": 40,
         "ononstartup": False,
         "ononstartupevent": "",
-        "offonshutdown": True,
         "showhuetoggle": True,
         "showpowertoggle": False,
         "statusDict": [],
