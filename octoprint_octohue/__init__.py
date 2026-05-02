@@ -74,24 +74,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			}
 		return {}
 
-	def establishBridge(self, bridgeaddr, husername):
-		'''
-		Re-initialises the provider using the supplied Hue bridge credentials.
-		Kept as a named method so that on_after_startup and on_settings_save
-		can call it with explicit addr/key arguments, and tests can mock it.
-		Creates the provider instance if it does not yet exist.
-		'''
-		if self._provider is None:
-			self._init_provider()
-		assert self._provider is not None
-		name = self._settings.get(['provider']) or 'hue'
-		settings = self._build_provider_settings(name)
-		if name == 'hue':
-			settings.update({'bridgeaddr': bridgeaddr, 'husername': husername})
-		else:
-			settings.update({'bridgeaddr': bridgeaddr})
-		self._provider.setup(settings)
-
 	def build_state(self, **kwargs):
 		'''
 		Night-mode-aware wrapper that translates old-style kwargs into a

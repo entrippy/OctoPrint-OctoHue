@@ -292,39 +292,6 @@ class TestInitProvider:
 
 
 # ===========================================================================
-# establishBridge
-# ===========================================================================
-
-class TestEstablishBridge:
-    """establishBridge() delegates to _provider.setup() with the correct settings."""
-
-    def test_calls_provider_setup_with_addr_and_key(self, plugin):
-        plugin._settings.get.side_effect = make_settings_getter(
-            {"lampid": "lamp-1", "lampisgroup": False, "plugid": "plug-1"}
-        )
-        plugin.establishBridge("192.168.1.100", "my-key")
-        plugin._provider.setup.assert_called_once()
-        settings_arg = plugin._provider.setup.call_args[0][0]
-        assert settings_arg["bridgeaddr"] == "192.168.1.100"
-        assert settings_arg["husername"] == "my-key"
-
-    def test_lampid_forwarded_to_provider_setup(self, plugin):
-        plugin._settings.get.side_effect = make_settings_getter(
-            {"lampid": "lamp-uuid", "lampisgroup": False, "plugid": ""}
-        )
-        plugin.establishBridge("192.168.1.100", "key")
-        settings_arg = plugin._provider.setup.call_args[0][0]
-        assert settings_arg["lampid"] == "lamp-uuid"
-
-    def test_creates_provider_if_none(self, plugin):
-        """If _provider is None, establishBridge initialises it before calling setup."""
-        plugin._settings.get.side_effect = make_settings_getter()
-        plugin._provider = None
-        # Should not raise
-        plugin.establishBridge("192.168.1.100", "key")
-
-
-# ===========================================================================
 # on_after_startup
 # ===========================================================================
 
@@ -758,7 +725,7 @@ class TestOnApiCommandBridge:
 
     def test_pair_success_saves_credentials(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
             MockHue.return_value.pair.return_value = {
                 "response": "success",
@@ -799,7 +766,7 @@ class TestOnApiCommandBridge:
 
     def test_pair_uses_hue_provider_directly(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
             MockHue.return_value.pair.return_value = {
                 "response": "success",

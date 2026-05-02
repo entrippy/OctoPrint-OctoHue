@@ -5,7 +5,7 @@
 			<li class="active"><a data-toggle="tab" href="#octohue_settings_bridge">Bridge</a></li>
 			<li><a data-toggle="tab" href="#octohue_settings_general">General</a></li>
 			<li><a data-toggle="tab" href="#octohue_settings_lights">Lights</a></li>
-			<li><a data-toggle="tab" href="#octohue_settings_power">Power</a></li>
+			<li data-bind="visible: ownSettings.provider() === 'hue'"><a data-toggle="tab" href="#octohue_settings_power">Power</a></li>
 		</ul>
         <div class="tab-content">
             <div id="octohue_settings_bridge" class="tab-pane active">
@@ -202,8 +202,7 @@
             </div>
 
             <div id="octohue_settings_power" class="tab-pane">
-                <div class="power-options" data-bind="visible: ownSettings.provider() === 'hue'">
-                    <p class="muted" data-bind="visible: ownSettings.provider() !== 'hue'" style="display:none;">Power control is only available with Philips Hue.</p>
+                <div class="power-options">
                     <label class="checkbox">
                         <input type="checkbox" data-bind="checked: ownSettings.showpowertoggle">Add Power Toggle Icon to Navigation Bar
                     </label>

@@ -139,8 +139,9 @@ $(function() {
             });
         };
 
-        self.getDevices = function (data) {
-            return OctoPrint.simpleApiCommand("octohue", "getdevices", {"archetype": data}, {})
+        self.getDevices = function (archetype) {
+            var payload = archetype !== undefined ? {"archetype": archetype} : {};
+            return OctoPrint.simpleApiCommand("octohue", "getdevices", payload, {})
                 .then(response => response.devices);
         };
 
