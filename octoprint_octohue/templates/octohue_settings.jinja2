@@ -86,7 +86,7 @@
                         <label class="control-label"></label>
                         <div class="controls">
                             <label class="checkbox">
-                                <input type="checkbox" data-bind="checked: ownSettings.showhuetoggle">Add Hue Toggle Icon to Navigation Bar
+                                <input type="checkbox" data-bind="checked: ownSettings.showhuetoggle">Add Light Toggle Icon to Navigation Bar
                             </label>
                             <div data-bind="visible: ownSettings.showhuetoggle()" style="margin-top: 6px; margin-left: 20px;">
                                 <label class="control-label" style="text-align: left; width: auto;">Toggle-on colour &amp; brightness</label>
@@ -141,7 +141,7 @@
 
             <div id="octohue_settings_lights" class="tab-pane">
                 <div class="light_options">
-                    <label class="control-label">{{ _('Hue Light or Group') }}</label>
+                    <label class="control-label" data-bind="text: ownSettings.provider() === 'hue' ? 'Hue Light or Group' : 'WLED Controller'"></label>
                     <div class="controls">
                         <select class="input-block-level" data-bind="value: ownSettings.lampid, options: hueLamps, optionsText: 'name', optionsValue: 'id', optionsCaption: 'Select light or group', valueAllowUnset: true"></select>
                     </div>
@@ -166,7 +166,7 @@
                                             <th style="width: 165px">Colour / Temp</th>
                                             <th style="width: 50px"><abbr title="Brightness (1–100%)">Bri%</abbr></th>
                                             <th style="width: 60px"><abbr title="Delay in seconds before the light change fires">Delay (s)</abbr></th>
-                                            <th style="width: 40px; text-align: center"><abbr title="Flash: trigger a 15-second alert cycle">Flash</abbr></th>
+                                            <th style="width: 40px; text-align: center"><abbr data-bind="attr: { title: ownSettings.provider() === 'hue' ? 'Flash: trigger a 15-second alert cycle' : 'Flash: not supported by WLED' }">Flash</abbr></th>
                                             <th style="width: 40px; text-align: center"><abbr title="Switch off after the event">Off</abbr></th>
                                             <th style="width: 40px; text-align: center"><abbr title="Remove this entry">Del</abbr></th>
                                         </tr>
@@ -202,7 +202,8 @@
             </div>
 
             <div id="octohue_settings_power" class="tab-pane">
-                <div class="power-options">
+                <div class="power-options" data-bind="visible: ownSettings.provider() === 'hue'">
+                    <p class="muted" data-bind="visible: ownSettings.provider() !== 'hue'" style="display:none;">Power control is only available with Philips Hue.</p>
                     <label class="checkbox">
                         <input type="checkbox" data-bind="checked: ownSettings.showpowertoggle">Add Power Toggle Icon to Navigation Bar
                     </label>

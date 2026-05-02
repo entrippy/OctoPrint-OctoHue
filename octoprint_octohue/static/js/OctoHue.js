@@ -180,8 +180,8 @@ $(function() {
                 if (newProvider === "hue") {
                     self.getbridgestatus();
                     self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
-                    self.fetchAllLamps();
                 }
+                self.fetchAllLamps();
             });
         };
 
@@ -189,8 +189,8 @@ $(function() {
             if (self.ownSettings.provider() === "hue") {
                 self.getbridgestatus();
                 self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
-                self.fetchAllLamps();
             }
+            self.fetchAllLamps();
         };
 
         self.removeStatus = function (data) {

@@ -731,6 +731,22 @@ class TestOnApiCommandBridge:
         plugin.on_api_command("bridge", {"getstatus": "true"})
         flask.jsonify.assert_called_once_with(bridgestatus="configured")
 
+    def test_getstatus_wled_configured(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="configured")
+
+    def test_getstatus_wled_unconfigured(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unconfigured")
+
     def test_discover_uses_hue_provider_directly(self, plugin):
         flask = sys.modules["flask"]
         bridges = [{"internalipaddress": "192.168.1.100", "id": "abc"}]

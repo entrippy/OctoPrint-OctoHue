@@ -806,14 +806,14 @@ describe("onSettingsShown", () => {
     expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
   });
 
-  test("skips hue calls when provider is wled", () => {
+  test("skips hue calls but still fetches lamps when provider is wled", () => {
     const vm = makeViewModel({ provider: makeObservable("wled") });
     vm.getbridgestatus = jest.fn();
     vm.fetchAllLamps   = jest.fn();
     vm.getDevices = jest.fn(() => new SyncResult([]));
     vm.onSettingsShown();
     expect(vm.getbridgestatus).not.toHaveBeenCalled();
-    expect(vm.fetchAllLamps).not.toHaveBeenCalled();
+    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -833,14 +833,14 @@ describe("provider subscription", () => {
     expect(vm.getDevices).toHaveBeenCalled();
   });
 
-  test("switching to wled does not call hue setup functions", () => {
+  test("switching to wled skips hue calls but still fetches lamps", () => {
     const vm = makeViewModel({ provider: makeObservable("hue") });
     vm.getbridgestatus = jest.fn();
     vm.fetchAllLamps   = jest.fn();
     vm.getDevices = jest.fn(() => new SyncResult([]));
     vm.ownSettings.provider("wled");
     expect(vm.getbridgestatus).not.toHaveBeenCalled();
-    expect(vm.fetchAllLamps).not.toHaveBeenCalled();
+    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
   });
 
   test("switching from wled to hue populates huePlugs", () => {

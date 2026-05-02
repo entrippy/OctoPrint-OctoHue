@@ -86,7 +86,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		assert self._provider is not None
 		name = self._settings.get(['provider']) or 'hue'
 		settings = self._build_provider_settings(name)
-		settings.update({'bridgeaddr': bridgeaddr, 'husername': husername})
+		if name == 'hue':
+			settings.update({'bridgeaddr': bridgeaddr, 'husername': husername})
+		else:
+			settings.update({'bridgeaddr': bridgeaddr})
 		self._provider.setup(settings)
 
 	def build_state(self, **kwargs):
@@ -156,7 +159,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._provider is not None and self._provider.get_state(deviceid):
 			self.build_state(on=False, deviceid=deviceid)
 		else:
-			if deviceid != self._settings.get(['plugid']):
+			plugid = self._settings.get(['plugid'])
+			is_plug = plugid and deviceid == plugid
+			if not is_plug:
 				ct = int(self._settings.get(['togglect']) or 0)
 				bri = int(self._settings.get(['togglebri']) or self._settings.get(['defaultbri']))
 				if ct:
@@ -279,14 +284,21 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
 
 			if "getstatus" in data:
+				provider_name = self._settings.get(['provider']) or 'hue'
 				bridge = self._settings.get(['bridgeaddr'])
-				apikey = self._settings.get(['husername'])
-				if bridge and apikey:
-					return flask.jsonify(bridgestatus="configured")
-				elif bridge and not apikey:
-					return flask.jsonify(bridgestatus="unauthed")
+				if provider_name == 'wled':
+					if bridge:
+						return flask.jsonify(bridgestatus="configured")
+					else:
+						return flask.jsonify(bridgestatus="unconfigured")
 				else:
-					return flask.jsonify(bridgestatus="unconfigured")
+					apikey = self._settings.get(['husername'])
+					if bridge and apikey:
+						return flask.jsonify(bridgestatus="configured")
+					elif bridge and not apikey:
+						return flask.jsonify(bridgestatus="unauthed")
+					else:
+						return flask.jsonify(bridgestatus="unconfigured")
 
 			elif "discover" in data:
 				from octoprint_octohue.providers.hue import HueProvider
@@ -379,8 +391,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			turnoff = my_statusEvent['turnoff']
 			ct = int(my_statusEvent.get('ct') or 0)
 
-			if turnoff and flash:
-				# Flash first, then switch off after the alert cycle completes
+			provider_supports_flash = (self._settings.get(['provider']) or 'hue') == 'hue'
+			if turnoff and flash and provider_supports_flash:
+				# Flash first, then switch off after the Hue alert cycle completes (15 s)
 				flash_kwargs = {'on': True, 'bri': int(my_statusEvent['brightness']), 'alert': 'lselect', 'deviceid': deviceid}
 				if ct:
 					flash_kwargs['ct'] = ct
@@ -388,6 +401,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					flash_kwargs['colour'] = my_statusEvent['colour']
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs=flash_kwargs)
 				ResettableTimer(delay + 15, self.build_state, kwargs={'on': False, 'deviceid': deviceid}).start()
+			elif turnoff and flash and not provider_supports_flash:
+				# Provider doesn't support flash — turn off immediately after delay
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on': False, 'deviceid': deviceid})
 			elif not turnoff:
 				brightness = my_statusEvent['brightness']
 				build_kwargs = {'on': True, 'bri': int(brightness), 'deviceid': deviceid}
