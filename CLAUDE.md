@@ -97,3 +97,17 @@ Before merging any PR, perform an adversarial review using `extras/claude/comman
 ## Commit style
 
 Commits are authored by the project owner. Do not add `Co-Authored-By` or any AI attribution footers to commit messages, PR descriptions, or release notes.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `entrippy/OctoPrint-OctoHue`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default mattpocock/skills label vocabulary — no overrides. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo — `CONTEXT.md` at root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.
