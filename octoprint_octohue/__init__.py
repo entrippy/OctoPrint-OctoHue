@@ -184,7 +184,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		light state.
 		'''
 		self._logger.info("Octohue is alive!")
-		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+		self._init_provider()
 		if self._settings.get(['ononstartup']):
 			my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
 			if my_statusEvent:

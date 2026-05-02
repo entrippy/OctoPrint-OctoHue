@@ -170,6 +170,16 @@ $(function() {
                     self.ownSettings.lampisgroup(lamp.type === "group");
                 }
             });
+
+            // When the provider dropdown changes to Hue, fetch bridge status and
+            // devices immediately so the pairing flow is ready without reopening settings.
+            self.ownSettings.provider.subscribe(function(newProvider) {
+                if (newProvider === "hue") {
+                    self.getbridgestatus();
+                    self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+                    self.fetchAllLamps();
+                }
+            });
         };
 
         self.onSettingsShown = function () {

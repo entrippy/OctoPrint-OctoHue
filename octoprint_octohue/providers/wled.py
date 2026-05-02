@@ -101,7 +101,7 @@ class WledProvider(LightProvider):
         if not self.is_ready:
             return {}
         url = f"http://{self._address}/{path}"
-        self._logger.info(f"WLED POST {url} payload={payload}")
+        self._logger.debug(f"WLED POST {url} payload={payload}")
         try:
             r = self._session.post(url, json=payload, timeout=5)
             r.raise_for_status()

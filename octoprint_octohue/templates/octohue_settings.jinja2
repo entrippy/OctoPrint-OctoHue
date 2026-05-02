@@ -11,6 +11,18 @@
             <div id="octohue_settings_bridge" class="tab-pane active">
                 <div class="control-group">
 
+                    <!-- Provider selector -->
+                    <div class="control-group">
+                        <label class="control-label">{{ _('Light Controller') }}</label>
+                        <div class="controls">
+                            <select class="input-medium" data-bind="value: ownSettings.provider">
+                                <option value="hue">Philips Hue</option>
+                                <option value="wled">WLED</option>
+                            </select>
+                        </div>
+                    </div>
+                    <hr>
+
                     <!-- Hue configuration -->
                     <div data-bind="visible: ownSettings.provider() === 'hue'">
                         <h4>Hue Configuration</h4>

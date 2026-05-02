@@ -784,6 +784,43 @@ describe("onSettingsShown", () => {
 });
 
 // ===========================================================================
+// provider subscription (onBeforeBinding)
+// ===========================================================================
+
+describe("provider subscription", () => {
+  test("switching to hue calls getbridgestatus, fetchAllLamps, and getDevices", () => {
+    const vm = makeViewModel({ provider: makeObservable("wled") });
+    vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps   = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.ownSettings.provider("hue");
+    expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
+    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
+    expect(vm.getDevices).toHaveBeenCalled();
+  });
+
+  test("switching to wled does not call hue setup functions", () => {
+    const vm = makeViewModel({ provider: makeObservable("hue") });
+    vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps   = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.ownSettings.provider("wled");
+    expect(vm.getbridgestatus).not.toHaveBeenCalled();
+    expect(vm.fetchAllLamps).not.toHaveBeenCalled();
+  });
+
+  test("switching from wled to hue populates huePlugs", () => {
+    const plugDevices = [{ id: "plug-1", name: "Socket" }];
+    const vm = makeViewModel({ provider: makeObservable("wled") });
+    vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps   = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult(plugDevices));
+    vm.ownSettings.provider("hue");
+    expect(vm.huePlugs).toHaveBeenCalledWith(plugDevices);
+  });
+});
+
+// ===========================================================================
 // setFlash
 // ===========================================================================
 

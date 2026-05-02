@@ -278,6 +278,13 @@ class TestInitProvider:
         plugin._init_provider()
         assert isinstance(plugin._provider, HueProvider)
 
+    def test_wled_provider_selected_when_configured(self, plugin):
+        """provider='wled' in settings must instantiate WledProvider."""
+        from octoprint_octohue.providers.wled import WledProvider
+        plugin._settings.get.side_effect = make_settings_getter({"provider": "wled"})
+        plugin._init_provider()
+        assert isinstance(plugin._provider, WledProvider)
+
     def test_build_provider_settings_returns_empty_dict_for_unknown_provider(self, plugin):
         """Non-hue providers receive an empty settings dict until they define their own keys."""
         result = plugin._build_provider_settings("unknown_provider")
@@ -323,13 +330,11 @@ class TestEstablishBridge:
 
 class TestOnAfterStartup:
 
-    def test_calls_establish_bridge_with_settings(self, plugin):
+    def test_calls_init_provider_on_startup(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.on_after_startup()
-        plugin.establishBridge.assert_called_once_with(
-            "192.168.1.100", "test-api-key"
-        )
+        plugin._init_provider.assert_called_once()
 
     def test_ononstartup_matching_event_calls_build_state(self, plugin):
         """When ononstartup is True and the configured event exists in statusDict,
@@ -345,7 +350,7 @@ class TestOnAfterStartup:
             'statusDict': [status_entry],
             'lampid': '1',
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_called_once_with(
@@ -360,7 +365,7 @@ class TestOnAfterStartup:
             'ononstartupevent': 'PrintDone',
             'statusDict': [],
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_not_called()
@@ -379,7 +384,7 @@ class TestOnAfterStartup:
             'statusDict': [status_entry],
             'lampid': '1',
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_called_once_with(
@@ -399,7 +404,7 @@ class TestOnAfterStartup:
             'ononstartupevent': 'PrintDone',
             'statusDict': [status_entry],
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_not_called()
