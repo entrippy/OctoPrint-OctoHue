@@ -731,64 +731,69 @@ class TestOnApiCommandBridge:
         plugin.on_api_command("bridge", {"getstatus": "true"})
         flask.jsonify.assert_called_once_with(bridgestatus="configured")
 
-    def test_discover_delegates_to_provider(self, plugin):
+    def test_discover_uses_hue_provider_directly(self, plugin):
         flask = sys.modules["flask"]
         bridges = [{"internalipaddress": "192.168.1.100", "id": "abc"}]
-        plugin._provider.discover.return_value = bridges
-        plugin.on_api_command("bridge", {"discover": "true"})
-        plugin._provider.discover.assert_called_once()
-        flask.jsonify.assert_called_once_with(bridges)
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.discover.return_value = bridges
+            plugin.on_api_command("bridge", {"discover": "true"})
+            MockHue.return_value.discover.assert_called_once()
+            flask.jsonify.assert_called_once_with(bridges)
 
     def test_pair_success_saves_credentials(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
         plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "new-api-key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "new-api-key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
         plugin._settings.set.assert_any_call(["husername"], "new-api-key")
         plugin._settings.set.assert_any_call(["bridgeaddr"], "192.168.1.100")
         plugin._settings.save.assert_called()
 
-    def test_pair_success_re_establishes_bridge(self, plugin):
+    def test_pair_success_calls_init_provider(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "new-api-key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
-        plugin.establishBridge.assert_called_once()
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "new-api-key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
+        plugin._init_provider.assert_called_once()
 
     def test_pair_error_returns_error_response(self, plugin):
         flask = sys.modules["flask"]
-        plugin._provider.pair.return_value = {"response": "error"}
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {"response": "error"}
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
         flask.jsonify.assert_called()
         args = flask.jsonify.call_args[0][0]
         assert args[0]["response"] == "error"
 
-    def test_pair_delegates_to_provider(self, plugin):
+    def test_pair_uses_hue_provider_directly(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
         plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
-        plugin._provider.pair.assert_called_once_with(bridgeaddr="192.168.1.100")
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
+            MockHue.return_value.pair.assert_called_once_with(bridgeaddr="192.168.1.100")
 
 
 # ===========================================================================

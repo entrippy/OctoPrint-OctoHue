@@ -289,17 +289,20 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					return flask.jsonify(bridgestatus="unconfigured")
 
 			elif "discover" in data:
-				discovered = self._provider.discover() if self._provider is not None else []
+				from octoprint_octohue.providers.hue import HueProvider
+				discovered = HueProvider(self._logger).discover()
 				self._logger.debug(discovered)
 				return flask.jsonify(discovered)
 
 			elif "pair" in data:
-				result = self._provider.pair(bridgeaddr=data['bridgeaddr']) if self._provider is not None else {"response": "error"}
+				from octoprint_octohue.providers.hue import HueProvider
+				result = HueProvider(self._logger).pair(bridgeaddr=data['bridgeaddr'])
 				if result.get('response') == 'success':
 					self._settings.set(['husername'], result['husername'])
 					self._settings.set(['bridgeaddr'], result['bridgeaddr'])
+					self._settings.set(['provider'], 'hue')
 					self._settings.save()
-					self.establishBridge(result['bridgeaddr'], result['husername'])
+					self._init_provider()
 					return flask.jsonify([result])
 				else:
 					return flask.jsonify([result])
