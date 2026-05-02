@@ -12,7 +12,7 @@
                 <div class="control-group">
 
                     <!-- Provider selector -->
-                    <div class="control-group">
+                    <div class="control-group" style="margin-bottom: 8px;">
                         <label class="control-label">{{ _('Light Controller') }}</label>
                         <div class="controls">
                             <select class="input-medium" data-bind="value: ownSettings.provider">
@@ -21,11 +21,9 @@
                             </select>
                         </div>
                     </div>
-                    <hr>
 
                     <!-- Hue configuration -->
                     <div data-bind="visible: ownSettings.provider() === 'hue'">
-                        <h4>Hue Configuration</h4>
                         Hue Bridge Status: <span id="huebridgestatus" class="badge badge-danger" style="background-color: #ff4b4b;">Unconfigured</span>
                         <div id="huebridge_unconfigured">
                             <h4 id="pairbridge">Pair with your Hue Bridge</h4>
@@ -59,7 +57,6 @@
 
                     <!-- WLED configuration -->
                     <div data-bind="visible: ownSettings.provider() === 'wled'">
-                        <h4>WLED Configuration</h4>
                         <label class="control-label">{{ _('WLED Controller Address') }}</label>
                         <div class="controls">
                             <input type="text" class="input-block-level" placeholder="192.168.1.x" data-bind="value: ownSettings.bridgeaddr">

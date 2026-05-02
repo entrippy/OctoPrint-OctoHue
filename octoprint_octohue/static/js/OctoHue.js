@@ -53,13 +53,16 @@ $(function() {
 		    //document.getElementById("huebridge_searchstatus").style.display = "none";
 		    //document.getElementById("huebridge_found").style.display = "none";
             OctoPrint.simpleApiCommand("octohue", "bridge", {"discover": "true"}, {}).done(function(response) {
-				if(response[0].internalipaddress){
+				search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
+				search_button.disabled = false;
+				if(response[0] && response[0].internalipaddress){
                     bridgeaddr = response[0].internalipaddress;
-                    search_button.innerHTML = '<i class="fa fa-search"></i> Search my bridge';
-					search_button.disabled = false;
 					document.getElementById("huebridge_searchstatus").classList.remove("inactiveconfig");
 					document.getElementById("huebridge_searchstatus").innerHTML = "<font color='green'>Brige found (<i>"+ response[0].internalipaddress+ "</i>) !</font>";
 					document.getElementById("huebridge_found").classList.remove("inactiveconfig");
+				} else {
+					document.getElementById("huebridge_searchstatus").classList.remove("inactiveconfig");
+					document.getElementById("huebridge_searchstatus").innerHTML = "<font color='red'>No bridge found. Check your network and try again.</font>";
 				}
 			});
         };

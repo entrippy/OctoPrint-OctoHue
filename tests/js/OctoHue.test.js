@@ -436,6 +436,40 @@ describe("togglepower", () => {
 });
 
 // ===========================================================================
+// bridgediscovery
+// ===========================================================================
+
+describe("bridgediscovery", () => {
+  test("re-enables button on success", () => {
+    const vm = makeViewModel();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult([{ internalipaddress: "192.168.1.100" }])
+    );
+    vm.bridgediscovery();
+    const btn = document.getElementById("huebridge_startsearch");
+    expect(btn.disabled).toBe(false);
+  });
+
+  test("shows found status when bridge is returned", () => {
+    const vm = makeViewModel();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult([{ internalipaddress: "192.168.1.100" }])
+    );
+    vm.bridgediscovery();
+    expect(document.getElementById("huebridge_searchstatus").innerHTML).toMatch(/192\.168\.1\.100/);
+  });
+
+  test("re-enables button and shows error when discovery returns empty", () => {
+    const vm = makeViewModel();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult([]));
+    vm.bridgediscovery();
+    const btn = document.getElementById("huebridge_startsearch");
+    expect(btn.disabled).toBe(false);
+    expect(document.getElementById("huebridge_searchstatus").innerHTML).toMatch(/No bridge found/);
+  });
+});
+
+// ===========================================================================
 // bridgepair
 // ===========================================================================
 
