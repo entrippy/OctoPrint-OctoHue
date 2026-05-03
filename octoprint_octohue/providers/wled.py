@@ -150,7 +150,7 @@ class WledProvider(LightProvider):
 
             if ct_mirek is not None:
                 seg["cct"] = _mirek_to_wled_cct(ct_mirek)
-            elif colour_hex is not None:
+            elif colour_hex:
                 r, g, b = _hex_to_rgb(colour_hex)
                 seg["col"] = [[r, g, b]]
 
