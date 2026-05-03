@@ -51,6 +51,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if cls is None:
 			self._logger.error(f"Unknown provider '{name}', falling back to Hue")
 			cls = PROVIDERS['hue']
+			name = 'hue'
 		self._provider = cls(self._logger)
 		self._provider.setup(self._build_provider_settings(name))
 

@@ -272,11 +272,12 @@ class TestInitProvider:
     """_init_provider() selects the correct class from PROVIDERS and calls setup()."""
 
     def test_unknown_provider_falls_back_to_hue(self, plugin):
-        """An unrecognised provider name must fall back to HueProvider, not raise."""
+        """An unrecognised provider name must fall back to HueProvider with Hue settings."""
         from octoprint_octohue.providers.hue import HueProvider
         plugin._settings.get.side_effect = make_settings_getter({"provider": "nonexistent"})
         plugin._init_provider()
         assert isinstance(plugin._provider, HueProvider)
+        assert plugin._provider.is_ready  # must be configured with Hue settings, not empty dict
 
     def test_wled_provider_selected_when_configured(self, plugin):
         """provider='wled' in settings must instantiate WledProvider."""
@@ -1316,6 +1317,21 @@ class TestOnEventFlash:
         _, kwargs = self._timer.call_args
         assert kwargs["kwargs"]["on"] is False
         assert "alert" not in kwargs["kwargs"]
+
+    def test_flash_no_turnoff_wled_light_turns_on(self, plugin):
+        """WLED + flash=True + turnoff=False: light turns on. alert kwarg is passed through
+        but WledProvider.set_light silently ignores it (no flash support)."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "provider": "wled",
+            "statusDict": [self._entry("PrintDone", turnoff=False, flash=True, delay=0)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        assert self._timer.call_count == 1
+        _, kwargs = self._timer.call_args
+        assert kwargs["kwargs"]["on"] is True
 
 
 # ===========================================================================
