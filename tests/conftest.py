@@ -127,15 +127,26 @@ def _reset_shared_mocks():
 def plugin():
     """Bare OctohuePlugin instance with mocked OctoPrint internals."""
     from octoprint_octohue import OctohuePlugin
+    from octoprint_octohue.providers.base import LightProvider
 
     p = OctohuePlugin.__new__(OctohuePlugin)
     p._logger = MagicMock(name="_logger")
     p._settings = MagicMock(name="_settings")
     p._printer = MagicMock(name="_printer")
     p._plugin_version = "1.0.0"
-    p.pbridge = {"addr": "192.168.1.100", "key": "test-api-key"}
-    p._session = MagicMock(name="_session")
-    p.discoveryurl = "https://discovery.meethue.com/"
+
+    # Provide a mock provider so plugin-level tests can assert on provider
+    # calls without importing real provider classes or making HTTP requests.
+    mock_provider = MagicMock(spec=LightProvider)
+    mock_provider.is_ready = True
+    mock_provider.get_state.return_value = None
+    mock_provider.get_lights.return_value = []
+    mock_provider.get_groups.return_value = []
+    mock_provider.get_plugs.return_value = []
+    mock_provider.discover.return_value = []
+    mock_provider.pair.return_value = {"response": "error"}
+    p._provider = mock_provider
+
     return p
 
 
@@ -146,6 +157,7 @@ def make_settings_getter(overrides=None):
     the plugin.
     """
     defaults = {
+        "provider": "hue",
         "bridgeaddr": "192.168.1.100",
         "husername": "test-api-key",
         "lampid": "1",
@@ -161,10 +173,10 @@ def make_settings_getter(overrides=None):
         "powerofftemp": 40,
         "ononstartup": False,
         "ononstartupevent": "",
-        "offonshutdown": True,
         "showhuetoggle": True,
         "showpowertoggle": False,
         "statusDict": [],
+        "nightmode_enabled": False,
     }
     if overrides:
         defaults.update(overrides)

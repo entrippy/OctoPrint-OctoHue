@@ -6,6 +6,24 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.1.0] - unreleased
+
+### Changed
+- **Provider pattern refactor** — Hue-specific code extracted from `__init__.py` into a dedicated `HueProvider` class. The plugin now delegates all light operations to a `LightProvider` instance; the plugin itself contains no vendor-specific logic. This is the first step toward supporting additional light systems beyond Philips Hue.
+- `_SignifyAdapter`, `_hue_request`, `rgb_to_xy`, and all direct Hue API calls moved to `octoprint_octohue/providers/hue.py`
+- `pbridge` and `_session` instance variables replaced by a single `_provider: LightProvider | None`
+
+### Added
+- `octoprint_octohue/providers/base.py` — `LightProvider` abstract base class defining the interface all providers must implement (`setup`, `is_ready`, `set_light`, `get_state`, `get_lights`, `get_groups`, `get_plugs`, `discover`, `pair`)
+- `octoprint_octohue/providers/hue.py` — `HueProvider` implementing the full Hue v2 CLIP API behaviour
+- `octoprint_octohue/providers/__init__.py` — `PROVIDERS` registry mapping provider name strings to implementation classes; add new providers here
+- `provider` setting (default `'hue'`) — selects the active light provider; future releases will expose this in the UI
+- `tests/providers/` — dedicated test suite for provider classes in isolation (51 tests)
+- Settings migration v4→v5: seeds `provider = 'hue'` for existing installs
+- `extras/claude/` — project-specific Claude Code commands for reviewer, tester, release manager, issue triager, PR author, and commit author personas
+
+---
+
 ## [1.0.4] - 2026-04-05
 
 ### Added
