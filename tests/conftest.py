@@ -176,6 +176,7 @@ def make_settings_getter(overrides=None):
         "showhuetoggle": True,
         "showpowertoggle": False,
         "statusDict": [],
+        "nightmode_enabled": False,
     }
     if overrides:
         defaults.update(overrides)
