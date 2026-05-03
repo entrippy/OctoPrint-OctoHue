@@ -272,11 +272,19 @@ class TestInitProvider:
     """_init_provider() selects the correct class from PROVIDERS and calls setup()."""
 
     def test_unknown_provider_falls_back_to_hue(self, plugin):
-        """An unrecognised provider name must fall back to HueProvider, not raise."""
+        """An unrecognised provider name must fall back to HueProvider with Hue settings."""
         from octoprint_octohue.providers.hue import HueProvider
         plugin._settings.get.side_effect = make_settings_getter({"provider": "nonexistent"})
         plugin._init_provider()
         assert isinstance(plugin._provider, HueProvider)
+        assert plugin._provider.is_ready  # must be configured with Hue settings, not empty dict
+
+    def test_wled_provider_selected_when_configured(self, plugin):
+        """provider='wled' in settings must instantiate WledProvider."""
+        from octoprint_octohue.providers.wled import WledProvider
+        plugin._settings.get.side_effect = make_settings_getter({"provider": "wled"})
+        plugin._init_provider()
+        assert isinstance(plugin._provider, WledProvider)
 
     def test_build_provider_settings_returns_empty_dict_for_unknown_provider(self, plugin):
         """Non-hue providers receive an empty settings dict until they define their own keys."""
@@ -285,51 +293,16 @@ class TestInitProvider:
 
 
 # ===========================================================================
-# establishBridge
-# ===========================================================================
-
-class TestEstablishBridge:
-    """establishBridge() delegates to _provider.setup() with the correct settings."""
-
-    def test_calls_provider_setup_with_addr_and_key(self, plugin):
-        plugin._settings.get.side_effect = make_settings_getter(
-            {"lampid": "lamp-1", "lampisgroup": False, "plugid": "plug-1"}
-        )
-        plugin.establishBridge("192.168.1.100", "my-key")
-        plugin._provider.setup.assert_called_once()
-        settings_arg = plugin._provider.setup.call_args[0][0]
-        assert settings_arg["bridgeaddr"] == "192.168.1.100"
-        assert settings_arg["husername"] == "my-key"
-
-    def test_lampid_forwarded_to_provider_setup(self, plugin):
-        plugin._settings.get.side_effect = make_settings_getter(
-            {"lampid": "lamp-uuid", "lampisgroup": False, "plugid": ""}
-        )
-        plugin.establishBridge("192.168.1.100", "key")
-        settings_arg = plugin._provider.setup.call_args[0][0]
-        assert settings_arg["lampid"] == "lamp-uuid"
-
-    def test_creates_provider_if_none(self, plugin):
-        """If _provider is None, establishBridge initialises it before calling setup."""
-        plugin._settings.get.side_effect = make_settings_getter()
-        plugin._provider = None
-        # Should not raise
-        plugin.establishBridge("192.168.1.100", "key")
-
-
-# ===========================================================================
 # on_after_startup
 # ===========================================================================
 
 class TestOnAfterStartup:
 
-    def test_calls_establish_bridge_with_settings(self, plugin):
+    def test_calls_init_provider_on_startup(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.on_after_startup()
-        plugin.establishBridge.assert_called_once_with(
-            "192.168.1.100", "test-api-key"
-        )
+        plugin._init_provider.assert_called_once()
 
     def test_ononstartup_matching_event_calls_build_state(self, plugin):
         """When ononstartup is True and the configured event exists in statusDict,
@@ -345,7 +318,7 @@ class TestOnAfterStartup:
             'statusDict': [status_entry],
             'lampid': '1',
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_called_once_with(
@@ -360,7 +333,7 @@ class TestOnAfterStartup:
             'ononstartupevent': 'PrintDone',
             'statusDict': [],
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_not_called()
@@ -379,7 +352,7 @@ class TestOnAfterStartup:
             'statusDict': [status_entry],
             'lampid': '1',
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_called_once_with(
@@ -399,7 +372,7 @@ class TestOnAfterStartup:
             'ononstartupevent': 'PrintDone',
             'statusDict': [status_entry],
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_not_called()
@@ -726,64 +699,85 @@ class TestOnApiCommandBridge:
         plugin.on_api_command("bridge", {"getstatus": "true"})
         flask.jsonify.assert_called_once_with(bridgestatus="configured")
 
-    def test_discover_delegates_to_provider(self, plugin):
+    def test_getstatus_wled_configured(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="configured")
+
+    def test_getstatus_wled_unconfigured(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unconfigured")
+
+    def test_discover_uses_hue_provider_directly(self, plugin):
         flask = sys.modules["flask"]
         bridges = [{"internalipaddress": "192.168.1.100", "id": "abc"}]
-        plugin._provider.discover.return_value = bridges
-        plugin.on_api_command("bridge", {"discover": "true"})
-        plugin._provider.discover.assert_called_once()
-        flask.jsonify.assert_called_once_with(bridges)
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.discover.return_value = bridges
+            plugin.on_api_command("bridge", {"discover": "true"})
+            MockHue.return_value.discover.assert_called_once()
+            flask.jsonify.assert_called_once_with(bridges)
 
     def test_pair_success_saves_credentials(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "new-api-key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "new-api-key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
         plugin._settings.set.assert_any_call(["husername"], "new-api-key")
         plugin._settings.set.assert_any_call(["bridgeaddr"], "192.168.1.100")
         plugin._settings.save.assert_called()
 
-    def test_pair_success_re_establishes_bridge(self, plugin):
+    def test_pair_success_calls_init_provider(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "new-api-key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
-        plugin.establishBridge.assert_called_once()
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "new-api-key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
+        plugin._init_provider.assert_called_once()
 
     def test_pair_error_returns_error_response(self, plugin):
         flask = sys.modules["flask"]
-        plugin._provider.pair.return_value = {"response": "error"}
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {"response": "error"}
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
         flask.jsonify.assert_called()
         args = flask.jsonify.call_args[0][0]
         assert args[0]["response"] == "error"
 
-    def test_pair_delegates_to_provider(self, plugin):
+    def test_pair_uses_hue_provider_directly(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
-        plugin._provider.pair.assert_called_once_with(bridgeaddr="192.168.1.100")
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
+            MockHue.return_value.pair.assert_called_once_with(bridgeaddr="192.168.1.100")
 
 
 # ===========================================================================
@@ -1194,19 +1188,19 @@ class TestOnSettingsSave:
         plugin.on_settings_save(data)
         assert "availableEvents" not in data
 
-    def test_re_establishes_bridge_after_save(self, plugin):
+    def test_reinitialises_provider_after_save(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.on_settings_save({"lampid": "uuid-1"})
-        plugin.establishBridge.assert_called_once()
+        plugin._init_provider.assert_called_once()
 
-    def test_bridge_created_with_saved_addr_and_key(self, plugin):
+    def test_provider_reinitialised_regardless_of_provider_type(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter(
-            {"bridgeaddr": "10.0.0.1", "husername": "saved-key"}
+            {"provider": "wled", "bridgeaddr": "192.168.1.200"}
         )
-        plugin.establishBridge = MagicMock()
-        plugin.on_settings_save({"lampid": "uuid-1"})
-        plugin.establishBridge.assert_called_once_with("10.0.0.1", "saved-key")
+        plugin._init_provider = MagicMock()
+        plugin.on_settings_save({"bridgeaddr": "192.168.1.200"})
+        plugin._init_provider.assert_called_once()
 
 
 # ===========================================================================
@@ -1308,6 +1302,36 @@ class TestOnEventFlash:
         second_call = self._timer.call_args_list[1]
         assert second_call[0][0] == 15  # delay arg
         assert second_call[1]["kwargs"]["on"] is False
+
+    def test_flash_and_turnoff_wled_schedules_one_turnoff_timer(self, plugin):
+        """WLED doesn't support flash — flash+turnoff should schedule one off timer, no alert."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "provider": "wled",
+            "statusDict": [self._entry("PrintDone", turnoff=True, flash=True, delay=0)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        assert self._timer.call_count == 1
+        _, kwargs = self._timer.call_args
+        assert kwargs["kwargs"]["on"] is False
+        assert "alert" not in kwargs["kwargs"]
+
+    def test_flash_no_turnoff_wled_light_turns_on(self, plugin):
+        """WLED + flash=True + turnoff=False: light turns on. alert kwarg is passed through
+        but WledProvider.set_light silently ignores it (no flash support)."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "provider": "wled",
+            "statusDict": [self._entry("PrintDone", turnoff=False, flash=True, delay=0)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        assert self._timer.call_count == 1
+        _, kwargs = self._timer.call_args
+        assert kwargs["kwargs"]["on"] is True
 
 
 # ===========================================================================

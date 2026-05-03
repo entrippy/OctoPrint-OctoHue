@@ -147,15 +147,6 @@ def plugin():
     mock_provider.pair.return_value = {"response": "error"}
     p._provider = mock_provider
 
-    # Keep pbridge/_session on the plugin so that tests which reach directly
-    # into the Hue-specific internals (TestEstablishBridge, TestSetState, etc.)
-    # continue to work.  These are also forwarded into the provider fixture
-    # used by those test classes via a separate plugin_with_hue_provider fixture.
-    p.pbridge = {"addr": "192.168.1.100", "key": "test-api-key"}
-    p._session = MagicMock(name="_session")
-    p._session.request.return_value.status_code = 200
-    p._session.request.return_value.json.return_value = {}
-    p.discoveryurl = "https://discovery.meethue.com/"
     return p
 
 
@@ -166,6 +157,7 @@ def make_settings_getter(overrides=None):
     the plugin.
     """
     defaults = {
+        "provider": "hue",
         "bridgeaddr": "192.168.1.100",
         "husername": "test-api-key",
         "lampid": "1",
@@ -181,7 +173,6 @@ def make_settings_getter(overrides=None):
         "powerofftemp": 40,
         "ononstartup": False,
         "ononstartupevent": "",
-        "offonshutdown": True,
         "showhuetoggle": True,
         "showpowertoggle": False,
         "statusDict": [],

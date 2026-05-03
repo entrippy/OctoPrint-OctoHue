@@ -18,6 +18,7 @@ A local OctoPrint instance is available for live deployment and testing:
 - Virtual environment: `~/oprint/`
 - Install the plugin into it: `~/oprint/bin/pip install -e ~/git/OctoPrint-OctoHue`
 - Run OctoPrint: `~/oprint/bin/octoprint serve`
+- **Always use `~/oprint/bin/python` — never `python3` or `python`** when running any script that imports packages (yaml, requests, etc.). System Python does not have the OctoPrint venv packages installed.
 - Logs (macOS): `~/Library/Application Support/OctoPrint/logs/`
 - Logs (Linux): `~/.octoprint/logs/`
   - `octoprint.log` — main log, plugin output appears here

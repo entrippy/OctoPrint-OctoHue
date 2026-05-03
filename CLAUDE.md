@@ -92,8 +92,37 @@ Direct the contributor to [CONTRIBUTING.md](.github/CONTRIBUTING.md). Confirm th
 
 Project-specific commands are in `extras/claude/commands/`. Read the relevant command file before performing that task. When using a command, if you spot a gap or inaccuracy in it, update the file in-place.
 
+Flat commands (single files):
+- `reviewer.md` — adversarial PR review (run before every merge)
+- `tester.md` — test authoring and e2e procedure
+- `commit-author.md` — commit message format
+- `pr-author.md` — PR description format
+- `release-manager.md` — release and tagging procedure
+- `issue-triager.md` — issue triage
+- `workflow.md` — cooperative development process with staged gates
+
+Skill directories (sourced from mattpocock/skills, update manually if upstream changes):
+- `grill-with-docs/` — stress-test a plan against domain language; updates CONTEXT.md and ADRs
+- `improve-codebase-architecture/` — find deepening opportunities; uses LANGUAGE.md vocabulary
+- `tdd/` — test-driven development with deep module principles
+- `triage/` — issue triage state machine
+
 Before merging any PR, perform an adversarial review using `extras/claude/commands/reviewer.md`. Do not skip this step.
 
 ## Commit style
 
 Commits are authored by the project owner. Do not add `Co-Authored-By` or any AI attribution footers to commit messages, PR descriptions, or release notes.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `entrippy/OctoPrint-OctoHue`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default mattpocock/skills label vocabulary — no overrides. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo — `CONTEXT.md` at root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.

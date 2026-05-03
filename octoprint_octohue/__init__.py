@@ -51,6 +51,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if cls is None:
 			self._logger.error(f"Unknown provider '{name}', falling back to Hue")
 			cls = PROVIDERS['hue']
+			name = 'hue'
 		self._provider = cls(self._logger)
 		self._provider.setup(self._build_provider_settings(name))
 
@@ -67,22 +68,12 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				'lampisgroup': self._settings.get(['lampisgroup']),
 				'plugid': self._settings.get(['plugid']),
 			}
+		if name == 'wled':
+			# bridgeaddr is the generic controller-address field shared across providers
+			return {
+				'bridgeaddr': self._settings.get(['bridgeaddr']),
+			}
 		return {}
-
-	def establishBridge(self, bridgeaddr, husername):
-		'''
-		Re-initialises the provider using the supplied Hue bridge credentials.
-		Kept as a named method so that on_after_startup and on_settings_save
-		can call it with explicit addr/key arguments, and tests can mock it.
-		Creates the provider instance if it does not yet exist.
-		'''
-		if self._provider is None:
-			self._init_provider()
-		assert self._provider is not None
-		name = self._settings.get(['provider']) or 'hue'
-		settings = self._build_provider_settings(name)
-		settings.update({'bridgeaddr': bridgeaddr, 'husername': husername})
-		self._provider.setup(settings)
 
 	def build_state(self, **kwargs):
 		'''
@@ -151,7 +142,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._provider is not None and self._provider.get_state(deviceid):
 			self.build_state(on=False, deviceid=deviceid)
 		else:
-			if deviceid != self._settings.get(['plugid']):
+			plugid = self._settings.get(['plugid'])
+			is_plug = plugid and deviceid == plugid
+			if not is_plug:
 				ct = int(self._settings.get(['togglect']) or 0)
 				bri = int(self._settings.get(['togglebri']) or self._settings.get(['defaultbri']))
 				if ct:
@@ -179,7 +172,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		light state.
 		'''
 		self._logger.info("Octohue is alive!")
-		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+		self._init_provider()
 		if self._settings.get(['ononstartup']):
 			my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
 			if my_statusEvent:
@@ -274,27 +267,37 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
 
 			if "getstatus" in data:
+				provider_name = self._settings.get(['provider']) or 'hue'
 				bridge = self._settings.get(['bridgeaddr'])
-				apikey = self._settings.get(['husername'])
-				if bridge and apikey:
-					return flask.jsonify(bridgestatus="configured")
-				elif bridge and not apikey:
-					return flask.jsonify(bridgestatus="unauthed")
+				if provider_name == 'wled':
+					if bridge:
+						return flask.jsonify(bridgestatus="configured")
+					else:
+						return flask.jsonify(bridgestatus="unconfigured")
 				else:
-					return flask.jsonify(bridgestatus="unconfigured")
+					apikey = self._settings.get(['husername'])
+					if bridge and apikey:
+						return flask.jsonify(bridgestatus="configured")
+					elif bridge and not apikey:
+						return flask.jsonify(bridgestatus="unauthed")
+					else:
+						return flask.jsonify(bridgestatus="unconfigured")
 
 			elif "discover" in data:
-				discovered = self._provider.discover() if self._provider is not None else []
+				from octoprint_octohue.providers.hue import HueProvider
+				discovered = HueProvider(self._logger).discover()
 				self._logger.debug(discovered)
 				return flask.jsonify(discovered)
 
 			elif "pair" in data:
-				result = self._provider.pair(bridgeaddr=data['bridgeaddr']) if self._provider is not None else {"response": "error"}
+				from octoprint_octohue.providers.hue import HueProvider
+				result = HueProvider(self._logger).pair(bridgeaddr=data['bridgeaddr'])
 				if result.get('response') == 'success':
 					self._settings.set(['husername'], result['husername'])
 					self._settings.set(['bridgeaddr'], result['bridgeaddr'])
+					self._settings.set(['provider'], 'hue')
 					self._settings.save()
-					self.establishBridge(result['bridgeaddr'], result['husername'])
+					self._init_provider()
 					return flask.jsonify([result])
 				else:
 					return flask.jsonify([result])
@@ -371,8 +374,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			turnoff = my_statusEvent['turnoff']
 			ct = int(my_statusEvent.get('ct') or 0)
 
-			if turnoff and flash:
-				# Flash first, then switch off after the alert cycle completes
+			provider_supports_flash = (self._settings.get(['provider']) or 'hue') == 'hue'
+			if turnoff and flash and provider_supports_flash:
+				# Flash first, then switch off after the Hue alert cycle completes (15 s)
 				flash_kwargs = {'on': True, 'bri': int(my_statusEvent['brightness']), 'alert': 'lselect', 'deviceid': deviceid}
 				if ct:
 					flash_kwargs['ct'] = ct
@@ -380,6 +384,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					flash_kwargs['colour'] = my_statusEvent['colour']
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs=flash_kwargs)
 				ResettableTimer(delay + 15, self.build_state, kwargs={'on': False, 'deviceid': deviceid}).start()
+			elif turnoff and flash and not provider_supports_flash:
+				# Provider doesn't support flash — turn off immediately after delay
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on': False, 'deviceid': deviceid})
 			elif not turnoff:
 				brightness = my_statusEvent['brightness']
 				build_kwargs = {'on': True, 'bri': int(brightness), 'deviceid': deviceid}
@@ -568,20 +575,20 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			"nightmode_end": self._settings.get(["nightmode_end"]),
 			"nightmode_action": self._settings.get(["nightmode_action"]),
 			"nightmode_maxbri": self._settings.get(["nightmode_maxbri"]),
-			# Note: 'provider' is intentionally omitted until the provider-selector UI is added.
+			"provider": self._settings.get(["provider"]),
 		}
 		return my_settings
 
 	def on_settings_save(self, data):
 		'''
-		Persists settings and re-establishes the provider connection with any
-		updated credentials. Strips availableEvents (frontend-only) before
-		passing to the base class.
+		Persists settings and re-initialises the provider with any updated
+		credentials. Strips availableEvents (frontend-only) before passing to
+		the base class.
 		'''
 		data.pop("availableEvents", None)
 		self._logger.debug(f"Saving: {data} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+		self._init_provider()
 
 	def get_template_vars(self):
 		'''
