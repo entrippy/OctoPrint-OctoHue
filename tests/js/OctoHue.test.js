@@ -198,7 +198,6 @@ function makeViewModel(pluginSettingsOverrides = {}) {
     lampisgroup: makeObservable(false),
     bridgeaddr: makeObservable(""),
     husername: makeObservable(""),
-    provider: makeObservable("hue"),
     togglebri: makeObservable(100),
     togglecolour: makeObservable("#FFFFFF"),
     togglect: makeObservable(0),
@@ -436,40 +435,6 @@ describe("togglepower", () => {
 });
 
 // ===========================================================================
-// bridgediscovery
-// ===========================================================================
-
-describe("bridgediscovery", () => {
-  test("re-enables button on success", () => {
-    const vm = makeViewModel();
-    OctoPrint.simpleApiCommand.mockReturnValueOnce(
-      new SyncResult([{ internalipaddress: "192.168.1.100" }])
-    );
-    vm.bridgediscovery();
-    const btn = document.getElementById("huebridge_startsearch");
-    expect(btn.disabled).toBe(false);
-  });
-
-  test("shows found status when bridge is returned", () => {
-    const vm = makeViewModel();
-    OctoPrint.simpleApiCommand.mockReturnValueOnce(
-      new SyncResult([{ internalipaddress: "192.168.1.100" }])
-    );
-    vm.bridgediscovery();
-    expect(document.getElementById("huebridge_searchstatus").innerHTML).toMatch(/192\.168\.1\.100/);
-  });
-
-  test("re-enables button and shows error when discovery returns empty", () => {
-    const vm = makeViewModel();
-    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult([]));
-    vm.bridgediscovery();
-    const btn = document.getElementById("huebridge_startsearch");
-    expect(btn.disabled).toBe(false);
-    expect(document.getElementById("huebridge_searchstatus").innerHTML).toMatch(/No bridge found/);
-  });
-});
-
-// ===========================================================================
 // bridgepair
 // ===========================================================================
 
@@ -633,23 +598,6 @@ describe("getbridgestatus", () => {
     expect(unconfigured.classList.remove).toHaveBeenCalledWith("inactiveconfig");
   });
 
-  test("unauthed status sets badge to orange and shows unconfigured panel", () => {
-    OctoPrint.simpleApiCommand.mockReturnValueOnce(
-      new SyncResult({ bridgestatus: "unauthed" })
-    );
-    const vm = makeViewModel();
-    vm.getbridgestatus();
-
-    const badge = document.getElementById("huebridgestatus");
-    expect(badge.style.backgroundColor).toBe("orange");
-
-    const unconfigured = document.getElementById("huebridge_unconfigured");
-    expect(unconfigured.classList.remove).toHaveBeenCalledWith("inactiveconfig");
-
-    const configured = document.getElementById("huebridge_configured");
-    expect(configured.classList.add).toHaveBeenCalledWith("inactiveconfig");
-  });
-
   test("issues the correct API command", () => {
     const vm = makeViewModel();
     vm.getbridgestatus();
@@ -795,7 +743,7 @@ describe("lampid subscription", () => {
 });
 
 describe("onSettingsShown", () => {
-  test("calls getbridgestatus when provider is hue", () => {
+  test("calls getbridgestatus when settings panel is shown", () => {
     const vm = makeViewModel();
     vm.getbridgestatus = jest.fn();
     vm.fetchAllLamps   = jest.fn();
@@ -821,53 +769,6 @@ describe("onSettingsShown", () => {
     vm.getDevices = jest.fn(() => new SyncResult([]));
     vm.onSettingsShown();
     expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
-  });
-
-  test("skips hue calls but still fetches lamps when provider is wled", () => {
-    const vm = makeViewModel({ provider: makeObservable("wled") });
-    vm.getbridgestatus = jest.fn();
-    vm.fetchAllLamps   = jest.fn();
-    vm.getDevices = jest.fn(() => new SyncResult([]));
-    vm.onSettingsShown();
-    expect(vm.getbridgestatus).not.toHaveBeenCalled();
-    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
-  });
-});
-
-// ===========================================================================
-// provider subscription (onBeforeBinding)
-// ===========================================================================
-
-describe("provider subscription", () => {
-  test("switching to hue calls getbridgestatus, fetchAllLamps, and getDevices", () => {
-    const vm = makeViewModel({ provider: makeObservable("wled") });
-    vm.getbridgestatus = jest.fn();
-    vm.fetchAllLamps   = jest.fn();
-    vm.getDevices = jest.fn(() => new SyncResult([]));
-    vm.ownSettings.provider("hue");
-    expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
-    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
-    expect(vm.getDevices).toHaveBeenCalled();
-  });
-
-  test("switching to wled skips hue calls but still fetches lamps", () => {
-    const vm = makeViewModel({ provider: makeObservable("hue") });
-    vm.getbridgestatus = jest.fn();
-    vm.fetchAllLamps   = jest.fn();
-    vm.getDevices = jest.fn(() => new SyncResult([]));
-    vm.ownSettings.provider("wled");
-    expect(vm.getbridgestatus).not.toHaveBeenCalled();
-    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
-  });
-
-  test("switching from wled to hue populates huePlugs", () => {
-    const plugDevices = [{ id: "plug-1", name: "Socket" }];
-    const vm = makeViewModel({ provider: makeObservable("wled") });
-    vm.getbridgestatus = jest.fn();
-    vm.fetchAllLamps   = jest.fn();
-    vm.getDevices = jest.fn(() => new SyncResult(plugDevices));
-    vm.ownSettings.provider("hue");
-    expect(vm.huePlugs).toHaveBeenCalledWith(plugDevices);
   });
 });
 

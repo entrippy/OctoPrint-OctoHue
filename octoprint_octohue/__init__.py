@@ -2,12 +2,42 @@ from __future__ import annotations
 
 import octoprint.plugin
 from datetime import datetime
+import os
+import ssl
 import flask
+import requests
+from requests.adapters import HTTPAdapter
 from octoprint.util import ResettableTimer
 from octoprint.access.permissions import Permissions
 
-from octoprint_octohue.providers import PROVIDERS
-from octoprint_octohue.providers.base import LightProvider
+# ---------------------------------------------------------------------------
+# Custom HTTPS adapter that verifies the Hue bridge certificate chain against
+# the bundled Signify root CA, but skips hostname verification.
+#
+# Hostname verification cannot succeed because the bridge certificate uses
+# the bridge serial number as its CN/SAN, not the IP address.  Verifying the
+# chain is still a meaningful improvement over verify=False: it confirms the
+# certificate was issued by Signify rather than by an arbitrary attacker.
+# ---------------------------------------------------------------------------
+_CA_BUNDLE = os.path.join(os.path.dirname(__file__), "signify-root-ca.pem")
+
+
+class _SignifyAdapter(HTTPAdapter):
+    """Mounts a custom SSLContext that checks the Signify CA chain."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = ssl.create_default_context(cafile=_CA_BUNDLE)
+        ctx.check_hostname = False
+        kwargs["ssl_context"] = ctx
+        kwargs["assert_hostname"] = False
+        super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        ctx = ssl.create_default_context(cafile=_CA_BUNDLE)
+        ctx.check_hostname = False
+        proxy_kwargs["ssl_context"] = ctx
+        proxy_kwargs["assert_hostname"] = False
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
 class OctohuePlugin(octoprint.plugin.StartupPlugin,
@@ -18,7 +48,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					octoprint.plugin.TemplatePlugin,
 					octoprint.plugin.EventHandlerPlugin):
 
-	_provider: LightProvider | None = None
+
+	pbridge: dict | None = None
+	_session: requests.Session | None = None
+	discoveryurl = 'https://discovery.meethue.com/'
 
 	def _is_night_mode_active(self):
 		'''
@@ -40,60 +73,164 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._logger.warning("Night mode times could not be parsed — night mode skipped.")
 			return False
 
-	def _init_provider(self):
+	def _bridge_ready(self):
 		'''
-		Instantiates the configured provider and calls setup() with the current
-		settings. Falls back to Hue if the configured provider name is unknown.
-		Called on startup and on every settings save.
+		Returns True if the Hue bridge has been initialised, False otherwise.
+		Logs a warning and returns False if pbridge is None.
 		'''
-		name = self._settings.get(['provider']) or 'hue'
-		cls = PROVIDERS.get(name)
-		if cls is None:
-			self._logger.error(f"Unknown provider '{name}', falling back to Hue")
-			cls = PROVIDERS['hue']
-			name = 'hue'
-		self._provider = cls(self._logger)
-		self._provider.setup(self._build_provider_settings(name))
+		if self.pbridge is None:
+			self._logger.warning("Hue bridge not yet initialised — skipping.")
+			return False
+		return True
 
-	def _build_provider_settings(self, name: str) -> dict:
+	def _hue_request(self, method, path, payload=None):
 		'''
-		Returns the settings dict for the named provider, reading from the
-		plugin's settings store. Each provider documents which keys it expects.
+		Sends an HTTPS request to the Hue v2 CLIP API using a session that
+		verifies the certificate chain against the bundled Signify root CA.
+
+			Parameters:
+				method (str): HTTP method ('GET', 'PUT', etc.)
+				path (str): Resource path relative to /clip/v2/resource/ (e.g. 'light/uuid').
+				payload (dict, optional): JSON body for PUT requests.
+
+			Returns:
+				dict: Parsed JSON response, or an empty dict on error.
 		'''
-		if name == 'hue':
-			return {
-				'bridgeaddr': self._settings.get(['bridgeaddr']),
-				'husername': self._settings.get(['husername']),
-				'lampid': self._settings.get(['lampid']),
-				'lampisgroup': self._settings.get(['lampisgroup']),
-				'plugid': self._settings.get(['plugid']),
-			}
-		if name == 'wled':
-			# bridgeaddr is the generic controller-address field shared across providers
-			return {
-				'bridgeaddr': self._settings.get(['bridgeaddr']),
-			}
-		return {}
+		if self.pbridge is None or self._session is None:
+			return {}
+		url = f"https://{self.pbridge['addr']}/clip/v2/resource/{path}"
+		headers = {"hue-application-key": self.pbridge['key']}
+		self._logger.info(f"Hue API {method} {url}" + (f" payload={payload}" if payload else ""))
+		try:
+			r = self._session.request(method, url, headers=headers, json=payload)
+			body = r.json()
+			if r.status_code not in (200, 207):
+				self._logger.warning(f"Hue API {method} {path} returned HTTP {r.status_code}: {body}")
+			else:
+				errors = body.get('errors', [])
+				if errors:
+					self._logger.warning(f"Hue API {method} {path} returned errors: {errors}")
+			return body
+		except Exception as e:
+			self._logger.error(f"Hue API error ({method} {path}): {e}")
+			return {}
+
+	def establishBridge(self, bridgeaddr, husername):
+		'''
+		Stores the Hue bridge connection details. If both address and key are present,
+		pbridge is set to a dict with 'addr' and 'key'; otherwise pbridge is set to None.
+		Called on startup and whenever settings are saved with updated credentials.
+
+			Parameters:
+				bridgeaddr (str): IP address or hostname of the Hue bridge.
+				husername (str): Hue API key (application key) for authentication.
+		'''
+		self._logger.debug(f"Bridge Address is {bridgeaddr if bridgeaddr else 'Please set Bridge Address in settings'}")
+		self._logger.debug(f"Hue Username is {husername if husername else 'Please set Hue Username in settings'}")
+		if bridgeaddr and husername:
+			self.pbridge = {'addr': bridgeaddr, 'key': husername}
+			session = requests.Session()
+			session.mount("https://", _SignifyAdapter())
+			self._session = session
+			self._logger.debug(f"Bridge established at: {bridgeaddr}")
+		else:
+			self.pbridge = None
+			self._session = None
+
+	def rgb_to_xy(self, red: int | str, green: int | None = None, blue: int | None = None):
+		'''
+		Converts an RGB colour to CIE 1931 xy chromaticity coordinates for the Hue API.
+		Accepts either three 8-bit integers or a single '#RRGGBB' hex string as red.
+
+			Parameters:
+				red (int | str): Red channel value (0–255), or a '#RRGGBB' hex string.
+				green (int): Green channel value (0–255). Ignored when red is a hex string.
+				blue (int): Blue channel value (0–255). Ignored when red is a hex string.
+
+			Returns:
+				list | None: [x, y] chromaticity coordinates, or None for black (#000000)
+				             since black has no chromaticity and the caller should skip the
+				             colour change entirely.
+
+			Raises:
+				ValueError: If red is a string that is not a valid '#RRGGBB' hex value.
+		'''
+		if isinstance(red, str):
+			try:
+				red, green, blue = int(red[1:3], 16), int(red[3:5], 16), int(red[5:], 16)
+			except ValueError:
+				raise ValueError("Invalid hex string format")
+		elif green is None or blue is None:
+			raise ValueError("green and blue are required when red is an integer")
+
+		self._logger.debug(f"RGB Split Input - R:{red} G:{green} B:{blue}")
+
+		# We need to convert the RGB value to Yxz.
+		redScale = float(red) / 255.0
+		greenScale = float(green) / 255.0
+		blueScale = float(blue) / 255.0
+
+		# Apply gamma correction (sRGB standard)
+		if redScale <= 0.04045:
+			redScale = redScale / 12.92
+		else:
+			redScale = ((redScale + 0.055) / 1.055) ** 2.4
+
+		if greenScale <= 0.04045:
+			greenScale = greenScale / 12.92
+		else:
+			greenScale = ((greenScale + 0.055) / 1.055) ** 2.4
+
+		if blueScale <= 0.04045:
+			blueScale = blueScale / 12.92
+		else:
+			blueScale = ((blueScale + 0.055) / 1.055) ** 2.4
+
+		# Transformation matrix (sRGB to XYZ) - Manual matrix multiplication
+		x = 0.4124 * redScale + 0.3576 * greenScale + 0.1805 * blueScale
+		y = 0.2126 * redScale + 0.7152 * greenScale + 0.0722 * blueScale
+		z = 0.0193 * redScale + 0.1192 * greenScale + 0.9505 * blueScale
+
+		#To use only X and Y, we need to noralize using Z i.e value = value / ( X + Y + Z)
+		if x + y + z == 0:
+			# Black has no chromaticity; caller should treat None as "no colour change"
+			return None
+
+		normx = x / ( x + y + z)
+		normy = y / ( x + y + z)
+
+		xy = [normx, normy]
+
+		return xy
 
 	def build_state(self, **kwargs):
 		'''
-		Night-mode-aware wrapper that translates old-style kwargs into a
-		provider set_light() call.
+		Assembles a Hue API state payload from keyword arguments and calls set_state().
 
 			Keyword Args:
 				on (bool): True to turn the light on, False to turn it off.
-				bri (int): Brightness, 1–100%.
-				colour (str): '#RRGGBB' hex string. Mutually exclusive with ct.
-				ct (int): Colour temperature in mirek (153–500).
-				deviceid (str): Provider-specific device identifier.
-				alert (str): Pass 'lselect' to trigger a flash cycle.
-				transitiontime (int): Transition in units of 100 ms.
+				bri (int): Brightness, 1–254. 254 is maximum.
+				colour (str): '#RRGGBB' hex string converted to CIE xy for the Hue API.
+				              Ignored when on=False or when the colour resolves to black.
+				              Mutually exclusive with ct — if ct is provided, colour is ignored.
+				ct (int): Colour temperature in mirek (153–500). 153 = coolest (~6500K),
+				          500 = warmest (~2000K). Uses the white channel on RGBCCT lights.
+				          Mutually exclusive with colour.
+				deviceid (str): UUID of the Hue device or group to target.
+				alert (str): Hue alert effect. 'lselect' is mapped to the v2 'breathe' action.
+				transitiontime (int): Transition duration in units of 100 ms.
 
 		Night mode:
-			If night mode is active and the action is 'pause', returns immediately
-			without changing the lights. If the action is 'dim', brightness is
-			capped at nightmode_maxbri before the state is sent.
+			If night mode is active and the action is 'pause', returns immediately without
+			changing the lights. If the action is 'dim', brightness is capped at
+			nightmode_maxbri before the state is sent.
+
+		Note:
+			'deviceid' and 'colour' are consumed internally and not forwarded to the Hue
+			API. All other kwargs (including alert, transitiontime, etc.) pass through
+			to set_state() unchanged.
 		'''
+
 		self._logger.debug(f"Build_state Called with: {kwargs}")
 
 		if self._is_night_mode_active():
@@ -106,31 +243,97 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				kwargs['bri'] = min(kwargs['bri'], maxbri)
 				self._logger.debug(f"Night mode active — brightness capped at {maxbri}.")
 
-		on = kwargs['on']
-		deviceid = kwargs.get('deviceid')
-		brightness_pct = kwargs.get('bri')
-		colour_hex = kwargs.get('colour') if on else None
-		ct_mirek = int(kwargs.get('ct') or 0) or None
-		flash = kwargs.get('alert') == 'lselect'
-		raw_transition = int(kwargs.get('transitiontime') or 0)
-		transition_ms = (raw_transition * 100) or None
+		exclude_keys = {"deviceid", "colour"}
+		state = {key: value for key, value in kwargs.items() if key not in exclude_keys}
+		self._logger.debug(f"Initial state: {state}")
+		if kwargs['on']:
+			if "colour" in kwargs and kwargs['colour'] is not None:
+				colour = kwargs['colour']
+				xy = self.rgb_to_xy(colour)
+				if xy is not None:
+					state['xy'] = xy
 
-		if self._provider is not None:
-			self._provider.set_light(
-				on=on,
-				deviceid=deviceid,
-				colour_hex=colour_hex,
-				ct_mirek=ct_mirek,
-				brightness_pct=brightness_pct,
-				flash=flash,
-				transition_ms=transition_ms,
-			)
+		self._logger.debug(f"Final State: {state}")
+		return self.set_state(state, kwargs['deviceid'])
+
+	def get_state(self, deviceid=None):
+		'''
+		Queries the on/off state of a Hue device or group via the v2 API.
+
+			Parameters:
+				deviceid (str, optional): UUID of the device to query.
+				                          Defaults to the configured lampid.
+
+			Returns:
+				bool: True if the device is on, False if off.
+				None: If the bridge is not ready or the response is unexpected.
+		'''
+		if not self._bridge_ready():
+			return None
+
+		if deviceid is None:
+			deviceid = self._settings.get(['lampid'])
+
+		self._logger.debug(f"Getting state of {deviceid}")
+		if self._settings.get(['lampisgroup']):
+			response = self._hue_request('GET', f"grouped_light/{deviceid}")
+		else:
+			response = self._hue_request('GET', f"light/{deviceid}")
+
+		data = response.get('data', [])
+		if data:
+			return data[0]['on']['on']
+		return None
+
+	def set_state(self, state, deviceid=None):
+		'''
+		Converts a v1-style state dict to a Hue v2 CLIP API payload and PUTs it to
+		the appropriate light or grouped_light resource.
+
+		Brightness is converted from the 1–254 scale to the v2 0–100% scale.
+		xy colour coordinates are wrapped in the v2 {"x": ..., "y": ...} object.
+		CT is wrapped in color_temperature.mirek.
+		The v1 "lselect" alert value is mapped to the v2 "breathe" action.
+
+			Parameters:
+				state (dict): State attributes using v1 key names:
+				              on, bri (1-254), xy ([x, y]), ct, alert, transitiontime.
+				deviceid (str, optional): UUID of the device or group to target.
+				                          Defaults to the configured lampid.
+		'''
+		if not self._bridge_ready():
+			return
+
+		if deviceid is None:
+			deviceid = self._settings.get(['lampid'])
+
+		self._logger.debug(f"Setting lampid: {deviceid} Is Group: {self._settings.get(['lampisgroup'])} with State: {state}")
+
+		# Build v2 nested payload
+		payload = {}
+		if 'on' in state:
+			payload['on'] = {'on': state['on']}
+		if 'bri' in state:
+			payload['dimming'] = {'brightness': min(float(state['bri']), 100.0)}
+		if 'xy' in state:
+			payload['color'] = {'xy': {'x': state['xy'][0], 'y': state['xy'][1]}}
+		if 'ct' in state:
+			payload['color_temperature'] = {'mirek': state['ct']}
+		if 'alert' in state:
+			# v1 'lselect' (15s cycle) maps to v2 'breathe' (single pulse)
+			payload['alert'] = {'action': 'breathe'}
+		if 'transitiontime' in state:
+			payload['dynamics'] = {'duration': state['transitiontime'] * 100}
+
+		if self._settings.get(['lampisgroup']) and self._settings.get(['plugid']) != deviceid:
+			self._hue_request('PUT', f"grouped_light/{deviceid}", payload)
+		else:
+			self._hue_request('PUT', f"light/{deviceid}", payload)
 
 	def toggle_state(self, deviceid=None):
 		'''
-		Flips the on/off state of a device. When turning on, lamps use the
-		configured toggle colour/CT and brightness; plugs (plugid) are switched
-		on without a brightness or colour argument.
+		Flips the on/off state of a device. When turning on, lamps use the configured
+		default brightness; plugs (plugid) are switched on without a brightness argument.
 
 			Parameters:
 				deviceid (str, optional): UUID of the device to toggle.
@@ -139,12 +342,10 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if deviceid is None:
 			deviceid = self._settings.get(['lampid'])
 
-		if self._provider is not None and self._provider.get_state(deviceid):
+		if self.get_state(deviceid):
 			self.build_state(on=False, deviceid=deviceid)
 		else:
-			plugid = self._settings.get(['plugid'])
-			is_plug = plugid and deviceid == plugid
-			if not is_plug:
+			if deviceid != self._settings.get(['plugid']):
 				ct = int(self._settings.get(['togglect']) or 0)
 				bri = int(self._settings.get(['togglebri']) or self._settings.get(['defaultbri']))
 				if ct:
@@ -162,17 +363,17 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			Returns:
 				list[str]: Event names the user has configured a light response for.
 		'''
-		configured_events = [sub['event'] for sub in self._settings.get(['statusDict'])]
+		configured_events = [ sub['event'] for sub in self._settings.get(['statusDict']) ]
 		return configured_events
 
 	def on_after_startup(self):
 		'''
-		OctoPrint startup hook. Establishes the provider connection and, if
+		OctoPrint startup hook. Establishes the Hue bridge connection and, if
 		"Lights On at Startup" is configured, triggers the corresponding statusDict
 		light state.
 		'''
 		self._logger.info("Octohue is alive!")
-		self._init_provider()
+		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 		if self._settings.get(['ononstartup']):
 			my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
 			if my_statusEvent:
@@ -184,12 +385,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def on_shutdown(self):
 		'''
-		OctoPrint shutdown hook. Turns off the configured lamp if offonshutdown
-		is True. Bypasses night mode — we always want the light off on shutdown.
+		OctoPrint shutdown hook. Turns off the configured lamp if offonshutdown is True.
 		'''
 		self._logger.info("Ladies and Gentlemen, thank you and goodnight!")
-		if self._settings.get(['offonshutdown']) and self._provider is not None:
-			self._provider.set_light(on=False)
+		if self._settings.get(['offonshutdown']):
+			self.set_state({"on": False})
 
 	def printer_start_power_down(self):
 		'''
@@ -198,12 +398,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		delay = self._settings.get(['powerofftime']) or 0
 		delayedtask = ResettableTimer(delay, self.printer_check_temp_power_down)
+
 		delayedtask.start()
 
 	def printer_check_temp_power_down(self):
 		'''
 		Check if minimum temperature for shutdown is reached if defined.
-		Shutdown if below temp or not defined. Reschedules itself every 30 s
+		Shutdown if below temp or not defined.  Reschedules itself every 30 s
 		until the temperature condition is met rather than blocking in a loop.
 		'''
 		deviceid = self._settings.get(['plugid'])
@@ -215,6 +416,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			return
 		current_temp = max(tool_temps)
 		self._logger.debug(f"Safe Shutdown Requested! Tool Temp: {current_temp}, Looking for Safe Cooldown Temp: {target_temp}")
+		# Check if current_temp is below shutdowntemp OR below 40 (whichever happens first)
 		if current_temp <= target_temp or current_temp <= 40:
 			self._logger.debug(f"Safe Cooldown reached {current_temp}, shutting down.")
 			self.build_state(on=False, deviceid=deviceid)
@@ -226,8 +428,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		# Commands that need admin access perform their own Permissions.ADMIN.can()
 		# check inside on_api_command. Returning False here keeps the API open
 		# for unauthenticated callers (e.g. togglehue/turnon/turnoff/cooldown)
-		# and suppresses OctoPrint's deprecation warning about plugins that don't
-		# explicitly declare their API protection preference.
+		# and suppresses OctoPrint's future-deprecation warning.
 		return False
 
 	def get_api_commands(self):
@@ -251,56 +452,61 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Handles SimpleApi commands dispatched by OctoPrint.
 
 			Commands:
-				bridge     (admin) getstatus / discover / pair sub-commands.
-				getdevices (admin) Returns lights, optionally filtered by archetype.
-				getgroups  (admin) Returns rooms and zones as named group entries.
+				bridge     (admin) getstatus / discover / pair sub-commands for bridge management.
+				getdevices (admin) Returns Hue lights, optionally filtered by archetype.
+				getgroups  (admin) Returns Hue rooms and zones as named group entries.
 				getstate   (admin) Returns the current on/off state of the configured lamp.
 				togglehue  Toggles the lamp (or a specific device) between on and off.
 				turnon     Turns a device on, optionally applying a colour hex value.
 				turnoff    Turns a device off.
-				cooldown   Triggers the temperature-monitored power-down sequence.
+				cooldown   Triggers the temperature-monitored power-down sequence immediately.
 		'''
 		self._logger.debug(f"Recieved API Command: {command}")
-
 		if command == 'bridge':
 			if not Permissions.ADMIN.can():
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
-
 			if "getstatus" in data:
-				provider_name = self._settings.get(['provider']) or 'hue'
 				bridge = self._settings.get(['bridgeaddr'])
-				if provider_name == 'wled':
-					if bridge:
-						return flask.jsonify(bridgestatus="configured")
-					else:
-						return flask.jsonify(bridgestatus="unconfigured")
+				apikey = self._settings.get(['husername'])
+				if bridge and apikey:
+					return flask.jsonify(bridgestatus="configured")
+				elif bridge and not apikey:
+					return flask.jsonify(bridgestatus="unauthed")
 				else:
-					apikey = self._settings.get(['husername'])
-					if bridge and apikey:
-						return flask.jsonify(bridgestatus="configured")
-					elif bridge and not apikey:
-						return flask.jsonify(bridgestatus="unauthed")
-					else:
-						return flask.jsonify(bridgestatus="unconfigured")
+					return flask.jsonify(bridgestatus="unconfigured")
 
 			elif "discover" in data:
-				from octoprint_octohue.providers.hue import HueProvider
-				discovered = HueProvider(self._logger).discover()
-				self._logger.debug(discovered)
-				return flask.jsonify(discovered)
+				r = requests.get(self.discoveryurl)
+				discoveredbridge = r.json()
+				self._logger.debug(discoveredbridge)
+				return flask.jsonify(discoveredbridge)
 
 			elif "pair" in data:
-				from octoprint_octohue.providers.hue import HueProvider
-				result = HueProvider(self._logger).pair(bridgeaddr=data['bridgeaddr'])
-				if result.get('response') == 'success':
-					self._settings.set(['husername'], result['husername'])
-					self._settings.set(['bridgeaddr'], result['bridgeaddr'])
-					self._settings.set(['provider'], 'hue')
+				self._logger.debug(data['bridgeaddr'])
+				bridgeaddr = data['bridgeaddr']
+				# Pairing still uses the v1 endpoint — this is correct and unchanged in v2
+				pair_session = requests.Session()
+				pair_session.mount("https://", _SignifyAdapter())
+				r = pair_session.post("https://{}/api".format(bridgeaddr), json={"devicetype":"octoprint#octohue"})
+				result = r.json()[0]
+				if "error" in result:
+					response = [{
+						'response': 'error'
+					}]
+					return flask.jsonify(response)
+				elif "success" in result:
+					token = result['success']['username']
+					response = [{
+						'response': 'success',
+						'bridgeaddr': bridgeaddr,
+						'husername': token
+					}]
+					self._logger.debug(f"New Huesername {token}")
+					self._settings.set(['husername'], token)
+					self._settings.set(['bridgeaddr'], bridgeaddr)
 					self._settings.save()
-					self._init_provider()
-					return flask.jsonify([result])
-				else:
-					return flask.jsonify([result])
+					self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+					return flask.jsonify(response)
 
 			else:
 				return flask.jsonify(status="ok")
@@ -308,24 +514,42 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'getdevices':
 			if not Permissions.ADMIN.can():
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
-			if not self._provider or not self._provider.is_ready:
+			if not self._bridge_ready():
 				return flask.jsonify(devices=[])
 			self._logger.debug("Getting Devices")
-			all_lights = self._provider.get_lights()
+			response = self._hue_request('GET', 'light')
+			devices = response.get('data', [])
 			if 'archetype' in data:
 				self._logger.debug(f"Archetype: {data['archetype']}")
-				devices = [d for d in all_lights if d.get('archetype') == data['archetype']]
+				device_elements = [
+					{"id": d['id'], "name": d['metadata']['name'], "archetype": d['metadata']['archetype']}
+					for d in devices
+					if d.get('metadata', {}).get('archetype') == data['archetype']
+				]
 			else:
-				devices = all_lights
-			return flask.jsonify(devices=devices)
+				device_elements = [
+					{"id": d['id'], "name": d['metadata']['name'], "archetype": d.get('metadata', {}).get('archetype', '')}
+					for d in devices
+				]
+			return flask.jsonify(devices=device_elements)
 
 		elif command == 'getgroups':
 			if not Permissions.ADMIN.can():
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
-			if not self._provider or not self._provider.is_ready:
+			if not self._bridge_ready():
 				return flask.jsonify(groups=[])
 			self._logger.debug("Getting Groups")
-			groups = self._provider.get_groups()
+			groups = []
+			for resource_type in ('room', 'zone'):
+				response = self._hue_request('GET', resource_type)
+				for item in response.get('data', []):
+					name = item.get('metadata', {}).get('name', '')
+					grouped_light_id = next(
+						(s['rid'] for s in item.get('services', []) if s.get('rtype') == 'grouped_light'),
+						None
+					)
+					if grouped_light_id and name:
+						groups.append({'id': grouped_light_id, 'name': name})
 			return flask.jsonify(groups=groups)
 
 		elif command == 'togglehue':
@@ -338,13 +562,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'getstate':
 			if not Permissions.ADMIN.can():
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
-			if self._provider is not None and self._provider.get_state():
+			if self.get_state():
 				return flask.jsonify(on="true")
 			else:
 				return flask.jsonify(on="false")
 
 		elif command == 'turnon':
 			deviceid = data.get('deviceid') or self._settings.get(['lampid'])
+
 			if "colour" in data:
 				self.build_state(on=True, colour=data['colour'], bri=int(self._settings.get(['defaultbri'])), deviceid=deviceid)
 			else:
@@ -352,6 +577,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 		elif command == 'turnoff':
 			deviceid = data.get('deviceid') or self._settings.get(['lampid'])
+
 			self.build_state(on=False, deviceid=deviceid)
 
 		elif command == 'cooldown':
@@ -360,8 +586,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 	def on_event(self, event, payload):
 		'''
 		OctoPrint event hook. If the event matches a configured statusDict entry,
-		schedules the appropriate light change (on/off/flash) after the configured
-		delay. Also triggers auto power-off if enabled and the event is PrintDone.
+		schedules the appropriate light change (on/off/flash) after the configured delay.
+		Also triggers auto power-off if enabled and the event is PrintDone.
 		'''
 		self._logger.debug(f"Recieved Status: {event} from Printer")
 		my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == event), None)
@@ -372,11 +598,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 			flash = my_statusEvent.get('flash', False)
 			turnoff = my_statusEvent['turnoff']
+
 			ct = int(my_statusEvent.get('ct') or 0)
 
-			provider_supports_flash = (self._settings.get(['provider']) or 'hue') == 'hue'
-			if turnoff and flash and provider_supports_flash:
-				# Flash first, then switch off after the Hue alert cycle completes (15 s)
+			if turnoff and flash:
+				# Flash first, then switch off after the alert cycle completes
 				flash_kwargs = {'on': True, 'bri': int(my_statusEvent['brightness']), 'alert': 'lselect', 'deviceid': deviceid}
 				if ct:
 					flash_kwargs['ct'] = ct
@@ -384,9 +610,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					flash_kwargs['colour'] = my_statusEvent['colour']
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs=flash_kwargs)
 				ResettableTimer(delay + 15, self.build_state, kwargs={'on': False, 'deviceid': deviceid}).start()
-			elif turnoff and flash and not provider_supports_flash:
-				# Provider doesn't support flash — turn off immediately after delay
-				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on': False, 'deviceid': deviceid})
 			elif not turnoff:
 				brightness = my_statusEvent['brightness']
 				build_kwargs = {'on': True, 'bri': int(brightness), 'deviceid': deviceid}
@@ -405,6 +628,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			except Exception as e:
 				self._logger.error(f"Error starting delayed task: {e}")
 
+
 		if self._settings.get(['autopoweroff']) and event == 'PrintDone':
 			self.printer_start_power_down()
 
@@ -416,7 +640,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		return dict(
 			enabled=True,
 			installed_version=self._plugin_version,
-			provider='hue',
 			bridgeaddr="",
 			husername="",
 			lampid="",
@@ -447,14 +670,14 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Restricts bridgeaddr and husername to admin users in OctoPrint's settings API.
 		Required by OctoPrint's SettingsPlugin mixin.
 		'''
-		return dict(admin=[["bridgeaddr"], ["husername"]])
+		return dict(admin=[["bridgeaddr"],["husername"]])
 
 	def get_settings_version(self):
 		'''
 		Returns the current settings schema version. OctoPrint uses this to detect
 		when on_settings_migrate needs to be called.
 		'''
-		return 5
+		return 4
 
 	def on_settings_migrate(self, target, current=None):
 		'''
@@ -464,8 +687,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		current<2  (v1→v2): clears lampid/plugid — Hue v2 uses UUIDs, not integer IDs.
 		current<3  (v2→v3): converts all brightness values from 1–255 scale to
 		                     0–100 percentage scale used by the Hue v2 API.
-		current<4  (v3→v4): seeds toggle colour/brightness/CT settings.
-		current<5  (v4→v5): sets provider to 'hue' for existing installs.
 
 		Cascading if-blocks (not elif) ensure users upgrading across multiple
 		versions in one step receive all intermediate migrations.
@@ -538,10 +759,6 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			self._settings.set(['togglecolour'], '#FFFFFF')
 			self._settings.set(['togglect'], 0)
 
-		if current < 5:
-			self._logger.info("Migrating Settings v4→v5: setting provider to 'hue' for existing installs")
-			self._settings.set(['provider'], 'hue')
-
 		self._settings.save()
 
 	def on_settings_load(self):
@@ -575,20 +792,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			"nightmode_end": self._settings.get(["nightmode_end"]),
 			"nightmode_action": self._settings.get(["nightmode_action"]),
 			"nightmode_maxbri": self._settings.get(["nightmode_maxbri"]),
-			"provider": self._settings.get(["provider"]),
 		}
 		return my_settings
 
 	def on_settings_save(self, data):
 		'''
-		Persists settings and re-initialises the provider with any updated
-		credentials. Strips availableEvents (frontend-only) before passing to
-		the base class.
+		Persists settings and re-establishes the bridge connection with any updated
+		credentials. Strips availableEvents (frontend-only) before passing to the base class.
 		'''
 		data.pop("availableEvents", None)
 		self._logger.debug(f"Saving: {data} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-		self._init_provider()
+		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
 
 	def get_template_vars(self):
 		'''
@@ -634,8 +849,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	def get_update_information(self):
 		'''
-		Provides configuration for OctoPrint's Software Update plugin to check
-		for new releases on GitHub and install them via pip.
+		Provides configuration for OctoPrint's Software Update plugin to check for new
+		releases on GitHub and install them via pip.
 		'''
 		return dict(
 			OctoHue=dict(
@@ -671,10 +886,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			)
 		)
 
-
 __plugin_name__ = "Octohue"
 __plugin_pythoncompat__ = ">=3.9,<4"
-
 
 def __plugin_load__():
 	global __plugin_implementation__
