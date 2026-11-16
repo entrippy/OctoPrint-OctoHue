@@ -404,6 +404,71 @@ class TestPair:
         session_mock.post.side_effect = None
 
 
+class TestPairTimeout:
+    """#84: the pairing POST must not hang on an address that never answers."""
+
+    # requests is a MagicMock in this suite, so give it real exception classes
+    # with the same hierarchy as requests (Timeout <- ConnectTimeout/ReadTimeout).
+    _RequestException = type("RequestException", (OSError,), {})
+    _Timeout = type("Timeout", (_RequestException,), {})
+    _ConnectTimeout = type("ConnectTimeout", (_Timeout,), {})
+    _ReadTimeout = type("ReadTimeout", (_Timeout,), {})
+
+    @pytest.fixture
+    def pair_session(self):
+        from octoprint_octohue.providers import hue
+        exceptions = MagicMock(
+            RequestException=self._RequestException, Timeout=self._Timeout,
+            ConnectTimeout=self._ConnectTimeout, ReadTimeout=self._ReadTimeout,
+        )
+        session = MagicMock(name="pair_session")
+        session.post.return_value.json.return_value = [
+            {"error": {"description": "link button not pressed"}}
+        ]
+        # side_effect list: a second Session() would raise, so mount and post
+        # must happen on the same session. Tests must request `hue_provider`
+        # before this fixture, or the provider's own setup() consumes the
+        # single session.
+        with patch.object(hue.requests, "Session", side_effect=[session]), \
+             patch.object(hue.requests, "exceptions", exceptions):
+            yield session
+
+    def test_posts_to_https_api_with_devicetype(self, hue_provider, pair_session):
+        hue_provider.pair(bridgeaddr="192.168.1.100")
+        assert pair_session.post.called
+        call = pair_session.post.call_args
+        assert (call.args[0] if call.args else call.kwargs.get("url")) == "https://192.168.1.100/api"
+        assert call.kwargs.get("json") == {"devicetype": "octoprint#octohue"}
+
+    def test_post_passes_request_timeout(self, hue_provider, pair_session, monkeypatch):
+        from octoprint_octohue.providers import hue
+        monkeypatch.setattr(hue, "REQUEST_TIMEOUT", 7)
+        hue_provider.pair(bridgeaddr="192.168.1.100")
+        assert pair_session.post.called
+        assert pair_session.post.call_args.kwargs.get("timeout") == 7
+
+    @pytest.mark.parametrize("exc", ["_ConnectTimeout", "_ReadTimeout"])
+    def test_requests_timeout_returns_error_without_raising(self, hue_provider, pair_session, exc):
+        pair_session.post.side_effect = getattr(self, exc)("timed out")
+        assert hue_provider.pair(bridgeaddr="192.168.1.100") == {"response": "error"}
+        logger = hue_provider._logger
+        assert logger.warning.called or logger.error.called or logger.exception.called
+
+    def test_adapter_mounted_before_post_and_tls_not_disabled(self, hue_provider, pair_session):
+        from octoprint_octohue.providers.hue import _SignifyAdapter
+        hue_provider.pair(bridgeaddr="192.168.1.100")
+        names = [c[0] for c in pair_session.mock_calls]
+        mounts = [c for c in pair_session.mount.call_args_list if c.args[0] == "https://"]
+        assert len(mounts) == 1 and isinstance(mounts[0].args[1], _SignifyAdapter)
+        assert names.index("mount") < names.index("post")
+        assert pair_session.post.call_args.kwargs.get("verify", True) is not False
+
+    def test_success_does_not_log_new_key(self, hue_provider, pair_session):
+        pair_session.post.return_value.json.return_value = [{"success": {"username": "brand-new-key"}}]
+        assert hue_provider.pair(bridgeaddr="192.168.1.100")["response"] == "success"
+        assert not any("brand-new-key" in str(c) for c in hue_provider._logger.mock_calls)
+
+
 # ===========================================================================
 # check_connection / request timeout
 # ===========================================================================

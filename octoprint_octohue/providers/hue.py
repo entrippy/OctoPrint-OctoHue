@@ -353,6 +353,7 @@ class HueProvider(LightProvider):
             r = pair_session.post(
                 f"https://{bridgeaddr}/api",
                 json={"devicetype": "octoprint#octohue"},
+                timeout=REQUEST_TIMEOUT,
             )
             result = r.json()[0]
         except Exception as e:
@@ -364,7 +365,7 @@ class HueProvider(LightProvider):
 
         if "success" in result:
             token = result["success"]["username"]
-            self._logger.debug(f"New Hue API key acquired")
+            self._logger.debug("New Hue API key acquired")
             return {"response": "success", "bridgeaddr": bridgeaddr, "husername": token}
 
         return {"response": "error"}
