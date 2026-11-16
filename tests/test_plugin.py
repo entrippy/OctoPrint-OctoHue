@@ -272,11 +272,19 @@ class TestInitProvider:
     """_init_provider() selects the correct class from PROVIDERS and calls setup()."""
 
     def test_unknown_provider_falls_back_to_hue(self, plugin):
-        """An unrecognised provider name must fall back to HueProvider, not raise."""
+        """An unrecognised provider name must fall back to HueProvider with Hue settings."""
         from octoprint_octohue.providers.hue import HueProvider
         plugin._settings.get.side_effect = make_settings_getter({"provider": "nonexistent"})
         plugin._init_provider()
         assert isinstance(plugin._provider, HueProvider)
+        assert plugin._provider.is_ready  # must be configured with Hue settings, not empty dict
+
+    def test_wled_provider_selected_when_configured(self, plugin):
+        """provider='wled' in settings must instantiate WledProvider."""
+        from octoprint_octohue.providers.wled import WledProvider
+        plugin._settings.get.side_effect = make_settings_getter({"provider": "wled"})
+        plugin._init_provider()
+        assert isinstance(plugin._provider, WledProvider)
 
     def test_build_provider_settings_returns_empty_dict_for_unknown_provider(self, plugin):
         """Non-hue providers receive an empty settings dict until they define their own keys."""
@@ -285,51 +293,16 @@ class TestInitProvider:
 
 
 # ===========================================================================
-# establishBridge
-# ===========================================================================
-
-class TestEstablishBridge:
-    """establishBridge() delegates to _provider.setup() with the correct settings."""
-
-    def test_calls_provider_setup_with_addr_and_key(self, plugin):
-        plugin._settings.get.side_effect = make_settings_getter(
-            {"lampid": "lamp-1", "lampisgroup": False, "plugid": "plug-1"}
-        )
-        plugin.establishBridge("192.168.1.100", "my-key")
-        plugin._provider.setup.assert_called_once()
-        settings_arg = plugin._provider.setup.call_args[0][0]
-        assert settings_arg["bridgeaddr"] == "192.168.1.100"
-        assert settings_arg["husername"] == "my-key"
-
-    def test_lampid_forwarded_to_provider_setup(self, plugin):
-        plugin._settings.get.side_effect = make_settings_getter(
-            {"lampid": "lamp-uuid", "lampisgroup": False, "plugid": ""}
-        )
-        plugin.establishBridge("192.168.1.100", "key")
-        settings_arg = plugin._provider.setup.call_args[0][0]
-        assert settings_arg["lampid"] == "lamp-uuid"
-
-    def test_creates_provider_if_none(self, plugin):
-        """If _provider is None, establishBridge initialises it before calling setup."""
-        plugin._settings.get.side_effect = make_settings_getter()
-        plugin._provider = None
-        # Should not raise
-        plugin.establishBridge("192.168.1.100", "key")
-
-
-# ===========================================================================
 # on_after_startup
 # ===========================================================================
 
 class TestOnAfterStartup:
 
-    def test_calls_establish_bridge_with_settings(self, plugin):
+    def test_calls_init_provider_on_startup(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.on_after_startup()
-        plugin.establishBridge.assert_called_once_with(
-            "192.168.1.100", "test-api-key"
-        )
+        plugin._init_provider.assert_called_once()
 
     def test_ononstartup_matching_event_calls_build_state(self, plugin):
         """When ononstartup is True and the configured event exists in statusDict,
@@ -345,7 +318,7 @@ class TestOnAfterStartup:
             'statusDict': [status_entry],
             'lampid': '1',
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_called_once_with(
@@ -360,7 +333,7 @@ class TestOnAfterStartup:
             'ononstartupevent': 'PrintDone',
             'statusDict': [],
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_not_called()
@@ -379,7 +352,7 @@ class TestOnAfterStartup:
             'statusDict': [status_entry],
             'lampid': '1',
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_called_once_with(
@@ -399,7 +372,7 @@ class TestOnAfterStartup:
             'ononstartupevent': 'PrintDone',
             'statusDict': [status_entry],
         })
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.build_state = MagicMock()
         plugin.on_after_startup()
         plugin.build_state.assert_not_called()
@@ -726,64 +699,461 @@ class TestOnApiCommandBridge:
         plugin.on_api_command("bridge", {"getstatus": "true"})
         flask.jsonify.assert_called_once_with(bridgestatus="configured")
 
-    def test_discover_delegates_to_provider(self, plugin):
+    def test_getstatus_wled_configured(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="configured")
+        plugin._provider.check_connection.assert_called_once_with()
+
+    def test_getstatus_wled_unconfigured(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unconfigured")
+
+    def test_getstatus_unreachable_when_probe_fails(self, plugin):
+        """Address and key set but the bridge does not answer → 'unreachable'."""
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "192.168.1.100", "husername": "key"}
+        )
+        plugin._provider.check_connection.return_value = False
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unreachable")
+
+    def test_getstatus_configured_probes_bridge_once(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "192.168.1.100", "husername": "key"}
+        )
+        plugin._provider.check_connection.return_value = True
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        plugin._provider.check_connection.assert_called_once_with()
+
+    def test_getstatus_unauthed_does_not_probe(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "192.168.1.100", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        plugin._provider.check_connection.assert_not_called()
+
+    def test_getstatus_unconfigured_does_not_probe(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        plugin._provider.check_connection.assert_not_called()
+
+    @pytest.mark.parametrize("overrides,expected", [
+        ({"bridgeaddr": "192.168.1.100", "husername": "key"}, "unreachable"),
+        ({"bridgeaddr": "", "husername": ""}, "unconfigured"),
+        ({"bridgeaddr": "192.168.1.100", "husername": ""}, "unauthed"),
+        ({"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}, "unreachable"),
+        ({"provider": "wled", "bridgeaddr": "", "husername": ""}, "unconfigured"),
+    ])
+    def test_getstatus_without_provider(self, plugin, overrides, expected):
+        """Missing provider only changes the result when there is something to probe."""
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(overrides)
+        plugin._provider = None
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus=expected)
+
+    def test_getstatus_wled_unreachable_when_probe_fails(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}
+        )
+        plugin._provider.check_connection.return_value = False
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unreachable")
+
+    def test_getstatus_wled_unconfigured_does_not_probe(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        plugin._provider.check_connection.assert_not_called()
+
+    # ---- #83: dropdown provider differs from the saved one ---------------
+
+    @pytest.mark.parametrize("saved,requested", [
+        ("wled", "hue"),
+        ("hue", "wled"),
+        ("", "wled"),      # empty saved provider counts as Hue
+        (None, "wled"),
+        ("wled", ""),      # empty requested provider counts as Hue too
+        ("wled", None),
+    ])
+    def test_getstatus_unsaved_when_requested_provider_differs(self, plugin, saved, requested):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": saved, "bridgeaddr": "192.168.1.50", "husername": "key"}
+        )
+        live = plugin._provider
+        plugin._init_provider = MagicMock()
+        plugin.on_api_command("bridge", {"getstatus": "true", "provider": requested})
+        flask.jsonify.assert_called_once_with(bridgestatus="unsaved")
+        plugin._provider.check_connection.assert_not_called()
+        # Reporting "unsaved" must not touch settings or the live provider.
+        assert plugin._provider is live
+        plugin._init_provider.assert_not_called()
+        plugin._settings.set.assert_not_called()
+        plugin._settings.save.assert_not_called()
+
+    @pytest.mark.parametrize("saved,requested", [
+        ("hue", "hue"), ("", "hue"), (None, "hue"), ("wled", "wled"),
+        ("hue", ""), ("hue", None),   # empty/None requested provider also counts as Hue
+    ])
+    def test_getstatus_probes_when_requested_provider_matches(self, plugin, saved, requested):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": saved, "bridgeaddr": "192.168.1.50", "husername": "key"}
+        )
+        plugin._provider.check_connection.return_value = True
+        plugin.on_api_command("bridge", {"getstatus": "true", "provider": requested})
+        plugin._provider.check_connection.assert_called_once()
+        flask.jsonify.assert_called_once_with(bridgestatus="configured")
+
+    @pytest.mark.parametrize("provider,addr,key,probe_ok,expected", [
+        ("hue", "192.168.1.50", "", True, "unauthed"),
+        ("hue", "", "", True, "unconfigured"),
+        ("wled", "", "", True, "unconfigured"),
+        ("hue", "192.168.1.50", "key", False, "unreachable"),
+        ("wled", "192.168.1.50", "", False, "unreachable"),
+    ])
+    def test_getstatus_matching_provider_keeps_every_existing_status(self, plugin, provider, addr, key, probe_ok, expected):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": provider, "bridgeaddr": addr, "husername": key}
+        )
+        plugin._provider.check_connection.return_value = probe_ok
+        plugin.on_api_command("bridge", {"getstatus": "true", "provider": provider})
+        flask.jsonify.assert_called_once_with(bridgestatus=expected)
+        if expected in ("unauthed", "unconfigured"):
+            plugin._provider.check_connection.assert_not_called()
+
+    def test_getstatus_without_requested_provider_keeps_old_behaviour(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}
+        )
+        plugin._provider.check_connection.return_value = False
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unreachable")
+
+    @pytest.mark.parametrize("saved,requested", [
+        ({"provider": "wled", "bridgeaddr": "", "husername": ""}, "hue"),               # WLED unconfigured
+        ({"provider": "hue", "bridgeaddr": "192.168.1.50", "husername": ""}, "wled"),   # Hue unauthed
+        ({"provider": "hue", "bridgeaddr": "", "husername": ""}, "wled"),               # Hue unconfigured
+    ])
+    def test_getstatus_unsaved_takes_precedence(self, plugin, saved, requested):
+        """A provider switch is reported whatever state the saved settings are in."""
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(saved)
+        plugin.on_api_command("bridge", {"getstatus": "true", "provider": requested})
+        flask.jsonify.assert_called_once_with(bridgestatus="unsaved")
+        plugin._provider.check_connection.assert_not_called()
+
+    def test_discover_uses_hue_provider_directly(self, plugin):
         flask = sys.modules["flask"]
         bridges = [{"internalipaddress": "192.168.1.100", "id": "abc"}]
-        plugin._provider.discover.return_value = bridges
-        plugin.on_api_command("bridge", {"discover": "true"})
-        plugin._provider.discover.assert_called_once()
-        flask.jsonify.assert_called_once_with(bridges)
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.discover.return_value = bridges
+            plugin.on_api_command("bridge", {"discover": "true"})
+            MockHue.return_value.discover.assert_called_once()
+            flask.jsonify.assert_called_once_with(bridges)
+
+    # ---- relocate: find a bridge that moved, reusing the saved key ----------
+
+    @staticmethod
+    def _hue_factory(discovered, accepts):
+        """
+        Build a HueProvider stand-in where every instance shares the given
+        discovery result and check_connection() is True only for addresses in
+        ``accepts``. Returns (factory, instances) so tests can inspect calls.
+
+        Like the existing discover/pair tests, this relies on the plugin
+        importing HueProvider at call time and using one fresh instance per
+        probed address, configured via setup(dict).
+        """
+        instances = []
+
+        def make(logger):
+            m = MagicMock(name=f"HueProvider#{len(instances)}")
+            m.discover.return_value = discovered
+            m._cfg = {}
+            m.setup.side_effect = lambda cfg, m=m: m._cfg.update(cfg)
+            m.check_connection.side_effect = lambda m=m: m._cfg.get("bridgeaddr") in accepts
+            instances.append(m)
+            return m
+
+        return make, instances
+
+    @staticmethod
+    def _bridgeaddr_sets(plugin):
+        return [c for c in plugin._settings.set.call_args_list if c.args[0] == ["bridgeaddr"]]
+
+    @staticmethod
+    def _probed(instances):
+        return [i._cfg.get("bridgeaddr") for i in instances if i.check_connection.called]
+
+    def _relocate(self, plugin, discovered, accepts, key="saved-key", data=None, provider="hue"):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "192.168.1.40", "husername": key, "provider": provider}
+        )
+        plugin._init_provider = MagicMock()
+        factory, instances = self._hue_factory(discovered, accepts)
+        with patch("octoprint_octohue.providers.hue.HueProvider", side_effect=factory):
+            plugin.on_api_command("bridge", data or {"relocate": "true"})
+        return instances
+
+    def test_relocate_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            plugin.on_api_command("bridge", {"relocate": "true"})
+            MockHue.assert_not_called()
+        assert flask.make_response.call_args[0][1] == 403
+        flask.jsonify.assert_any_call(error="Forbidden")
+        plugin._settings.save.assert_not_called()
+
+    def test_relocate_saves_address_that_accepts_saved_key(self, plugin):
+        flask = sys.modules["flask"]
+        self._relocate(plugin, [{"id": "b1", "internalipaddress": "192.168.1.120"}], {"192.168.1.120"})
+        assert self._bridgeaddr_sets(plugin) == [call(["bridgeaddr"], "192.168.1.120")]
+        plugin._settings.save.assert_called_once()
+        plugin._init_provider.assert_called_once()
+        flask.jsonify.assert_called_once_with(result="relocated", bridgeaddr="192.168.1.120")
+
+    def test_relocate_probes_with_saved_key(self, plugin):
+        instances = self._relocate(
+            plugin, [{"internalipaddress": "192.168.1.120"}], {"192.168.1.120"}, key="saved-key"
+        )
+        probed = [i for i in instances if i.check_connection.called]
+        assert probed and all(i._cfg.get("husername") == "saved-key" for i in probed)
+
+    def test_relocate_does_not_change_saved_key(self, plugin):
+        self._relocate(plugin, [{"internalipaddress": "192.168.1.120"}], {"192.168.1.120"})
+        assert all(c.args[0] != ["husername"] for c in plugin._settings.set.call_args_list)
+
+    def test_relocate_tries_next_bridge_when_first_rejects(self, plugin):
+        flask = sys.modules["flask"]
+        instances = self._relocate(
+            plugin,
+            [{"internalipaddress": "192.168.1.60"}, {"internalipaddress": "192.168.1.120"}],
+            {"192.168.1.120"},
+        )
+        assert self._probed(instances) == ["192.168.1.60", "192.168.1.120"]
+        assert self._bridgeaddr_sets(plugin) == [call(["bridgeaddr"], "192.168.1.120")]
+        flask.jsonify.assert_called_once_with(result="relocated", bridgeaddr="192.168.1.120")
+
+    def test_relocate_skips_entries_without_address(self, plugin):
+        flask = sys.modules["flask"]
+        self._relocate(
+            plugin, [{"id": "x"}, {"internalipaddress": "192.168.1.120"}], {"192.168.1.120"}
+        )
+        flask.jsonify.assert_called_once_with(result="relocated", bridgeaddr="192.168.1.120")
+
+    def test_relocate_needspairing_uses_first_entry_with_address(self, plugin):
+        flask = sys.modules["flask"]
+        self._relocate(plugin, [{"id": "x"}, {"internalipaddress": "192.168.1.120"}], set())
+        flask.jsonify.assert_called_once_with(result="needspairing", bridgeaddr="192.168.1.120")
+
+    def test_relocate_stops_at_first_accepting_bridge(self, plugin):
+        instances = self._relocate(
+            plugin,
+            [{"internalipaddress": "192.168.1.120"}, {"internalipaddress": "192.168.1.60"}],
+            {"192.168.1.120", "192.168.1.60"},
+        )
+        assert self._probed(instances) == ["192.168.1.120"]
+
+    def test_relocate_needs_pairing_when_no_bridge_accepts_key(self, plugin):
+        flask = sys.modules["flask"]
+        self._relocate(
+            plugin,
+            [{"internalipaddress": "192.168.1.120"}, {"internalipaddress": "192.168.1.60"}],
+            set(),
+        )
+        flask.jsonify.assert_called_once_with(result="needspairing", bridgeaddr="192.168.1.120")
+        assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+        plugin._init_provider.assert_not_called()
+        # Probing must use temporary providers, never repoint the live one.
+        plugin._provider.setup.assert_not_called()
+
+    @pytest.mark.parametrize("key", ["", None])
+    def test_relocate_without_saved_key_needs_pairing_without_probing(self, plugin, key):
+        flask = sys.modules["flask"]
+        instances = self._relocate(
+            plugin,
+            [{"internalipaddress": "192.168.1.120"}, {"internalipaddress": "192.168.1.60"}],
+            {"192.168.1.120", "192.168.1.60"},
+            key=key,
+        )
+        assert self._probed(instances) == []
+        flask.jsonify.assert_called_once_with(result="needspairing", bridgeaddr="192.168.1.120")
+        assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+        plugin._init_provider.assert_not_called()
+
+    @pytest.mark.parametrize("discovered", [
+        [],
+        [{"id": "no-address"}],
+        ["192.168.1.1"],
+        [None],
+    ])
+    def test_relocate_notfound_when_discovery_has_no_addresses(self, plugin, discovered):
+        flask = sys.modules["flask"]
+        self._relocate(plugin, discovered, set())
+        flask.jsonify.assert_called_once_with(result="notfound")
+        assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+
+    @pytest.mark.parametrize("discovered", [{"error": "rate limited"}, None])
+    def test_relocate_failed_when_discovery_response_is_not_a_list(self, plugin, discovered):
+        """An error object from discovery means the search didn't work, not that no bridge exists."""
+        flask = sys.modules["flask"]
+        self._relocate(plugin, discovered, set())
+        flask.jsonify.assert_called_once_with(result="failed")
+        plugin._settings.save.assert_not_called()
+
+    def test_relocate_refuses_when_saved_provider_is_not_hue(self, plugin):
+        """bridgeaddr is shared with WLED; relocate must never overwrite a WLED address."""
+        flask = sys.modules["flask"]
+        instances = self._relocate(
+            plugin, [{"internalipaddress": "192.168.1.120"}], {"192.168.1.120"}, provider="wled"
+        )
+        assert self._probed(instances) == []
+        assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+        flask.jsonify.assert_called_once_with(result="failed")
+
+    @pytest.mark.parametrize("bad", [
+        "8.8.8.8", "not-an-ip", "", 12345, "192.168.1.120/../x",
+        "127.0.0.1", "0.0.0.0", "169.254.1.1", "fd00::1", "::1",
+    ])
+    def test_relocate_ignores_non_private_or_invalid_addresses(self, plugin, bad):
+        """Only private-network IP addresses from discovery are probed or offered."""
+        flask = sys.modules["flask"]
+        instances = self._relocate(plugin, [{"internalipaddress": bad}], {bad} if isinstance(bad, str) else set())
+        assert self._probed(instances) == []
+        flask.jsonify.assert_called_once_with(result="notfound")
+
+    def test_relocate_ignores_address_supplied_in_request(self, plugin):
+        """Only discovered addresses may be probed or saved."""
+        instances = self._relocate(
+            plugin, [], {"6.6.6.6"},
+            data={"relocate": "true", "bridgeaddr": "6.6.6.6"},
+        )
+        assert "6.6.6.6" not in self._probed(instances)
+        plugin._settings.save.assert_not_called()
+
+    def test_relocate_ignores_request_address_alongside_discovery(self, plugin):
+        flask = sys.modules["flask"]
+        instances = self._relocate(
+            plugin, [{"internalipaddress": "192.168.1.120"}], {"6.6.6.6", "192.168.1.120"},
+            data={"relocate": "true", "bridgeaddr": "6.6.6.6"},
+        )
+        assert self._probed(instances) == ["192.168.1.120"]
+        flask.jsonify.assert_called_once_with(result="relocated", bridgeaddr="192.168.1.120")
 
     def test_pair_success_saves_credentials(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "new-api-key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "new-api-key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
         plugin._settings.set.assert_any_call(["husername"], "new-api-key")
         plugin._settings.set.assert_any_call(["bridgeaddr"], "192.168.1.100")
         plugin._settings.save.assert_called()
 
-    def test_pair_success_re_establishes_bridge(self, plugin):
+    def test_pair_success_calls_init_provider(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "new-api-key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "new-api-key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
+        plugin._init_provider.assert_called_once()
+
+    @pytest.mark.parametrize("previous", ["wled"])
+    def test_pair_from_other_provider_clears_its_device_ids(self, plugin, previous):
+        """#88: pairing switches provider to Hue outside on_settings_save, so it must
+        drop the previous provider's light/plug selection itself."""
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": previous, "lampid": "wled", "plugid": "", "lampisgroup": True}
         )
-        plugin.establishBridge.assert_called_once()
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success", "bridgeaddr": "192.168.1.100", "husername": "new-api-key",
+            }
+            plugin.on_api_command("bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"})
+        plugin._settings.set.assert_any_call(["lampid"], "")
+        plugin._settings.set.assert_any_call(["plugid"], "")
+        plugin._settings.set.assert_any_call(["lampisgroup"], False)
+        # Cleared before the save that persists the pairing.
+        calls = [c[0] for c in plugin._settings.mock_calls]
+        last_clear = max(i for i, c in enumerate(plugin._settings.mock_calls)
+                         if c[0] == "set" and c.args[0] in (["lampid"], ["plugid"], ["lampisgroup"]))
+        assert "save" in calls[last_clear:]
+
+    @pytest.mark.parametrize("previous", ["hue", "", None])
+    def test_pair_when_already_hue_keeps_device_ids(self, plugin, previous):
+        """Re-pairing Hue (e.g. after a key reset) must keep the chosen light."""
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": previous, "lampid": "hue-light-uuid", "plugid": "hue-plug-uuid"}
+        )
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success", "bridgeaddr": "192.168.1.100", "husername": "new-api-key",
+            }
+            plugin.on_api_command("bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"})
+        cleared = [c for c in plugin._settings.set.call_args_list
+                   if c.args[0] in (["lampid"], ["plugid"], ["lampisgroup"])]
+        assert cleared == []
 
     def test_pair_error_returns_error_response(self, plugin):
         flask = sys.modules["flask"]
-        plugin._provider.pair.return_value = {"response": "error"}
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {"response": "error"}
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
         flask.jsonify.assert_called()
         args = flask.jsonify.call_args[0][0]
         assert args[0]["response"] == "error"
 
-    def test_pair_delegates_to_provider(self, plugin):
+    def test_pair_uses_hue_provider_directly(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
-        plugin._provider.pair.return_value = {
-            "response": "success",
-            "bridgeaddr": "192.168.1.100",
-            "husername": "key",
-        }
-        plugin.on_api_command(
-            "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
-        )
-        plugin._provider.pair.assert_called_once_with(bridgeaddr="192.168.1.100")
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success",
+                "bridgeaddr": "192.168.1.100",
+                "husername": "key",
+            }
+            plugin.on_api_command(
+                "bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"}
+            )
+            MockHue.return_value.pair.assert_called_once_with(bridgeaddr="192.168.1.100")
 
 
 # ===========================================================================
@@ -854,6 +1224,99 @@ class TestOnApiCommandGetDevices:
 # ===========================================================================
 # on_api_command  –  getgroups
 # ===========================================================================
+
+class TestDeviceListsUnsavedProvider:
+    """#87: device lists must not offer the saved provider's devices for a different selection."""
+
+    # Saved None relies on make_settings_getter returning override values as-is.
+    _MISMATCH = [("wled", "hue"), ("hue", "wled"), ("", "wled"), (None, "wled"), ("wled", ""), ("wled", None)]
+    _MATCH = [("hue", "hue"), ("", "hue"), (None, "hue"), ("hue", ""), ("hue", None), ("wled", "wled")]
+
+    @staticmethod
+    def _settings(plugin, saved):
+        plugin._settings.get.side_effect = make_settings_getter({"provider": saved})
+
+    @pytest.mark.parametrize("command,key,method", [
+        ("getdevices", "devices", "get_lights"),
+        ("getgroups", "groups", "get_groups"),
+    ])
+    @pytest.mark.parametrize("saved,requested", _MISMATCH)
+    def test_mismatch_returns_empty_unsaved_without_querying(self, plugin, command, key, method, saved, requested):
+        flask = sys.modules["flask"]
+        self._settings(plugin, saved)
+        getattr(plugin._provider, method).return_value = [{"id": "x", "name": "X"}]
+        plugin.on_api_command(command, {"provider": requested})
+        flask.jsonify.assert_called_once_with(**{key: [], "unsaved": True})
+        getattr(plugin._provider, method).assert_not_called()
+        assert plugin._provider.method_calls == []
+        plugin._settings.set.assert_not_called()
+        plugin._settings.save.assert_not_called()
+
+    @pytest.mark.parametrize("command,key", [("getdevices", "devices"), ("getgroups", "groups")])
+    @pytest.mark.parametrize("state", ["not_ready", "no_provider"])
+    def test_mismatch_reported_even_without_usable_provider(self, plugin, command, key, state):
+        flask = sys.modules["flask"]
+        self._settings(plugin, "wled")
+        if state == "not_ready":
+            plugin._provider.is_ready = False
+        else:
+            plugin._provider = None
+        plugin.on_api_command(command, {"provider": "hue"})
+        flask.jsonify.assert_called_once_with(**{key: [], "unsaved": True})
+
+    @pytest.mark.parametrize("command,key", [("getdevices", "devices"), ("getgroups", "groups")])
+    def test_match_with_provider_not_ready_returns_plain_empty_list(self, plugin, command, key):
+        flask = sys.modules["flask"]
+        self._settings(plugin, "hue")
+        plugin._provider.is_ready = False
+        plugin.on_api_command(command, {"provider": "hue"})
+        flask.jsonify.assert_called_once_with(**{key: []})
+
+    @pytest.mark.parametrize("command,key,method", [
+        ("getdevices", "devices", "get_lights"),
+        ("getgroups", "groups", "get_groups"),
+    ])
+    @pytest.mark.parametrize("saved,requested", _MATCH)
+    def test_match_returns_provider_list_unchanged(self, plugin, command, key, method, saved, requested):
+        flask = sys.modules["flask"]
+        self._settings(plugin, saved)
+        items = [{"id": "a", "name": "A", "archetype": "tableShade"}]
+        getattr(plugin._provider, method).return_value = items
+        plugin.on_api_command(command, {"provider": requested})
+        flask.jsonify.assert_called_once_with(**{key: items})
+
+    def test_match_keeps_archetype_filter(self, plugin):
+        flask = sys.modules["flask"]
+        self._settings(plugin, "hue")
+        plugin._provider.get_lights.return_value = [
+            {"id": "a", "name": "Lamp", "archetype": "tableShade"},
+            {"id": "p", "name": "Plug", "archetype": "plug"},
+        ]
+        plugin.on_api_command("getdevices", {"provider": "hue", "archetype": "plug"})
+        flask.jsonify.assert_called_once_with(devices=[{"id": "p", "name": "Plug", "archetype": "plug"}])
+
+    @pytest.mark.parametrize("command,key,method", [
+        ("getdevices", "devices", "get_lights"),
+        ("getgroups", "groups", "get_groups"),
+    ])
+    def test_without_provider_keeps_old_behaviour(self, plugin, command, key, method):
+        flask = sys.modules["flask"]
+        self._settings(plugin, "wled")
+        items = [{"id": "wled", "name": "Strip"}]
+        getattr(plugin._provider, method).return_value = items
+        plugin.on_api_command(command, {})
+        flask.jsonify.assert_called_once_with(**{key: items})
+
+    @pytest.mark.parametrize("command", ["getdevices", "getgroups"])
+    def test_mismatch_still_requires_admin(self, plugin, command):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        self._settings(plugin, "wled")
+        plugin.on_api_command(command, {"provider": "hue"})
+        assert flask.make_response.called
+        assert flask.make_response.call_args[0][1] == 403
+        assert all(c.kwargs.get("unsaved") is None for c in flask.jsonify.call_args_list)
+
 
 class TestOnApiCommandGetGroups:
 
@@ -1194,19 +1657,159 @@ class TestOnSettingsSave:
         plugin.on_settings_save(data)
         assert "availableEvents" not in data
 
-    def test_re_establishes_bridge_after_save(self, plugin):
+    def test_reinitialises_provider_after_save(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()
-        plugin.establishBridge = MagicMock()
+        plugin._init_provider = MagicMock()
         plugin.on_settings_save({"lampid": "uuid-1"})
-        plugin.establishBridge.assert_called_once()
+        plugin._init_provider.assert_called_once()
 
-    def test_bridge_created_with_saved_addr_and_key(self, plugin):
+    def test_provider_reinitialised_regardless_of_provider_type(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter(
-            {"bridgeaddr": "10.0.0.1", "husername": "saved-key"}
+            {"provider": "wled", "bridgeaddr": "192.168.1.200"}
         )
-        plugin.establishBridge = MagicMock()
-        plugin.on_settings_save({"lampid": "uuid-1"})
-        plugin.establishBridge.assert_called_once_with("10.0.0.1", "saved-key")
+        plugin._init_provider = MagicMock()
+        plugin.on_settings_save({"bridgeaddr": "192.168.1.200"})
+        plugin._init_provider.assert_called_once()
+
+
+class TestOnSettingsSaveProviderChange:
+    """#88: switching provider must not carry the old controller's light/plug IDs over."""
+
+    @staticmethod
+    def _save(plugin, stored, data):
+        """Run on_settings_save and return the dict handed to the base class."""
+        plugin._settings.get.side_effect = make_settings_getter(stored)
+        plugin._init_provider = MagicMock()
+        import copy
+        base = sys.modules["octoprint.plugin"].SettingsPlugin
+        order = MagicMock()
+        snapshots = []
+        with patch.object(base, "on_settings_save", autospec=True,
+                          side_effect=lambda *a: snapshots.append(copy.deepcopy(a[-1]))) as base_save:
+            order.attach_mock(base_save, "base_save")
+            order.attach_mock(plugin._init_provider, "init_provider")
+            plugin.on_settings_save(data)
+        base_save.assert_called_once()
+        # The provider must be rebuilt from the settings just saved.
+        assert [c[0] for c in order.mock_calls] == ["base_save", "init_provider"]
+        # Snapshot taken when the base class was called, so clearing IDs
+        # *after* the save can't masquerade as clearing them before it.
+        return snapshots[0]
+
+    _STORED_WLED = {"provider": "wled", "lampid": "wled", "plugid": "", "lampisgroup": False}
+    _STORED_HUE = {"provider": "hue", "lampid": "hue-light-uuid", "plugid": "hue-plug-uuid", "lampisgroup": True}
+
+    @pytest.mark.parametrize("stored,new_provider", [
+        (_STORED_WLED, "hue"),
+        (_STORED_HUE, "wled"),
+        ({**_STORED_HUE, "provider": ""}, "wled"),     # empty stored provider counts as Hue
+        ({**_STORED_HUE, "provider": None}, "wled"),
+        ({**_STORED_WLED}, ""),                        # empty new provider counts as Hue
+        ({**_STORED_WLED}, None),
+    ], ids=["wled->hue", "hue->wled", "empty->wled", "none->wled", "wled->empty", "wled->none"])
+    def test_unchanged_ids_cleared_when_provider_changes(self, plugin, stored, new_provider):
+        data = {"provider": new_provider, "lampid": stored["lampid"], "plugid": stored["plugid"],
+                "lampisgroup": stored["lampisgroup"]}
+        saved = self._save(plugin, stored, data)
+        assert saved["lampid"] == ""
+        assert saved["plugid"] == ""
+        assert saved["lampisgroup"] is False
+        assert saved["provider"] == new_provider
+
+    def test_missing_ids_cleared_when_provider_changes(self, plugin):
+        """A partial save (e.g. via the API) that only changes provider still clears stale IDs."""
+        saved = self._save(plugin, self._STORED_HUE, {"provider": "wled"})
+        assert saved["lampid"] == ""
+        assert saved["plugid"] == ""
+        assert saved["lampisgroup"] is False
+
+    def test_newly_picked_light_kept_on_provider_change(self, plugin):
+        saved = self._save(plugin, self._STORED_WLED, {
+            "provider": "hue", "lampid": "new-hue-group", "lampisgroup": True, "plugid": "",
+        })
+        assert saved["lampid"] == "new-hue-group"
+        assert saved["lampisgroup"] is True
+
+    def test_lamp_and_plug_handled_independently(self, plugin):
+        saved = self._save(plugin, self._STORED_HUE, {
+            "provider": "wled", "lampid": "wled", "lampisgroup": False, "plugid": "hue-plug-uuid",
+        })
+        assert saved["lampid"] == "wled"          # newly picked: kept
+        assert saved["plugid"] == ""              # unchanged from Hue: cleared
+
+    def test_new_plug_kept_while_unchanged_light_cleared(self, plugin):
+        saved = self._save(plugin, self._STORED_WLED, {
+            "provider": "hue", "lampid": "wled", "lampisgroup": False, "plugid": "new-hue-plug",
+        })
+        assert saved["lampid"] == ""
+        assert saved["lampisgroup"] is False
+        assert saved["plugid"] == "new-hue-plug"
+
+    _UNCHANGED = [
+        (_STORED_HUE, "hue"), ({**_STORED_HUE, "provider": ""}, "hue"), (_STORED_HUE, ""),
+        (_STORED_HUE, None), (_STORED_WLED, "wled"),
+        ({**_STORED_HUE, "provider": None}, "hue"), ({**_STORED_HUE, "provider": None}, ""),
+    ]
+    _UNCHANGED_IDS = ["hue->hue", "empty->hue", "hue->empty", "hue->none", "wled->wled",
+                      "none->hue", "none->empty"]
+
+    @pytest.mark.parametrize("stored,new_provider", _UNCHANGED, ids=_UNCHANGED_IDS)
+    def test_nothing_cleared_when_provider_unchanged(self, plugin, stored, new_provider):
+        data = {"provider": new_provider, "lampid": stored["lampid"], "plugid": stored["plugid"],
+                "lampisgroup": stored["lampisgroup"]}
+        saved = self._save(plugin, stored, dict(data))
+        assert saved == data
+        plugin._logger.info.assert_not_called()
+
+    @pytest.mark.parametrize("stored,new_provider", _UNCHANGED, ids=_UNCHANGED_IDS)
+    def test_partial_save_with_unchanged_provider_adds_nothing(self, plugin, stored, new_provider):
+        """An API save of just the (same) provider must not wipe the light or plug."""
+        saved = self._save(plugin, stored, {"provider": new_provider})
+        assert saved == {"provider": new_provider}
+
+    def test_nothing_cleared_when_provider_not_in_save(self, plugin):
+        data = {"lampid": "hue-light-uuid", "lampisgroup": True}
+        saved = self._save(plugin, self._STORED_HUE, dict(data))
+        assert saved == data
+
+    @pytest.mark.parametrize("data", [
+        {"provider": "wled"},
+        {"provider": "wled", "lampid": "hue-light-uuid", "plugid": "hue-plug-uuid", "lampisgroup": True},
+        {"provider": "wled", "lampid": "new-wled-pick", "plugid": "hue-plug-uuid", "lampisgroup": False},
+    ], ids=["partial", "unchanged-ids", "new-pick"])
+    def test_logs_change_once_without_ids(self, plugin, data):
+        self._save(plugin, self._STORED_HUE, data)
+        assert plugin._logger.info.call_count == 1
+        message = " ".join(str(a) for a in plugin._logger.info.call_args.args)
+        assert "hue" in message and "wled" in message
+        logged = " ".join(str(c) for c in plugin._logger.mock_calls if c[0] != "debug")
+        for secret in ("hue-light-uuid", "hue-plug-uuid", "new-wled-pick", "test-api-key"):
+            assert secret not in logged
+
+    def test_no_log_when_both_newly_picked(self, plugin):
+        saved = self._save(plugin, self._STORED_HUE, {
+            "provider": "wled", "lampid": "wled", "lampisgroup": False, "plugid": "new-plug",
+        })
+        assert saved["lampid"] == "wled" and saved["plugid"] == "new-plug"
+        plugin._logger.info.assert_not_called()
+
+    def test_no_log_when_only_empty_selections_were_cleared(self, plugin):
+        """Clearing an already-empty plug isn't worth a log line."""
+        saved = self._save(plugin, self._STORED_HUE | {"plugid": ""}, {
+            "provider": "wled", "lampid": "wled", "lampisgroup": False,
+        })
+        assert saved["plugid"] == ""
+        plugin._logger.info.assert_not_called()
+
+    def test_debug_log_of_save_payload_omits_app_key(self, plugin):
+        """After pairing, the dialog's Save includes the new key; it must not be logged."""
+        self._save(plugin, self._STORED_HUE, {"husername": "brand-new-app-key", "bridgeaddr": "192.168.1.120"})
+        assert not any("brand-new-app-key" in str(c) for c in plugin._logger.mock_calls)
+
+    def test_still_strips_available_events_and_reinitialises(self, plugin):
+        saved = self._save(plugin, self._STORED_HUE, {"provider": "wled", "availableEvents": ["X"]})
+        assert "availableEvents" not in saved
+        plugin._init_provider.assert_called_once()
 
 
 # ===========================================================================
@@ -1308,6 +1911,36 @@ class TestOnEventFlash:
         second_call = self._timer.call_args_list[1]
         assert second_call[0][0] == 15  # delay arg
         assert second_call[1]["kwargs"]["on"] is False
+
+    def test_flash_and_turnoff_wled_schedules_one_turnoff_timer(self, plugin):
+        """WLED doesn't support flash — flash+turnoff should schedule one off timer, no alert."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "provider": "wled",
+            "statusDict": [self._entry("PrintDone", turnoff=True, flash=True, delay=0)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        assert self._timer.call_count == 1
+        _, kwargs = self._timer.call_args
+        assert kwargs["kwargs"]["on"] is False
+        assert "alert" not in kwargs["kwargs"]
+
+    def test_flash_no_turnoff_wled_light_turns_on(self, plugin):
+        """WLED + flash=True + turnoff=False: light turns on. alert kwarg is passed through
+        but WledProvider.set_light silently ignores it (no flash support)."""
+        plugin._settings.get.side_effect = make_settings_getter({
+            "lampid": "1",
+            "provider": "wled",
+            "statusDict": [self._entry("PrintDone", turnoff=False, flash=True, delay=0)],
+            "autopoweroff": False,
+            "nightmode_enabled": False,
+        })
+        plugin.on_event("PrintDone", {})
+        assert self._timer.call_count == 1
+        _, kwargs = self._timer.call_args
+        assert kwargs["kwargs"]["on"] is True
 
 
 # ===========================================================================
@@ -1508,27 +2141,66 @@ class TestGetUpdateInformation:
         assert info["repo"] == "OctoPrint-OctoHue"
         assert info["type"] == "github_release"
 
-    def test_pip_url_contains_target_version_placeholder(self, info):
-        assert "{target_version}" in info["pip"]
-        assert "entrippy/OctoPrint-OctoHue" in info["pip"]
+    def test_pip_url(self, info):
+        assert info["pip"] == "https://github.com/entrippy/OctoPrint-OctoHue/archive/{target_version}.zip"
+
+    def test_version_fields(self, info):
+        assert info["current"] == "1.0.2"
+        assert info["displayVersion"] == "1.0.2"
+        assert info["displayName"] == "Octohue Plugin"
+
+    def test_channels_are_named(self, info):
+        """OctoPrint's channel UI reads branch_info["name"] for every entry."""
+        assert info["stable_branch"]["name"] == "Stable"
+        names = {b["branch"]: b["name"] for b in info["prerelease_branches"]}
+        assert names == {"rc": "Release Candidate", "devel": "Development"}
 
     def test_stable_branch_points_to_master(self, info):
         stable = info["stable_branch"]
         assert stable["branch"] == "master"
-        assert stable["comittish"] == ["master"]
+        # OctoPrint doesn't read commitish for the stable branch; kept for
+        # consistency with its own config and the prerelease entries.
+        assert stable["commitish"] == ["master"]
 
-    def test_rc_branch_receives_rc_and_stable(self, info):
-        rc = next(b for b in info["prerelease_branches"] if b["branch"] == "rc")
-        assert "rc" in rc["comittish"]
-        assert "master" in rc["comittish"]
+    def test_prerelease_commitish_lists(self, info):
+        lists = {b["branch"]: b["commitish"] for b in info["prerelease_branches"]}
+        assert len(info["prerelease_branches"]) == 2
+        assert set(lists) == {"rc", "devel"}
+        assert set(lists["rc"]) == {"rc", "master"}
+        assert set(lists["devel"]) == {"devel", "rc", "master"}
 
-    def test_devel_branch_receives_all_channels(self, info):
-        devel = next(b for b in info["prerelease_branches"] if b["branch"] == "devel")
-        assert "devel" in devel["comittish"]
-        assert "rc" in devel["comittish"]
-        assert "master" in devel["comittish"]
+    def test_no_misspelled_comittish_key(self, info):
+        """Guards against reintroducing the dead key OctoPrint never reads."""
+        branches = [info["stable_branch"], *info["prerelease_branches"]]
+        assert all("comittish" not in b for b in branches)
 
-    def test_devel_comittish_is_broader_than_rc(self, info):
-        rc = next(b for b in info["prerelease_branches"] if b["branch"] == "rc")
-        devel = next(b for b in info["prerelease_branches"] if b["branch"] == "devel")
-        assert set(rc["comittish"]).issubset(set(devel["comittish"]))
+    @staticmethod
+    def _offered(info, channel, release):
+        """Local copy of OctoPrint 1.11.8's github_release channel filter
+        (get_latest + _filter_out_latest), for a user who has opted into the
+        given pre-release channel: allowed targets are
+        x.get("commitish", [x["branch"]]); an empty list allows everything; a
+        release passes if it isn't a draft and is either a full release or a
+        pre-release targeting an allowed branch."""
+        commitishes = {x["branch"]: x.get("commitish", [x["branch"]]) for x in info["prerelease_branches"]}
+        allowed = commitishes.get(channel, [channel])
+        if not allowed:
+            return not release["draft"]
+        return not release["draft"] and (not release["prerelease"] or release["target_commitish"] in allowed)
+
+    @pytest.mark.parametrize("channel,target,offered", [
+        ("devel", "devel", True),
+        ("devel", "rc", True),       # the regression: devel users must see rc pre-releases
+        ("devel", "master", True),
+        ("rc", "rc", True),
+        ("rc", "master", True),      # allowed in case a pre-release is cut from master
+        ("rc", "devel", False),      # rc testers don't get development builds
+    ])
+    def test_prerelease_offered_per_channel(self, info, channel, target, offered):
+        release = {"draft": False, "prerelease": True, "target_commitish": target}
+        assert self._offered(info, channel, release) is offered
+
+    @pytest.mark.parametrize("channel", ["rc", "devel"])
+    def test_full_release_always_offered(self, info, channel):
+        release = {"draft": False, "prerelease": False, "target_commitish": "master"}
+        assert self._offered(info, channel, release) is True

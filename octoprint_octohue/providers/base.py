@@ -125,3 +125,13 @@ class LightProvider(ABC):
             dict with at minimum ``{"response": "success" | "error"}``.
         """
         return {"response": "error", "message": "Pairing not supported for this provider"}
+
+    def check_connection(self) -> bool:
+        """
+        Probe the controller and report whether it is reachable.
+
+        Used by the settings UI to tell "configured but not answering" apart
+        from "configured and working". Default returns True so providers that
+        don't implement a probe are never reported unreachable.
+        """
+        return True
