@@ -378,6 +378,17 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				from octoprint_octohue.providers.hue import HueProvider
 				result = HueProvider(self._logger).pair(bridgeaddr=data['bridgeaddr'])
 				if result.get('response') == 'success':
+					previous = self._settings.get(['provider']) or 'hue'
+					if previous != 'hue':
+						# Pairing switches provider outside on_settings_save, so drop
+						# the previous provider's selections here too (#88).
+						self._settings.set(['lampid'], "")
+						self._settings.set(['plugid'], "")
+						self._settings.set(['lampisgroup'], False)
+						self._logger.info(
+							f"Light controller changed from {previous} to hue by pairing; "
+							"cleared light/plug selections from the previous controller"
+						)
 					self._settings.set(['husername'], result['husername'])
 					self._settings.set(['bridgeaddr'], result['bridgeaddr'])
 					self._settings.set(['provider'], 'hue')
@@ -668,12 +679,46 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		'''
 		Persists settings and re-initialises the provider with any updated
 		credentials. Strips availableEvents (frontend-only) before passing to
-		the base class.
+		the base class, and drops light/plug selections that belong to the
+		previous provider when the provider changes.
 		'''
 		data.pop("availableEvents", None)
-		self._logger.debug(f"Saving: {data} to settings")
+		self._clear_stale_device_ids(data)
+		# Never log the application key, which arrives here after pairing.
+		loggable = {k: ("<redacted>" if k == "husername" else v) for k, v in data.items()}
+		self._logger.debug(f"Saving: {loggable} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self._init_provider()
+
+	def _clear_stale_device_ids(self, data):
+		'''
+		When a save switches provider, clears ``lampid`` / ``plugid`` that the
+		user didn't re-pick (missing from the save, or unchanged from the stored
+		value) so the old controller's IDs aren't carried over (#88). A newly
+		picked value is kept. Empty/None provider counts as Hue on both sides.
+		'''
+		if 'provider' not in data:
+			return
+		old = self._settings.get(['provider']) or 'hue'
+		new = data.get('provider') or 'hue'
+		if new == old:
+			return
+
+		cleared = []
+		for key in ('lampid', 'plugid'):
+			stored = self._settings.get([key])
+			if key not in data or data[key] == stored:
+				data[key] = ""
+				if stored:
+					cleared.append(key)
+				if key == 'lampid':
+					data['lampisgroup'] = False
+
+		if cleared:
+			self._logger.info(
+				f"Light controller changed from {old} to {new}; "
+				f"cleared {' and '.join(cleared)} from the previous controller"
+			)
 
 	def get_template_vars(self):
 		'''

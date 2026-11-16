@@ -1092,6 +1092,44 @@ class TestOnApiCommandBridge:
             )
         plugin._init_provider.assert_called_once()
 
+    @pytest.mark.parametrize("previous", ["wled"])
+    def test_pair_from_other_provider_clears_its_device_ids(self, plugin, previous):
+        """#88: pairing switches provider to Hue outside on_settings_save, so it must
+        drop the previous provider's light/plug selection itself."""
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": previous, "lampid": "wled", "plugid": "", "lampisgroup": True}
+        )
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success", "bridgeaddr": "192.168.1.100", "husername": "new-api-key",
+            }
+            plugin.on_api_command("bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"})
+        plugin._settings.set.assert_any_call(["lampid"], "")
+        plugin._settings.set.assert_any_call(["plugid"], "")
+        plugin._settings.set.assert_any_call(["lampisgroup"], False)
+        # Cleared before the save that persists the pairing.
+        calls = [c[0] for c in plugin._settings.mock_calls]
+        last_clear = max(i for i, c in enumerate(plugin._settings.mock_calls)
+                         if c[0] == "set" and c.args[0] in (["lampid"], ["plugid"], ["lampisgroup"]))
+        assert "save" in calls[last_clear:]
+
+    @pytest.mark.parametrize("previous", ["hue", "", None])
+    def test_pair_when_already_hue_keeps_device_ids(self, plugin, previous):
+        """Re-pairing Hue (e.g. after a key reset) must keep the chosen light."""
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": previous, "lampid": "hue-light-uuid", "plugid": "hue-plug-uuid"}
+        )
+        plugin._init_provider = MagicMock()
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            MockHue.return_value.pair.return_value = {
+                "response": "success", "bridgeaddr": "192.168.1.100", "husername": "new-api-key",
+            }
+            plugin.on_api_command("bridge", {"pair": "true", "bridgeaddr": "192.168.1.100"})
+        cleared = [c for c in plugin._settings.set.call_args_list
+                   if c.args[0] in (["lampid"], ["plugid"], ["lampisgroup"])]
+        assert cleared == []
+
     def test_pair_error_returns_error_response(self, plugin):
         flask = sys.modules["flask"]
         with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
@@ -1538,6 +1576,146 @@ class TestOnSettingsSave:
         )
         plugin._init_provider = MagicMock()
         plugin.on_settings_save({"bridgeaddr": "192.168.1.200"})
+        plugin._init_provider.assert_called_once()
+
+
+class TestOnSettingsSaveProviderChange:
+    """#88: switching provider must not carry the old controller's light/plug IDs over."""
+
+    @staticmethod
+    def _save(plugin, stored, data):
+        """Run on_settings_save and return the dict handed to the base class."""
+        plugin._settings.get.side_effect = make_settings_getter(stored)
+        plugin._init_provider = MagicMock()
+        import copy
+        base = sys.modules["octoprint.plugin"].SettingsPlugin
+        order = MagicMock()
+        snapshots = []
+        with patch.object(base, "on_settings_save", autospec=True,
+                          side_effect=lambda *a: snapshots.append(copy.deepcopy(a[-1]))) as base_save:
+            order.attach_mock(base_save, "base_save")
+            order.attach_mock(plugin._init_provider, "init_provider")
+            plugin.on_settings_save(data)
+        base_save.assert_called_once()
+        # The provider must be rebuilt from the settings just saved.
+        assert [c[0] for c in order.mock_calls] == ["base_save", "init_provider"]
+        # Snapshot taken when the base class was called, so clearing IDs
+        # *after* the save can't masquerade as clearing them before it.
+        return snapshots[0]
+
+    _STORED_WLED = {"provider": "wled", "lampid": "wled", "plugid": "", "lampisgroup": False}
+    _STORED_HUE = {"provider": "hue", "lampid": "hue-light-uuid", "plugid": "hue-plug-uuid", "lampisgroup": True}
+
+    @pytest.mark.parametrize("stored,new_provider", [
+        (_STORED_WLED, "hue"),
+        (_STORED_HUE, "wled"),
+        ({**_STORED_HUE, "provider": ""}, "wled"),     # empty stored provider counts as Hue
+        ({**_STORED_HUE, "provider": None}, "wled"),
+        ({**_STORED_WLED}, ""),                        # empty new provider counts as Hue
+        ({**_STORED_WLED}, None),
+    ], ids=["wled->hue", "hue->wled", "empty->wled", "none->wled", "wled->empty", "wled->none"])
+    def test_unchanged_ids_cleared_when_provider_changes(self, plugin, stored, new_provider):
+        data = {"provider": new_provider, "lampid": stored["lampid"], "plugid": stored["plugid"],
+                "lampisgroup": stored["lampisgroup"]}
+        saved = self._save(plugin, stored, data)
+        assert saved["lampid"] == ""
+        assert saved["plugid"] == ""
+        assert saved["lampisgroup"] is False
+        assert saved["provider"] == new_provider
+
+    def test_missing_ids_cleared_when_provider_changes(self, plugin):
+        """A partial save (e.g. via the API) that only changes provider still clears stale IDs."""
+        saved = self._save(plugin, self._STORED_HUE, {"provider": "wled"})
+        assert saved["lampid"] == ""
+        assert saved["plugid"] == ""
+        assert saved["lampisgroup"] is False
+
+    def test_newly_picked_light_kept_on_provider_change(self, plugin):
+        saved = self._save(plugin, self._STORED_WLED, {
+            "provider": "hue", "lampid": "new-hue-group", "lampisgroup": True, "plugid": "",
+        })
+        assert saved["lampid"] == "new-hue-group"
+        assert saved["lampisgroup"] is True
+
+    def test_lamp_and_plug_handled_independently(self, plugin):
+        saved = self._save(plugin, self._STORED_HUE, {
+            "provider": "wled", "lampid": "wled", "lampisgroup": False, "plugid": "hue-plug-uuid",
+        })
+        assert saved["lampid"] == "wled"          # newly picked: kept
+        assert saved["plugid"] == ""              # unchanged from Hue: cleared
+
+    def test_new_plug_kept_while_unchanged_light_cleared(self, plugin):
+        saved = self._save(plugin, self._STORED_WLED, {
+            "provider": "hue", "lampid": "wled", "lampisgroup": False, "plugid": "new-hue-plug",
+        })
+        assert saved["lampid"] == ""
+        assert saved["lampisgroup"] is False
+        assert saved["plugid"] == "new-hue-plug"
+
+    _UNCHANGED = [
+        (_STORED_HUE, "hue"), ({**_STORED_HUE, "provider": ""}, "hue"), (_STORED_HUE, ""),
+        (_STORED_HUE, None), (_STORED_WLED, "wled"),
+        ({**_STORED_HUE, "provider": None}, "hue"), ({**_STORED_HUE, "provider": None}, ""),
+    ]
+    _UNCHANGED_IDS = ["hue->hue", "empty->hue", "hue->empty", "hue->none", "wled->wled",
+                      "none->hue", "none->empty"]
+
+    @pytest.mark.parametrize("stored,new_provider", _UNCHANGED, ids=_UNCHANGED_IDS)
+    def test_nothing_cleared_when_provider_unchanged(self, plugin, stored, new_provider):
+        data = {"provider": new_provider, "lampid": stored["lampid"], "plugid": stored["plugid"],
+                "lampisgroup": stored["lampisgroup"]}
+        saved = self._save(plugin, stored, dict(data))
+        assert saved == data
+        plugin._logger.info.assert_not_called()
+
+    @pytest.mark.parametrize("stored,new_provider", _UNCHANGED, ids=_UNCHANGED_IDS)
+    def test_partial_save_with_unchanged_provider_adds_nothing(self, plugin, stored, new_provider):
+        """An API save of just the (same) provider must not wipe the light or plug."""
+        saved = self._save(plugin, stored, {"provider": new_provider})
+        assert saved == {"provider": new_provider}
+
+    def test_nothing_cleared_when_provider_not_in_save(self, plugin):
+        data = {"lampid": "hue-light-uuid", "lampisgroup": True}
+        saved = self._save(plugin, self._STORED_HUE, dict(data))
+        assert saved == data
+
+    @pytest.mark.parametrize("data", [
+        {"provider": "wled"},
+        {"provider": "wled", "lampid": "hue-light-uuid", "plugid": "hue-plug-uuid", "lampisgroup": True},
+        {"provider": "wled", "lampid": "new-wled-pick", "plugid": "hue-plug-uuid", "lampisgroup": False},
+    ], ids=["partial", "unchanged-ids", "new-pick"])
+    def test_logs_change_once_without_ids(self, plugin, data):
+        self._save(plugin, self._STORED_HUE, data)
+        assert plugin._logger.info.call_count == 1
+        message = " ".join(str(a) for a in plugin._logger.info.call_args.args)
+        assert "hue" in message and "wled" in message
+        logged = " ".join(str(c) for c in plugin._logger.mock_calls if c[0] != "debug")
+        for secret in ("hue-light-uuid", "hue-plug-uuid", "new-wled-pick", "test-api-key"):
+            assert secret not in logged
+
+    def test_no_log_when_both_newly_picked(self, plugin):
+        saved = self._save(plugin, self._STORED_HUE, {
+            "provider": "wled", "lampid": "wled", "lampisgroup": False, "plugid": "new-plug",
+        })
+        assert saved["lampid"] == "wled" and saved["plugid"] == "new-plug"
+        plugin._logger.info.assert_not_called()
+
+    def test_no_log_when_only_empty_selections_were_cleared(self, plugin):
+        """Clearing an already-empty plug isn't worth a log line."""
+        saved = self._save(plugin, self._STORED_HUE | {"plugid": ""}, {
+            "provider": "wled", "lampid": "wled", "lampisgroup": False,
+        })
+        assert saved["plugid"] == ""
+        plugin._logger.info.assert_not_called()
+
+    def test_debug_log_of_save_payload_omits_app_key(self, plugin):
+        """After pairing, the dialog's Save includes the new key; it must not be logged."""
+        self._save(plugin, self._STORED_HUE, {"husername": "brand-new-app-key", "bridgeaddr": "192.168.1.120"})
+        assert not any("brand-new-app-key" in str(c) for c in plugin._logger.mock_calls)
+
+    def test_still_strips_available_events_and_reinitialises(self, plugin):
+        saved = self._save(plugin, self._STORED_HUE, {"provider": "wled", "availableEvents": ["X"]})
+        assert "availableEvents" not in saved
         plugin._init_provider.assert_called_once()
 
 
