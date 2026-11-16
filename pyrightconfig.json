@@ -3,5 +3,6 @@
   "ignore": ["tests"],
   "reportMissingModuleSource": "none",
   "reportMissingImports": "none",
+  "reportUnusedParameter": "none",
   "pythonVersion": "3.9"
 }

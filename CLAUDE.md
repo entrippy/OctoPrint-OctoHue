@@ -12,13 +12,22 @@ OctoHue is an OctoPrint plugin (Python + KnockoutJS) that controls Philips Hue l
 - `octoprint_octohue/templates/octohue_settings.jinja2` — settings UI
 - `extras/octohue.md` — source of truth for the OctoPrint plugin registry entry; copy to `~/git/plugins.octoprint.org/_plugins/octohue.md` when updating
 
+## Local OctoPrint install
+
+A local OctoPrint instance is available for live testing:
+- Virtual environment: `~/oprint/` — Python 3.11 to match OctoPi (OctoPrint 1.11.x requires Python < 3.14). To recreate: `$(brew --prefix python@3.11)/bin/python3.11 -m venv ~/oprint && ~/oprint/bin/pip install "OctoPrint==1.11.8"`
+- Install plugin for development: `~/oprint/bin/pip install -e . pytest`
+- Run: `~/oprint/bin/octoprint serve --port 5001` (macOS AirPlay Receiver holds port 5000). To run it from the Claude desktop app's preview, create a local `.claude/launch.json` (gitignored, so it isn't in the repo) with a configuration named `octoprint` that runs `~/oprint/bin/octoprint` with `serve --host 127.0.0.1 --port 5001` on port 5001.
+- Logs (macOS): `~/Library/Application Support/OctoPrint/logs/octoprint.log`
+- Logs (Linux): typically `~/.octoprint/logs/octoprint.log`
+
 ## Running tests
 
 ```bash
-# Python (169 tests) — no live OctoPrint install required
-python -m pytest
+# Python (437 tests) — no live OctoPrint install required
+~/oprint/bin/python -m pytest
 
-# JavaScript (68 tests)
+# JavaScript (113 tests)
 npx jest
 ```
 
@@ -79,6 +88,41 @@ Review promptly to understand the underlying problem and reply with guidance dir
 **Offer of contribution**
 Direct the contributor to [CONTRIBUTING.md](.github/CONTRIBUTING.md). Confirm the scope is welcome before they invest effort, and point them to any relevant open issues or milestones.
 
+## Claude Code commands
+
+Project-specific commands are in `extras/claude/commands/`. Read the relevant command file before performing that task. When using a command, if you spot a gap or inaccuracy in it, update the file in-place.
+
+Flat commands (single files):
+- `reviewer.md` — adversarial PR review (run before every merge)
+- `tester.md` — test authoring and e2e procedure
+- `commit-author.md` — commit message format
+- `pr-author.md` — PR description format
+- `release-manager.md` — release and tagging procedure
+- `issue-triager.md` — issue triage
+- `workflow.md` — cooperative development process with staged gates
+
+Skill directories (sourced from mattpocock/skills, update manually if upstream changes):
+- `grill-with-docs/` — stress-test a plan against domain language; updates CONTEXT.md and ADRs
+- `improve-codebase-architecture/` — find deepening opportunities; uses LANGUAGE.md vocabulary
+- `tdd/` — test-driven development with deep module principles
+- `triage/` — issue triage state machine
+
+Before merging any PR, perform an adversarial review using `extras/claude/commands/reviewer.md`. Do not skip this step.
+
 ## Commit style
 
-Include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` in commit messages when Claude assisted with the change. Do not add attribution footers to PR descriptions or release notes.
+Commits are authored by the project owner. Do not add `Co-Authored-By` or any AI attribution footers to commit messages, PR descriptions, or release notes.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `entrippy/OctoPrint-OctoHue`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default mattpocock/skills label vocabulary — no overrides. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo — `CONTEXT.md` at root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.

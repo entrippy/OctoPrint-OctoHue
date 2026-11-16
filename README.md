@@ -1,11 +1,12 @@
 # OctoPrint-OctoHue
 
-Illuminate your 3D print job and signal its status using Philips Hue lights — and optionally cut power to your printer automatically once it cools down.
+Illuminate your 3D print job and signal its status using Philips Hue or WLED lights — and optionally cut power to your printer automatically once it cools down (Hue smart plugs).
 
 ![Event lighting settings](Settings-octohue-general.png)
 
 ## Features
 
+- **Philips Hue or WLED** — choose your light system from the **Light Controller** dropdown on the Bridge tab. WLED needs only the controller's IP address or hostname; flash and smart-plug features are Hue-only
 - **Event-driven lighting** — map any OctoPrint event (Connected, PrintStarted, PrintDone, PrintFailed, etc.) to a specific colour or colour temperature, brightness, optional delay, flash alert, and on/off state
 - **CT mode** — switch any event to colour-temperature (CT) mode for RGBCCT lights, activating the white channel instead of the RGB LEDs
 - **Configurable toggle colour** — the navbar toggle button turns your light on with a dedicated colour, CT, and brightness you set in General settings
@@ -13,6 +14,7 @@ Illuminate your 3D print job and signal its status using Philips Hue lights — 
 - **Smart plug control** — configure a Hue smart plug to cut printer power after a completed print
 - **Auto power-off** — automatically switch off the plug once all extruders cool below a configurable temperature threshold
 - **Guided bridge pairing** — find your Hue bridge on the network and pair it without leaving OctoPrint settings; after pairing, a single button takes you straight to the Lights tab
+- **Find Moved Bridge** — if your Hue bridge changes IP address, settings show it as unreachable and can find it again on the network, keeping your existing pairing
 - **Navbar toggle** — optional toolbar button to toggle your lights on/off at any time
 - **Group support** — target individual lights or Hue rooms/zones from a single combined dropdown
 - **Configurable delay** — add a delay (seconds) before each event triggers its light change
@@ -30,7 +32,11 @@ https://github.com/entrippy/OctoPrint-OctoHue/archive/master.zip
 
 ## Setup
 
-### 1. Bridge pairing
+### 1. Choose your light system
+
+Open OctoPrint **Settings → OctoHue → Bridge** and pick **Philips Hue** or **WLED** under **Light Controller**. For WLED, enter the controller's IP address or hostname, save, and continue at step 3.
+
+### 2. Bridge pairing (Hue)
 
 Open OctoPrint **Settings → OctoHue → Bridge**.
 
@@ -46,7 +52,7 @@ Open OctoPrint **Settings → OctoHue → Bridge**.
 
 > If auto-discovery does not work (e.g. the bridge is on a different subnet), you can enter the bridge IP address and API key manually on the Bridge tab after pairing via the [Hue Getting Started guide](https://developers.meethue.com/develop/get-started-2/).
 
-### 2. Light or group selection
+### 3. Light or group selection
 
 On the **Lights** tab, select your light or group from the dropdown. Individual lights and Hue rooms/zones appear in the same list — groups are labelled **(Group)** for easy identification.
 
@@ -54,7 +60,7 @@ On the **Lights** tab, select your light or group from the dropdown. Individual 
 
 Set **Default Brightness** (1–100%) to control how bright the light is when an event does not specify its own brightness.
 
-### 3. Event configuration
+### 4. Event configuration
 
 Still on the **Lights** tab, expand **Event Lighting Options** to configure which OctoPrint events trigger a light change. For each event you can set:
 
@@ -64,7 +70,7 @@ Still on the **Lights** tab, expand **Event Lighting Options** to configure whic
 - **Flash** — trigger a 15-second Hue alert cycle instead of a static colour change
 - **Turn off** — switch the light off when the event fires
 
-### 4. General settings (optional)
+### 5. General settings (optional)
 
 Open the **General** tab to configure:
 
@@ -73,7 +79,7 @@ Open the **General** tab to configure:
 - **Navbar toggle colour and brightness** — choose the colour (or CT) and brightness that the toggle button uses when turning the light on; if unset, the light turns on at the default brightness and white
 - **Night mode** — set a time window during which light changes are paused or brightness is capped
 
-### 5. Power control (optional)
+### 6. Power control (optional, Hue)
 
 Open the **Power** tab to configure smart plug behaviour:
 
