@@ -39,6 +39,9 @@ $(function() {
         self.relocating = ko.observable(false);
         self.relocateResult = ko.observable("");   // "", relocated, needspairing, notfound, failed
         self.relocateAddress = ko.observable("");
+        // True when the device lists came back empty because the selected
+        // provider isn't saved yet (#87); drives a hint on the Lights tab.
+        self.devicesUnsaved = ko.observable(false);
 
         self.addNewStatus = function () {
             var statusObj = {
@@ -216,14 +219,28 @@ $(function() {
         };
 
         self.getDevices = function (archetype) {
-            var payload = archetype !== undefined ? {"archetype": archetype} : {};
-            return OctoPrint.simpleApiCommand("octohue", "getdevices", payload, {})
-                .then(response => response.devices);
+            var payload = {"provider": self.ownSettings.provider()};
+            if (archetype !== undefined) {
+                payload.archetype = archetype;
+            }
+            var request = OctoPrint.simpleApiCommand("octohue", "getdevices", payload, {});
+            // Every list fetch (lights, plugs, groups) reports the same unsaved
+            // state for a given selection, so any of them may update the hint.
+            // A failed fetch clears it rather than leaving a stale hint up.
+            request.fail(function() { self.devicesUnsaved(false); });
+            return request.then(function(response) {
+                self.devicesUnsaved(!!response.unsaved);
+                return response.devices;
+            });
         };
 
         self.getGroups = function () {
-            return OctoPrint.simpleApiCommand("octohue", "getgroups", {}, {})
-                .then(response => response.groups);
+            var request = OctoPrint.simpleApiCommand("octohue", "getgroups", {"provider": self.ownSettings.provider()}, {});
+            request.fail(function() { self.devicesUnsaved(false); });
+            return request.then(function(response) {
+                self.devicesUnsaved(!!response.unsaved);
+                return response.groups;
+            });
         };
 
         self.onBeforeBinding = function () {
