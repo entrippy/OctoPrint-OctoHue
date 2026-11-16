@@ -393,3 +393,97 @@ class TestPair:
         result = hue_provider.pair(bridgeaddr="192.168.1.100")
         assert result["response"] == "error"
         session_mock.post.side_effect = None
+
+
+# ===========================================================================
+# check_connection / request timeout
+# ===========================================================================
+
+class TestCheckConnection:
+    """check_connection() probes the bridge and reports reachability as a bool."""
+
+    def test_true_when_bridge_returns_200(self, hue_provider):
+        hue_provider._session.request.return_value.status_code = 200
+        assert hue_provider.check_connection() is True
+
+    def test_probes_bridge_resource_with_get(self, hue_provider):
+        hue_provider.check_connection()
+        args, kwargs = hue_provider._session.request.call_args
+        method = args[0] if args else kwargs.get("method")
+        url = args[1] if len(args) > 1 else kwargs.get("url")
+        assert method == "GET"
+        assert url == "https://192.168.1.100/clip/v2/resource/bridge"
+
+    def test_sends_application_key(self, hue_provider):
+        hue_provider.check_connection()
+        headers = hue_provider._session.request.call_args.kwargs["headers"]
+        assert headers.get("hue-application-key") == "test-api-key"
+
+    def test_passes_timeout(self, hue_provider):
+        """A silent host must not hang the settings dialog indefinitely."""
+        hue_provider.check_connection()
+        timeout = hue_provider._session.request.call_args.kwargs.get("timeout")
+        assert timeout is not None and 0 < timeout <= 5
+
+    def test_false_on_connection_error(self, hue_provider):
+        hue_provider._session.request.side_effect = Exception("No route to host")
+        assert hue_provider.check_connection() is False
+
+    def test_logs_warning_on_connection_error(self, hue_provider):
+        hue_provider._session.request.side_effect = Exception("No route to host")
+        hue_provider.check_connection()
+        assert hue_provider._logger.warning.called or hue_provider._logger.error.called
+
+    @pytest.mark.parametrize("status", [201, 204, 207, 301, 401, 403, 404, 500, 503])
+    def test_false_on_non_200_status(self, hue_provider, status):
+        hue_provider._session.request.return_value.status_code = status
+        assert hue_provider.check_connection() is False
+
+    def test_logs_on_non_200_status(self, hue_provider):
+        hue_provider._session.request.return_value.status_code = 503
+        hue_provider.check_connection()
+        assert hue_provider._logger.warning.called or hue_provider._logger.error.called
+
+    @pytest.mark.parametrize("addr,key", [("192.168.1.100", ""), ("", "test-api-key")])
+    def test_false_when_half_configured_without_request(self, addr, key):
+        p = HueProvider(MagicMock())
+        p.setup({"bridgeaddr": addr, "husername": key, "lampid": "", "lampisgroup": False, "plugid": ""})
+        p._session = MagicMock(name="session")
+        assert p.check_connection() is False
+        p._session.request.assert_not_called()
+
+    def test_false_when_not_ready_without_request(self):
+        p = HueProvider(MagicMock())
+        p.setup({"bridgeaddr": "", "husername": "", "lampid": "", "lampisgroup": False, "plugid": ""})
+        p._session = MagicMock(name="session")
+        assert p.check_connection() is False
+        p._session.request.assert_not_called()
+
+
+class TestRequestTimeout:
+    """Every Hue API request carries a timeout so a dead bridge cannot hang a thread."""
+
+    @pytest.mark.parametrize("method", ["GET", "PUT"])
+    def test_shared_transport_passes_timeout(self, hue_provider, method):
+        hue_provider._request(method, "light/lamp-uuid", {"on": {"on": True}} if method == "PUT" else None)
+        assert hue_provider._session.request.call_args.kwargs.get("timeout") == 5
+
+    def test_get_groups_passes_timeout(self, hue_provider):
+        hue_provider.get_groups()
+        for c in hue_provider._session.request.call_args_list:
+            assert c.kwargs.get("timeout") == 5
+
+    def test_get_state_passes_timeout(self, hue_provider):
+        hue_provider.get_state("lamp-uuid")
+        assert hue_provider._session.request.call_args.kwargs.get("timeout") == 5
+
+    def test_get_lights_passes_timeout(self, hue_provider):
+        hue_provider._session.request.return_value.json.return_value = {"data": []}
+        hue_provider.get_lights()
+        timeout = hue_provider._session.request.call_args.kwargs.get("timeout")
+        assert timeout == 5
+
+    def test_set_light_passes_timeout(self, hue_provider):
+        hue_provider.set_light(on=False)
+        timeout = hue_provider._session.request.call_args.kwargs.get("timeout")
+        assert timeout == 5

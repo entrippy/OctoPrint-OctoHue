@@ -52,6 +52,22 @@
                             <div class="controls">
                                 <input id="apikey" type="text" class="input-block-level" data-bind="value: ownSettings.husername">
                             </div>
+                            <div data-bind="visible: bridgeUnreachable" style="display: none; margin-top: 8px;">
+                                <button type="button" class="btn" data-bind="click: bridgerelocate, disable: relocating">
+                                    <i class="fa fa-search"></i>
+                                    <span data-bind="text: relocating() ? 'Searching…' : 'Find Moved Bridge'"></span>
+                                </button>
+                                <span class="help-inline">Looks for your bridge on the network and tries your existing pairing.</span>
+                            </div>
+                            <div class="alert alert-success" data-bind="visible: relocateResult() === 'relocated'" style="display: none; margin-top: 8px;">
+                                Found your bridge at <strong data-bind="text: relocateAddress"></strong> — your existing pairing still works.
+                            </div>
+                            <div class="alert" data-bind="visible: relocateResult() === 'needspairing'" style="display: none; margin-top: 8px;">
+                                Found a bridge at <strong data-bind="text: relocateAddress"></strong> but it didn't accept the saved key. Press the link button on the bridge, then click <em>Start Pairing</em> above.
+                            </div>
+                            <div class="alert alert-error" data-bind="visible: relocateResult() === 'notfound'" style="display: none; margin-top: 8px;">
+                                No bridge found on your network. Check it's powered on, or enter its address manually.
+                            </div>
                         </div>
                     </div>
 
@@ -140,6 +156,11 @@
             </div>
 
             <div id="octohue_settings_lights" class="tab-pane">
+                <div class="alert alert-error" data-bind="visible: bridgeUnreachable() && ownSettings.provider() === 'hue'" style="display: none;">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    Can't reach the bridge at <strong data-bind="text: ownSettings.bridgeaddr"></strong>, so lights can't be listed.
+                    Use <em>Find Moved Bridge</em> on the Bridge tab, or correct the address there and save.
+                </div>
                 <div class="light_options">
                     <label class="control-label" data-bind="text: ownSettings.provider() === 'hue' ? 'Hue Light or Group' : 'WLED Controller'"></label>
                     <div class="controls">

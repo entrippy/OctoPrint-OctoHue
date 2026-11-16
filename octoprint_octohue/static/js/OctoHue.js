@@ -32,6 +32,13 @@ $(function() {
         self.statusDict = [];
         self.hueLamps = ko.observableArray([]);
         self.huePlugs = ko.observableArray([]);
+        // True when the last bridge status check reported the bridge configured
+        // but not answering; drives the warning on the Lights tab.
+        self.bridgeUnreachable = ko.observable(false);
+        // State of the "Find My Bridge" search offered when the bridge is unreachable.
+        self.relocating = ko.observable(false);
+        self.relocateResult = ko.observable("");   // "", relocated, needspairing, notfound
+        self.relocateAddress = ko.observable("");
 
         self.addNewStatus = function () {
             var statusObj = {
@@ -88,6 +95,8 @@ $(function() {
                     self.ownSettings.husername(response[0].husername);
                     document.getElementById("huebridgestatus").style.backgroundColor = "green";
                     document.getElementById("huebridgestatus").innerHTML = "Paired";
+                    self.bridgeUnreachable(false);
+                    self.relocateResult("");
 					text_pairing_count.innerHTML = "<font color='green'><strong>Bridge paired successfully!</strong> Click the button below to select your light, or click Save to continue later.</font>";
                     document.getElementById("huebridge_paired_actions").classList.remove("inactiveconfig");
 				}
@@ -124,11 +133,58 @@ $(function() {
             $('#octohue_tabs a[href="#octohue_settings_lights"]').tab('show');
         };
 
+        self.bridgerelocate = function() {
+            self.relocating(true);
+            self.relocateResult("");
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"relocate": "true"}, {})
+                .done(function(response) {
+                    var addr = response.bridgeaddr || "";
+                    self.relocateAddress(addr);
+                    if (response.result === "relocated") {
+                        self.relocateResult("relocated");
+                        self.ownSettings.bridgeaddr(addr);
+                        self.getbridgestatus();
+                        self.fetchAllLamps();
+                        self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+                    } else if (response.result === "needspairing") {
+                        self.relocateResult("needspairing");
+                        // bridgepair() reads this page-level variable, the same
+                        // one bridgediscovery() sets.
+                        bridgeaddr = addr;
+                        document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig");
+                        document.getElementById("huebridge_found").classList.remove("inactiveconfig");
+                    } else {
+                        self.relocateResult("notfound");
+                    }
+                })
+                .fail(function() {
+                    self.relocateResult("notfound");
+                })
+                .always(function() {
+                    self.relocating(false);
+                });
+        };
+
         self.getbridgestatus = function() {
-            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).done(function(response) {
+            var badge = document.getElementById("huebridgestatus");
+            badge.style.backgroundColor = "#999";
+            badge.innerHTML = "Checking…";
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).fail(function() {
+                self.bridgeUnreachable(false);
+                badge.style.backgroundColor = "#999";
+                badge.innerHTML = "Couldn't check status";
+            }).done(function(response) {
+                self.bridgeUnreachable(response.bridgestatus === "unreachable");
                 if (response.bridgestatus === "configured") {
                     document.getElementById("huebridgestatus").style.backgroundColor = "green";
                     document.getElementById("huebridgestatus").innerHTML = "Configured";
+                    document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig");
+                    document.getElementById("huebridge_configured").classList.remove("inactiveconfig");
+                } else if (response.bridgestatus === "unreachable") {
+                    // Keep the configured panel visible: it holds the address field
+                    // the user needs to correct.
+                    document.getElementById("huebridgestatus").style.backgroundColor = "#ff4b4b";
+                    document.getElementById("huebridgestatus").innerHTML = "Unreachable — check the bridge address";
                     document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig");
                     document.getElementById("huebridge_configured").classList.remove("inactiveconfig");
                 } else if (response.bridgestatus === "unauthed") {
@@ -137,6 +193,8 @@ $(function() {
                     document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig");
                     document.getElementById("huebridge_configured").classList.add("inactiveconfig");
                 } else {
+                    document.getElementById("huebridgestatus").style.backgroundColor = "#ff4b4b";
+                    document.getElementById("huebridgestatus").innerHTML = "Unconfigured";
                     document.getElementById("huebridge_configured").classList.add("inactiveconfig");
                     document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig");
                 }
@@ -185,12 +243,18 @@ $(function() {
                 if (newProvider === "hue") {
                     self.getbridgestatus();
                     self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });
+                } else {
+                    // The unreachable warning is Hue-only; don't carry it over.
+                    self.bridgeUnreachable(false);
                 }
                 self.fetchAllLamps();
             });
         };
 
         self.onSettingsShown = function () {
+            // Results from a previous search are stale once the dialog reopens.
+            self.relocateResult("");
+            self.relocateAddress("");
             if (self.ownSettings.provider() === "hue") {
                 self.getbridgestatus();
                 self.getDevices("plug").then(function(devices) { self.huePlugs(devices); });

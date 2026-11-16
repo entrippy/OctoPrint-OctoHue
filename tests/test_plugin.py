@@ -706,6 +706,7 @@ class TestOnApiCommandBridge:
         )
         plugin.on_api_command("bridge", {"getstatus": "true"})
         flask.jsonify.assert_called_once_with(bridgestatus="configured")
+        plugin._provider.check_connection.assert_called_once_with()
 
     def test_getstatus_wled_unconfigured(self, plugin):
         flask = sys.modules["flask"]
@@ -715,6 +716,69 @@ class TestOnApiCommandBridge:
         plugin.on_api_command("bridge", {"getstatus": "true"})
         flask.jsonify.assert_called_once_with(bridgestatus="unconfigured")
 
+    def test_getstatus_unreachable_when_probe_fails(self, plugin):
+        """Address and key set but the bridge does not answer → 'unreachable'."""
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "192.168.1.100", "husername": "key"}
+        )
+        plugin._provider.check_connection.return_value = False
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unreachable")
+
+    def test_getstatus_configured_probes_bridge_once(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "192.168.1.100", "husername": "key"}
+        )
+        plugin._provider.check_connection.return_value = True
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        plugin._provider.check_connection.assert_called_once_with()
+
+    def test_getstatus_unauthed_does_not_probe(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "192.168.1.100", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        plugin._provider.check_connection.assert_not_called()
+
+    def test_getstatus_unconfigured_does_not_probe(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        plugin._provider.check_connection.assert_not_called()
+
+    @pytest.mark.parametrize("overrides,expected", [
+        ({"bridgeaddr": "192.168.1.100", "husername": "key"}, "unreachable"),
+        ({"bridgeaddr": "", "husername": ""}, "unconfigured"),
+        ({"bridgeaddr": "192.168.1.100", "husername": ""}, "unauthed"),
+        ({"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}, "unreachable"),
+        ({"provider": "wled", "bridgeaddr": "", "husername": ""}, "unconfigured"),
+    ])
+    def test_getstatus_without_provider(self, plugin, overrides, expected):
+        """Missing provider only changes the result when there is something to probe."""
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(overrides)
+        plugin._provider = None
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus=expected)
+
+    def test_getstatus_wled_unreachable_when_probe_fails(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}
+        )
+        plugin._provider.check_connection.return_value = False
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unreachable")
+
+    def test_getstatus_wled_unconfigured_does_not_probe(self, plugin):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "", "husername": ""}
+        )
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        plugin._provider.check_connection.assert_not_called()
+
     def test_discover_uses_hue_provider_directly(self, plugin):
         flask = sys.modules["flask"]
         bridges = [{"internalipaddress": "192.168.1.100", "id": "abc"}]
@@ -723,6 +787,191 @@ class TestOnApiCommandBridge:
             plugin.on_api_command("bridge", {"discover": "true"})
             MockHue.return_value.discover.assert_called_once()
             flask.jsonify.assert_called_once_with(bridges)
+
+    # ---- relocate: find a bridge that moved, reusing the saved key ----------
+
+    @staticmethod
+    def _hue_factory(discovered, accepts):
+        """
+        Build a HueProvider stand-in where every instance shares the given
+        discovery result and check_connection() is True only for addresses in
+        ``accepts``. Returns (factory, instances) so tests can inspect calls.
+
+        Like the existing discover/pair tests, this relies on the plugin
+        importing HueProvider at call time and using one fresh instance per
+        probed address, configured via setup(dict).
+        """
+        instances = []
+
+        def make(logger):
+            m = MagicMock(name=f"HueProvider#{len(instances)}")
+            m.discover.return_value = discovered
+            m._cfg = {}
+            m.setup.side_effect = lambda cfg, m=m: m._cfg.update(cfg)
+            m.check_connection.side_effect = lambda m=m: m._cfg.get("bridgeaddr") in accepts
+            instances.append(m)
+            return m
+
+        return make, instances
+
+    @staticmethod
+    def _bridgeaddr_sets(plugin):
+        return [c for c in plugin._settings.set.call_args_list if c.args[0] == ["bridgeaddr"]]
+
+    @staticmethod
+    def _probed(instances):
+        return [i._cfg.get("bridgeaddr") for i in instances if i.check_connection.called]
+
+    def _relocate(self, plugin, discovered, accepts, key="saved-key", data=None, provider="hue"):
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"bridgeaddr": "192.168.1.40", "husername": key, "provider": provider}
+        )
+        plugin._init_provider = MagicMock()
+        factory, instances = self._hue_factory(discovered, accepts)
+        with patch("octoprint_octohue.providers.hue.HueProvider", side_effect=factory):
+            plugin.on_api_command("bridge", data or {"relocate": "true"})
+        return instances
+
+    def test_relocate_non_admin_returns_403(self, plugin):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        with patch("octoprint_octohue.providers.hue.HueProvider") as MockHue:
+            plugin.on_api_command("bridge", {"relocate": "true"})
+            MockHue.assert_not_called()
+        assert flask.make_response.call_args[0][1] == 403
+        flask.jsonify.assert_any_call(error="Forbidden")
+        plugin._settings.save.assert_not_called()
+
+    def test_relocate_saves_address_that_accepts_saved_key(self, plugin):
+        flask = sys.modules["flask"]
+        self._relocate(plugin, [{"id": "b1", "internalipaddress": "192.168.1.120"}], {"192.168.1.120"})
+        assert self._bridgeaddr_sets(plugin) == [call(["bridgeaddr"], "192.168.1.120")]
+        plugin._settings.save.assert_called_once()
+        plugin._init_provider.assert_called_once()
+        flask.jsonify.assert_called_once_with(result="relocated", bridgeaddr="192.168.1.120")
+
+    def test_relocate_probes_with_saved_key(self, plugin):
+        instances = self._relocate(
+            plugin, [{"internalipaddress": "192.168.1.120"}], {"192.168.1.120"}, key="saved-key"
+        )
+        probed = [i for i in instances if i.check_connection.called]
+        assert probed and all(i._cfg.get("husername") == "saved-key" for i in probed)
+
+    def test_relocate_does_not_change_saved_key(self, plugin):
+        self._relocate(plugin, [{"internalipaddress": "192.168.1.120"}], {"192.168.1.120"})
+        assert all(c.args[0] != ["husername"] for c in plugin._settings.set.call_args_list)
+
+    def test_relocate_tries_next_bridge_when_first_rejects(self, plugin):
+        flask = sys.modules["flask"]
+        instances = self._relocate(
+            plugin,
+            [{"internalipaddress": "192.168.1.60"}, {"internalipaddress": "192.168.1.120"}],
+            {"192.168.1.120"},
+        )
+        assert self._probed(instances) == ["192.168.1.60", "192.168.1.120"]
+        assert self._bridgeaddr_sets(plugin) == [call(["bridgeaddr"], "192.168.1.120")]
+        flask.jsonify.assert_called_once_with(result="relocated", bridgeaddr="192.168.1.120")
+
+    def test_relocate_skips_entries_without_address(self, plugin):
+        flask = sys.modules["flask"]
+        self._relocate(
+            plugin, [{"id": "x"}, {"internalipaddress": "192.168.1.120"}], {"192.168.1.120"}
+        )
+        flask.jsonify.assert_called_once_with(result="relocated", bridgeaddr="192.168.1.120")
+
+    def test_relocate_needspairing_uses_first_entry_with_address(self, plugin):
+        flask = sys.modules["flask"]
+        self._relocate(plugin, [{"id": "x"}, {"internalipaddress": "192.168.1.120"}], set())
+        flask.jsonify.assert_called_once_with(result="needspairing", bridgeaddr="192.168.1.120")
+
+    def test_relocate_stops_at_first_accepting_bridge(self, plugin):
+        instances = self._relocate(
+            plugin,
+            [{"internalipaddress": "192.168.1.120"}, {"internalipaddress": "192.168.1.60"}],
+            {"192.168.1.120", "192.168.1.60"},
+        )
+        assert self._probed(instances) == ["192.168.1.120"]
+
+    def test_relocate_needs_pairing_when_no_bridge_accepts_key(self, plugin):
+        flask = sys.modules["flask"]
+        self._relocate(
+            plugin,
+            [{"internalipaddress": "192.168.1.120"}, {"internalipaddress": "192.168.1.60"}],
+            set(),
+        )
+        flask.jsonify.assert_called_once_with(result="needspairing", bridgeaddr="192.168.1.120")
+        assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+        plugin._init_provider.assert_not_called()
+        # Probing must use temporary providers, never repoint the live one.
+        plugin._provider.setup.assert_not_called()
+
+    @pytest.mark.parametrize("key", ["", None])
+    def test_relocate_without_saved_key_needs_pairing_without_probing(self, plugin, key):
+        flask = sys.modules["flask"]
+        instances = self._relocate(
+            plugin,
+            [{"internalipaddress": "192.168.1.120"}, {"internalipaddress": "192.168.1.60"}],
+            {"192.168.1.120", "192.168.1.60"},
+            key=key,
+        )
+        assert self._probed(instances) == []
+        flask.jsonify.assert_called_once_with(result="needspairing", bridgeaddr="192.168.1.120")
+        assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+        plugin._init_provider.assert_not_called()
+
+    @pytest.mark.parametrize("discovered", [
+        [],
+        [{"id": "no-address"}],
+        {"error": "rate limited"},
+        None,
+        ["192.168.1.1"],
+        [None],
+    ])
+    def test_relocate_notfound_when_discovery_has_no_addresses(self, plugin, discovered):
+        flask = sys.modules["flask"]
+        self._relocate(plugin, discovered, set())
+        flask.jsonify.assert_called_once_with(result="notfound")
+        assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+
+    def test_relocate_refuses_when_saved_provider_is_not_hue(self, plugin):
+        """bridgeaddr is shared with WLED; relocate must never overwrite a WLED address."""
+        flask = sys.modules["flask"]
+        instances = self._relocate(
+            plugin, [{"internalipaddress": "192.168.1.120"}], {"192.168.1.120"}, provider="wled"
+        )
+        assert self._probed(instances) == []
+        assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+        flask.jsonify.assert_called_once_with(result="notfound")
+
+    @pytest.mark.parametrize("bad", ["8.8.8.8", "not-an-ip", "", 12345, "192.168.1.120/../x"])
+    def test_relocate_ignores_non_private_or_invalid_addresses(self, plugin, bad):
+        """Only private-network IP addresses from discovery are probed or offered."""
+        flask = sys.modules["flask"]
+        instances = self._relocate(plugin, [{"internalipaddress": bad}], {bad} if isinstance(bad, str) else set())
+        assert self._probed(instances) == []
+        flask.jsonify.assert_called_once_with(result="notfound")
+
+    def test_relocate_ignores_address_supplied_in_request(self, plugin):
+        """Only discovered addresses may be probed or saved."""
+        instances = self._relocate(
+            plugin, [], {"6.6.6.6"},
+            data={"relocate": "true", "bridgeaddr": "6.6.6.6"},
+        )
+        assert "6.6.6.6" not in self._probed(instances)
+        plugin._settings.save.assert_not_called()
+
+    def test_relocate_ignores_request_address_alongside_discovery(self, plugin):
+        flask = sys.modules["flask"]
+        instances = self._relocate(
+            plugin, [{"internalipaddress": "192.168.1.120"}], {"6.6.6.6", "192.168.1.120"},
+            data={"relocate": "true", "bridgeaddr": "6.6.6.6"},
+        )
+        assert self._probed(instances) == ["192.168.1.120"]
+        flask.jsonify.assert_called_once_with(result="relocated", bridgeaddr="192.168.1.120")
 
     def test_pair_success_saves_credentials(self, plugin):
         plugin._settings.get.side_effect = make_settings_getter()

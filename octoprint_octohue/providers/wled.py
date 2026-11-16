@@ -114,6 +114,18 @@ class WledProvider(LightProvider):
     # LightProvider interface
     # ------------------------------------------------------------------
 
+    def check_connection(self) -> bool:
+        """Return True if ``GET /json/info`` succeeds; False (and log) otherwise."""
+        if not self.is_ready:
+            return False
+        try:
+            r = self._session.get(f"http://{self._address}/json/info", timeout=5)
+            r.raise_for_status()
+            return True
+        except Exception as e:
+            self._logger.warning(f"WLED controller at {self._address} is unreachable: {e}")
+            return False
+
     def set_light(
         self,
         *,

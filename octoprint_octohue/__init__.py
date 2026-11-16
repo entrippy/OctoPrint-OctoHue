@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import octoprint.plugin
 from datetime import datetime
 import flask
@@ -74,6 +75,71 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				'bridgeaddr': self._settings.get(['bridgeaddr']),
 			}
 		return {}
+
+	def _probe_status(self):
+		'''
+		Returns "configured" if the active provider answers a connection check,
+		otherwise "unreachable". Only called once settings say a controller is
+		configured, so an unconfigured install never makes a network request.
+		'''
+		if self._provider is not None and self._provider.check_connection():
+			return "configured"
+		return "unreachable"
+
+	def _relocate_bridge(self):
+		'''
+		Finds a Hue bridge that has moved to a new address.
+
+		Runs discovery and probes each discovered address with the saved
+		application key, saving the first one that accepts it. Only discovered
+		addresses are ever probed or saved, never one supplied by the client.
+
+		Returns a dict for the API response:
+			{"result": "relocated", "bridgeaddr": addr}    key works at a new address
+			{"result": "needspairing", "bridgeaddr": addr} found, but key missing/rejected
+			{"result": "notfound"}                         nothing discovered
+		'''
+		# bridgeaddr is shared with other providers; never repoint a WLED address.
+		if (self._settings.get(['provider']) or 'hue') != 'hue':
+			self._logger.info("Bridge relocate: skipped, active provider is not Hue")
+			return {"result": "notfound"}
+
+		from octoprint_octohue.providers.hue import HueProvider
+		discovered = HueProvider(self._logger).discover()
+		if not isinstance(discovered, list):
+			discovered = []
+		addresses = [
+			b['internalipaddress'] for b in discovered
+			if isinstance(b, dict) and self._is_private_ip(b.get('internalipaddress'))
+		]
+		if not addresses:
+			self._logger.info("Bridge relocate: no bridges discovered")
+			return {"result": "notfound"}
+
+		apikey = self._settings.get(['husername'])
+		if apikey:
+			for addr in addresses:
+				candidate = HueProvider(self._logger)
+				candidate.setup({'bridgeaddr': addr, 'husername': apikey})
+				if candidate.check_connection():
+					self._logger.info(f"Bridge relocate: saved key accepted at {addr}")
+					self._settings.set(['bridgeaddr'], addr)
+					self._settings.save()
+					self._init_provider()
+					return {"result": "relocated", "bridgeaddr": addr}
+
+		self._logger.info(f"Bridge relocate: found {addresses[0]} but it needs pairing")
+		return {"result": "needspairing", "bridgeaddr": addresses[0]}
+
+	@staticmethod
+	def _is_private_ip(value):
+		'''True only for a literal private-network IP address string.'''
+		if not isinstance(value, str):
+			return False
+		try:
+			return ipaddress.ip_address(value).is_private
+		except ValueError:
+			return False
 
 	def build_state(self, **kwargs):
 		'''
@@ -251,7 +317,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Handles SimpleApi commands dispatched by OctoPrint.
 
 			Commands:
-				bridge     (admin) getstatus / discover / pair sub-commands.
+				bridge     (admin) getstatus / discover / relocate / pair sub-commands.
 				getdevices (admin) Returns lights, optionally filtered by archetype.
 				getgroups  (admin) Returns rooms and zones as named group entries.
 				getstate   (admin) Returns the current on/off state of the configured lamp.
@@ -271,13 +337,13 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				bridge = self._settings.get(['bridgeaddr'])
 				if provider_name == 'wled':
 					if bridge:
-						return flask.jsonify(bridgestatus="configured")
+						return flask.jsonify(bridgestatus=self._probe_status())
 					else:
 						return flask.jsonify(bridgestatus="unconfigured")
 				else:
 					apikey = self._settings.get(['husername'])
 					if bridge and apikey:
-						return flask.jsonify(bridgestatus="configured")
+						return flask.jsonify(bridgestatus=self._probe_status())
 					elif bridge and not apikey:
 						return flask.jsonify(bridgestatus="unauthed")
 					else:
@@ -288,6 +354,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				discovered = HueProvider(self._logger).discover()
 				self._logger.debug(discovered)
 				return flask.jsonify(discovered)
+
+			elif "relocate" in data:
+				return flask.jsonify(**self._relocate_bridge())
 
 			elif "pair" in data:
 				from octoprint_octohue.providers.hue import HueProvider
