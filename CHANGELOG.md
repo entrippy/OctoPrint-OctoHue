@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Settings no longer show an empty lights list without explanation when the Hue bridge can't be reached (for example after it gets a new IP from DHCP). The Bridge tab now shows an **Unreachable** status and the Lights tab shows a warning naming the address being tried.
+- Hue API requests now time out after 5 seconds instead of waiting indefinitely on a bridge that doesn't answer.
+- The Hue application key is no longer written to the log at debug level.
+
+### Added
+- **Find Moved Bridge** — when the bridge is unreachable, the Bridge tab offers a search that finds the bridge on the network and tries the existing pairing at its new address, saving it if accepted. If the bridge doesn't accept the saved key, the pairing flow opens pointed at the discovered bridge. Only private-network addresses returned by Hue discovery are tried, and only while Hue is the active provider.
+- Bridge status badge shows **Checking…** while the status request runs, and **Couldn't check status** if it fails, instead of a stale value.
+- `LightProvider.check_connection()` — providers report whether their controller is reachable (Hue probes `/resource/bridge`, WLED probes `/json/info`). `bridge` → `getstatus` returns `unreachable` when a configured controller doesn't answer. New `bridge` → `relocate` API sub-command.
+
 ---
 
 ## [1.1.0] - unreleased

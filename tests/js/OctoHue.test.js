@@ -38,6 +38,7 @@ class SyncResult {
     return this;
   }
   done(cb) { if (!this._isError && cb) cb(this._value); return this; }
+  always(cb) { if (cb) cb(this._value); return this; }
   fail(cb) { if (this._isError  && cb) cb(this._value); return this; }
 }
 
@@ -113,10 +114,11 @@ const ko = {
 // ---------------------------------------------------------------------------
 // OctoPrint API mock
 // ---------------------------------------------------------------------------
+const defaultApiResponse = () =>
+  new SyncResult({ devices: [], bridgestatus: "unconfigured" });
+
 const OctoPrint = {
-  simpleApiCommand: jest.fn().mockImplementation(() =>
-    new SyncResult({ devices: [], bridgestatus: "unconfigured" })
-  ),
+  simpleApiCommand: jest.fn().mockImplementation(defaultApiResponse),
 };
 
 // ---------------------------------------------------------------------------
@@ -225,7 +227,10 @@ function makeViewModel(pluginSettingsOverrides = {}) {
 beforeEach(() => {
   ko.observable.mockClear();
   ko.computed.mockClear();
-  OctoPrint.simpleApiCommand.mockClear();
+  // mockReset (not mockClear) drops queued mockReturnValueOnce values, so a
+  // test that throws early cannot leak its responses into later tests.
+  OctoPrint.simpleApiCommand.mockReset();
+  OctoPrint.simpleApiCommand.mockImplementation(defaultApiResponse);
   document.getElementById.mockClear();
   $.mockClear();
 });
@@ -470,6 +475,163 @@ describe("bridgediscovery", () => {
 });
 
 // ===========================================================================
+// bridgerelocate
+// ===========================================================================
+
+describe("bridgerelocate", () => {
+  test("starts idle", () => {
+    const vm = makeViewModel();
+    expect(vm.relocating()).toBe(false);
+    expect(vm.relocateResult()).toBe("");
+  });
+
+  test("issues the relocate command", () => {
+    const vm = makeViewModel();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult({ result: "notfound" }));
+    vm.bridgerelocate();
+    expect(OctoPrint.simpleApiCommand).toHaveBeenCalledWith(
+      "octohue", "bridge", { relocate: "true" }, {}
+    );
+  });
+
+  test("is marked relocating while the request is in flight", () => {
+    const vm = makeViewModel();
+    let relocatingDuringRequest = null;
+    OctoPrint.simpleApiCommand.mockImplementationOnce(() => {
+      relocatingDuringRequest = vm.relocating();
+      return new SyncResult({ result: "notfound" });
+    });
+    vm.bridgerelocate();
+    expect(relocatingDuringRequest).toBe(true);
+    expect(vm.relocating()).toBe(false);
+  });
+
+  test("relocated: updates address, rechecks status and reloads lights", () => {
+    const vm = makeViewModel();
+    vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps = jest.fn();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult({ result: "relocated", bridgeaddr: "192.168.1.120" })
+    );
+    vm.bridgerelocate();
+    expect(vm.relocateResult()).toBe("relocated");
+    expect(vm.relocateAddress()).toBe("192.168.1.120");
+    expect(vm.ownSettings.bridgeaddr()).toBe("192.168.1.120");
+    expect(vm.getbridgestatus).toHaveBeenCalledTimes(1);
+    expect(vm.fetchAllLamps).toHaveBeenCalledTimes(1);
+    expect(vm.relocating()).toBe(false);
+  });
+
+  test("relocated: also refreshes the plug list", () => {
+    const vm = makeViewModel();
+    vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps = jest.fn();
+    const plugs = [{ id: "p1", name: "Printer Plug", archetype: "plug" }];
+    vm.getDevices = jest.fn(() => new SyncResult(plugs));
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult({ result: "relocated", bridgeaddr: "192.168.1.120" })
+    );
+    vm.bridgerelocate();
+    expect(vm.getDevices).toHaveBeenCalledWith("plug");
+    expect(vm.huePlugs()).toEqual(plugs);
+  });
+
+  test("needspairing: opens the pairing panel without changing the saved address", () => {
+    const vm = makeViewModel({ bridgeaddr: makeObservable("192.168.1.40") });
+    vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps = jest.fn();
+    document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig");
+    document.getElementById("huebridge_found").classList.add("inactiveconfig");
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult({ result: "needspairing", bridgeaddr: "192.168.1.120" })
+    );
+    vm.bridgerelocate();
+    expect(vm.relocateResult()).toBe("needspairing");
+    expect(vm.relocateAddress()).toBe("192.168.1.120");
+    expect(vm.ownSettings.bridgeaddr()).toBe("192.168.1.40");
+    expect(document.getElementById("huebridge_unconfigured").classList.contains("inactiveconfig")).toBe(false);
+    expect(document.getElementById("huebridge_found").classList.contains("inactiveconfig")).toBe(false);
+    expect(vm.getbridgestatus).not.toHaveBeenCalled();
+    expect(vm.fetchAllLamps).not.toHaveBeenCalled();
+    expect(vm.relocating()).toBe(false);
+  });
+
+  describe("needspairing then Start Pairing", () => {
+    beforeEach(() => { jest.useFakeTimers(); });
+    afterEach(() => { jest.useRealTimers(); });
+
+    test("pairs against the discovered address", () => {
+      // bridgepair reads a page-level global; seed it with a stale value so
+      // only the needspairing handler can make this pass.
+      global.bridgeaddr = "stale-address";
+      const vm = makeViewModel();
+      OctoPrint.simpleApiCommand.mockReturnValueOnce(
+        new SyncResult({ result: "needspairing", bridgeaddr: "192.168.1.201" })
+      );
+      vm.bridgerelocate();
+      OctoPrint.simpleApiCommand.mockClear();
+      OctoPrint.simpleApiCommand.mockImplementation(() =>
+        new SyncResult([{ response: "error" }])
+      );
+      vm.bridgepair();
+      jest.advanceTimersByTime(1000);
+      expect(OctoPrint.simpleApiCommand).toHaveBeenCalledWith(
+        "octohue", "bridge", { pair: "true", bridgeaddr: "192.168.1.201" }, {}
+      );
+      jest.advanceTimersByTime(30000);
+    });
+  });
+
+  test.each([
+    [{ result: "notfound" }],
+  ])("%j is reported as notfound and leaves the address alone", (response) => {
+    const vm = makeViewModel({ bridgeaddr: makeObservable("192.168.1.40") });
+    vm.getbridgestatus = jest.fn();
+    document.getElementById("huebridge_found").classList.add("inactiveconfig");
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult(response));
+    vm.bridgerelocate();
+    expect(vm.relocateResult()).toBe("notfound");
+    expect(vm.ownSettings.bridgeaddr()).toBe("192.168.1.40");
+    expect(vm.relocating()).toBe(false);
+    expect(vm.getbridgestatus).not.toHaveBeenCalled();
+    expect(document.getElementById("huebridge_found").classList.contains("inactiveconfig")).toBe(true);
+  });
+
+  test("request failure is reported as failed, not notfound, and re-enables the button", () => {
+    const vm = makeViewModel();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult({ status: 500 }, true));
+    vm.bridgerelocate();
+    expect(vm.relocateResult()).toBe("failed");
+    expect(vm.relocating()).toBe(false);
+  });
+
+  test.each([
+    [{ result: "failed" }],
+    [{ result: "something-unexpected" }],
+  ])("%j is reported as failed and leaves the address alone", (response) => {
+    const vm = makeViewModel({ bridgeaddr: makeObservable("192.168.1.40") });
+    vm.getbridgestatus = jest.fn();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult(response));
+    vm.bridgerelocate();
+    expect(vm.relocateResult()).toBe("failed");
+    expect(vm.ownSettings.bridgeaddr()).toBe("192.168.1.40");
+    expect(vm.getbridgestatus).not.toHaveBeenCalled();
+  });
+
+  test("a new search clears the previous result", () => {
+    const vm = makeViewModel();
+    let resultDuringRequest = null;
+    vm.relocateResult("needspairing");
+    OctoPrint.simpleApiCommand.mockImplementationOnce(() => {
+      resultDuringRequest = vm.relocateResult();
+      return new SyncResult({ result: "notfound" });
+    });
+    vm.bridgerelocate();
+    expect(resultDuringRequest).toBe("");
+  });
+});
+
+// ===========================================================================
 // bridgepair
 // ===========================================================================
 
@@ -486,7 +648,7 @@ describe("bridgepair", () => {
   }
 
   const SUCCESS_RESPONSE = new SyncResult([{
-    response: "success", bridgeaddr: "10.0.0.1", husername: "new-key"
+    response: "success", bridgeaddr: "192.168.1.1", husername: "new-key"
   }]);
 
   function runPairSuccess(vm) {
@@ -505,7 +667,16 @@ describe("bridgepair", () => {
     const bridgeaddr = makeObservable("");
     const vm = makePairVm({ bridgeaddr });
     runPairSuccess(vm);
-    expect(bridgeaddr).toHaveBeenCalledWith("10.0.0.1");
+    expect(bridgeaddr).toHaveBeenCalledWith("192.168.1.1");
+  });
+
+  test("on success, clears the unreachable warning and relocate result", () => {
+    const vm = makePairVm({});
+    vm.bridgeUnreachable(true);
+    vm.relocateResult("needspairing");
+    runPairSuccess(vm);
+    expect(vm.bridgeUnreachable()).toBe(false);
+    expect(vm.relocateResult()).toBe("");
   });
 
   test("on success, updates husername observable", () => {
@@ -649,6 +820,102 @@ describe("getbridgestatus", () => {
     const configured = document.getElementById("huebridge_configured");
     expect(configured.classList.add).toHaveBeenCalledWith("inactiveconfig");
   });
+
+  test("shows a Checking badge before the status request resolves", () => {
+    const vm = makeViewModel();
+    const badge = document.getElementById("huebridgestatus");
+    badge.innerHTML = "Unconfigured";
+    badge.style.backgroundColor = "green";
+    let badgeAtRequestTime = null;
+    OctoPrint.simpleApiCommand.mockImplementationOnce(() => {
+      badgeAtRequestTime = { text: badge.innerHTML, colour: badge.style.backgroundColor };
+      return new SyncResult({ bridgestatus: "configured" });
+    });
+    vm.getbridgestatus();
+    expect(badgeAtRequestTime).toEqual({ text: "Checking…", colour: "#999" });
+  });
+
+  test("failed status request shows Couldn't check status and clears unreachable", () => {
+    const vm = makeViewModel();
+    vm.bridgeUnreachable(true);
+    const badge = document.getElementById("huebridgestatus");
+    OctoPrint.simpleApiCommand.mockImplementationOnce(() => {
+      // Overwrite the Checking state so only the failure handler can satisfy the asserts.
+      badge.innerHTML = "stale";
+      badge.style.backgroundColor = "green";
+      return new SyncResult({ status: 500 }, true);
+    });
+    vm.getbridgestatus();
+    expect(badge.innerHTML).toBe("Couldn't check status");
+    expect(badge.style.backgroundColor).toBe("#999");
+    expect(vm.bridgeUnreachable()).toBe(false);
+  });
+
+  test.each([["unconfigured"], ["something-new"]])(
+    "%s status replaces the Checking badge with red Unconfigured",
+    (status) => {
+      const vm = makeViewModel();
+      OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult({ bridgestatus: status }));
+      vm.getbridgestatus();
+      const badge = document.getElementById("huebridgestatus");
+      expect(badge.innerHTML).toBe("Unconfigured");
+      expect(badge.style.backgroundColor).toBe("#ff4b4b");
+    }
+  );
+
+  test("unauthed status replaces the Checking badge", () => {
+    const vm = makeViewModel();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult({ bridgestatus: "unauthed" }));
+    vm.getbridgestatus();
+    expect(document.getElementById("huebridgestatus").innerHTML).not.toBe("Checking…");
+  });
+
+  test("bridgeUnreachable starts false", () => {
+    const vm = makeViewModel();
+    expect(vm.bridgeUnreachable()).toBe(false);
+  });
+
+  test("unreachable status sets red badge, keeps configured panel, flags unreachable", () => {
+    const vm = makeViewModel();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(
+      new SyncResult({ bridgestatus: "unreachable" })
+    );
+    // Seed the opposite panel state so the assertions below cannot pass on
+    // leftovers from earlier tests (DOM mocks persist across tests).
+    document.getElementById("huebridge_configured").classList.add("inactiveconfig");
+    document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig");
+    vm.getbridgestatus();
+
+    const badge = document.getElementById("huebridgestatus");
+    expect(badge.style.backgroundColor).toBe("#ff4b4b");
+    expect(badge.innerHTML).toBe("Unreachable — check the bridge address");
+
+    // The address field lives in the configured panel; it must stay editable.
+    const configured = document.getElementById("huebridge_configured");
+    expect(configured.classList.contains("inactiveconfig")).toBe(false);
+    const unconfigured = document.getElementById("huebridge_unconfigured");
+    expect(unconfigured.classList.contains("inactiveconfig")).toBe(true);
+
+    expect(vm.bridgeUnreachable()).toBe(true);
+  });
+
+  test.each(["configured", "unauthed", "unconfigured", "something-new"])(
+    "%s status clears bridgeUnreachable after an unreachable result",
+    (status) => {
+      const vm = makeViewModel();
+      OctoPrint.simpleApiCommand.mockReturnValueOnce(
+        new SyncResult({ bridgestatus: "unreachable" })
+      );
+      vm.getbridgestatus();
+      expect(vm.bridgeUnreachable()).toBe(true);
+
+      OctoPrint.simpleApiCommand.mockReturnValueOnce(
+        new SyncResult({ bridgestatus: status })
+      );
+      vm.getbridgestatus();
+      expect(vm.bridgeUnreachable()).toBe(false);
+    }
+  );
 
   test("issues the correct API command", () => {
     const vm = makeViewModel();
@@ -795,6 +1062,18 @@ describe("lampid subscription", () => {
 });
 
 describe("onSettingsShown", () => {
+  test("clears any relocate result from a previous opening", () => {
+    const vm = makeViewModel();
+    vm.getbridgestatus = jest.fn();
+    vm.fetchAllLamps = jest.fn();
+    vm.getDevices = jest.fn(() => new SyncResult([]));
+    vm.relocateResult("notfound");
+    vm.relocateAddress("192.168.1.120");
+    vm.onSettingsShown();
+    expect(vm.relocateResult()).toBe("");
+    expect(vm.relocateAddress()).toBe("");
+  });
+
   test("calls getbridgestatus when provider is hue", () => {
     const vm = makeViewModel();
     vm.getbridgestatus = jest.fn();
@@ -839,6 +1118,13 @@ describe("onSettingsShown", () => {
 // ===========================================================================
 
 describe("provider subscription", () => {
+  test("switching to wled clears bridgeUnreachable", () => {
+    const vm = makeViewModel();
+    vm.bridgeUnreachable(true);
+    vm.ownSettings.provider("wled");
+    expect(vm.bridgeUnreachable()).toBe(false);
+  });
+
   test("switching to hue calls getbridgestatus, fetchAllLamps, and getDevices", () => {
     const vm = makeViewModel({ provider: makeObservable("wled") });
     vm.getbridgestatus = jest.fn();

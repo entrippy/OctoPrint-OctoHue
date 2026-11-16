@@ -8,6 +8,10 @@ from requests.adapters import HTTPAdapter
 
 from .base import LightProvider
 
+# Seconds before a Hue API request is abandoned. Without it a bridge that has
+# moved to another IP can hang the calling thread until the OS gives up.
+REQUEST_TIMEOUT = 5
+
 # ---------------------------------------------------------------------------
 # The Hue bridge TLS certificate uses the bridge serial number as its CN/SAN
 # rather than its IP address, so hostname verification cannot succeed.
@@ -70,7 +74,7 @@ class HueProvider(LightProvider):
             f"Bridge Address is {bridgeaddr if bridgeaddr else 'Please set Bridge Address in settings'}"
         )
         self._logger.debug(
-            f"Hue Username is {husername if husername else 'Please set Hue Username in settings'}"
+            "Hue application key is set" if husername else "Please set Hue Username in settings"
         )
 
         if bridgeaddr and husername:
@@ -110,7 +114,7 @@ class HueProvider(LightProvider):
         headers = {"hue-application-key": self._pbridge['key']}
         self._logger.info(f"Hue API {method} {url}" + (f" payload={payload}" if payload else ""))
         try:
-            r = self._session.request(method, url, headers=headers, json=payload)
+            r = self._session.request(method, url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
             body = r.json()
             if r.status_code not in (200, 207):
                 self._logger.warning(f"Hue API {method} {path} returned HTTP {r.status_code}: {body}")
@@ -122,6 +126,29 @@ class HueProvider(LightProvider):
         except Exception as e:
             self._logger.error(f"Hue API error ({method} {path}): {e}")
             return {}
+
+    def check_connection(self) -> bool:
+        """
+        Return True if the bridge answers ``GET /resource/bridge`` with HTTP 200.
+
+        Any connection error, timeout or other status (including a rejected
+        application key) returns False and is logged.
+        """
+        if not self.is_ready:
+            return False
+        url = f"https://{self._pbridge['addr']}/clip/v2/resource/bridge"
+        headers = {"hue-application-key": self._pbridge['key']}
+        try:
+            r = self._session.request("GET", url, headers=headers, timeout=REQUEST_TIMEOUT)
+        except Exception as e:
+            self._logger.warning(f"Hue bridge at {self._pbridge['addr']} is unreachable: {e}")
+            return False
+        if r.status_code != 200:
+            self._logger.warning(
+                f"Hue bridge at {self._pbridge['addr']} answered connection check with HTTP {r.status_code}"
+            )
+            return False
+        return True
 
     # ------------------------------------------------------------------
     # Colour conversion (Hue-specific: xy chromaticity)

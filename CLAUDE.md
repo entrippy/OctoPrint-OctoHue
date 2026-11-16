@@ -15,19 +15,19 @@ OctoHue is an OctoPrint plugin (Python + KnockoutJS) that controls Philips Hue l
 ## Local OctoPrint install
 
 A local OctoPrint instance is available for live testing:
-- Virtual environment: `~/oprint/`
-- Install plugin for development: `~/oprint/bin/pip install -e .`
-- Run: `~/oprint/bin/octoprint serve`
+- Virtual environment: `~/oprint/` — Python 3.11 to match OctoPi (OctoPrint 1.11.x requires Python < 3.14). To recreate: `$(brew --prefix python@3.11)/bin/python3.11 -m venv ~/oprint && ~/oprint/bin/pip install "OctoPrint==1.11.8"`
+- Install plugin for development: `~/oprint/bin/pip install -e . pytest`
+- Run: `~/oprint/bin/octoprint serve --port 5001` (macOS AirPlay Receiver holds port 5000). To run it from the Claude desktop app's preview, create a local `.claude/launch.json` (gitignored, so it isn't in the repo) with a configuration named `octoprint` that runs `~/oprint/bin/octoprint` with `serve --host 127.0.0.1 --port 5001` on port 5001.
 - Logs (macOS): `~/Library/Application Support/OctoPrint/logs/octoprint.log`
 - Logs (Linux): typically `~/.octoprint/logs/octoprint.log`
 
 ## Running tests
 
 ```bash
-# Python (169 tests) — no live OctoPrint install required
-python -m pytest
+# Python (324 tests) — no live OctoPrint install required
+~/oprint/bin/python -m pytest
 
-# JavaScript (68 tests)
+# JavaScript (101 tests)
 npx jest
 ```
 

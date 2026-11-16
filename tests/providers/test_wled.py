@@ -277,3 +277,40 @@ class TestPair:
         p = WledProvider(MagicMock())
         p.setup({"bridgeaddr": ""})
         assert p.pair() == {"response": "success"}
+
+
+# ===========================================================================
+# check_connection
+# ===========================================================================
+
+class TestCheckConnection:
+    """check_connection() probes the controller and reports reachability as a bool."""
+
+    def test_true_when_info_succeeds(self, wled_provider):
+        assert wled_provider.check_connection() is True
+
+    def test_probes_json_info(self, wled_provider):
+        wled_provider.check_connection()
+        args, kwargs = wled_provider._session.get.call_args
+        url = args[0] if args else kwargs.get("url")
+        assert url == "http://192.168.1.200/json/info"
+
+    def test_passes_timeout(self, wled_provider):
+        wled_provider.check_connection()
+        timeout = wled_provider._session.get.call_args.kwargs.get("timeout")
+        assert timeout is not None and 0 < timeout <= 5
+
+    def test_false_on_connection_error(self, wled_provider):
+        wled_provider._session.get.side_effect = Exception("No route to host")
+        assert wled_provider.check_connection() is False
+
+    def test_false_on_http_error(self, wled_provider):
+        wled_provider._session.get.return_value.raise_for_status.side_effect = Exception("500")
+        assert wled_provider.check_connection() is False
+
+    def test_false_when_not_ready_without_request(self):
+        p = WledProvider(MagicMock())
+        p.setup({"bridgeaddr": ""})
+        p._session = MagicMock(name="session")
+        assert p.check_connection() is False
+        p._session.get.assert_not_called()

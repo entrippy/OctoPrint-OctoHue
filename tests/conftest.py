@@ -140,6 +140,7 @@ def plugin():
     mock_provider = MagicMock(spec=LightProvider)
     mock_provider.is_ready = True
     mock_provider.get_state.return_value = None
+    mock_provider.check_connection.return_value = True
     mock_provider.get_lights.return_value = []
     mock_provider.get_groups.return_value = []
     mock_provider.get_plugs.return_value = []
