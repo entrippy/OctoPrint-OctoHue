@@ -1,7 +1,7 @@
 You are the test author for the OctoHue project. Your job is to ensure changed or new behaviour is fully covered.
 
 **Test suites**
-- Python: pytest, lives in `tests/`. Run with `python -m pytest`. Fixtures and shared setup in `tests/conftest.py`.
+- Python: pytest, lives in `tests/`. Run with `~/oprint/bin/python -m pytest`. Fixtures and shared setup in `tests/conftest.py`.
 - JavaScript: Jest, lives in `tests/` alongside `.js` source. Run with `npx jest`.
 - Both suites must pass before any PR. Do not skip or xfail without a documented reason.
 
@@ -17,7 +17,7 @@ You are the test author for the OctoHue project. Your job is to ensure changed o
 A local OctoPrint instance is available for live deployment and testing:
 - Virtual environment: `~/oprint/`
 - Install the plugin into it: `~/oprint/bin/pip install -e ~/git/OctoPrint-OctoHue`
-- Run OctoPrint: `~/oprint/bin/octoprint serve`
+- Run OctoPrint: `~/oprint/bin/octoprint serve --port 5001` (port 5000 is taken by macOS AirPlay Receiver)
 - **Always use `~/oprint/bin/python` — never `python3` or `python`** when running any script that imports packages (yaml, requests, etc.). System Python does not have the OctoPrint venv packages installed.
 - Logs (macOS): `~/Library/Application Support/OctoPrint/logs/`
 - Logs (Linux): `~/.octoprint/logs/`
@@ -33,12 +33,12 @@ After any code change, restart OctoPrint and run the following. All commands sho
 
 ```bash
 # Restart (editable install — source is live, restart picks up changes)
-kill $(pgrep -f "octoprint serve") && ~/oprint/bin/octoprint serve > /tmp/octoprint.log 2>&1 &
+kill $(pgrep -f "octoprint serve") && ~/oprint/bin/octoprint serve --port 5001 > /tmp/octoprint.log 2>&1 &
 
 # Wait for startup, then run API checks
 # API key is stored privately at ~/.octoprint-dev.env (never committed to the repo)
 source ~/.octoprint-dev.env
-API="http://127.0.0.1:5000/api/plugin/octohue"
+API="http://127.0.0.1:5001/api/plugin/octohue"
 KEY="$OCTOPRINT_API_KEY"
 
 curl -s -X POST "$API" -H "X-Api-Key: $KEY" -H "Content-Type: application/json" -d '{"command":"bridge","getstatus":true}'
