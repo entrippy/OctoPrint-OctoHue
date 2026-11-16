@@ -53,6 +53,12 @@ curl -s -X POST "$API" -H "X-Api-Key: $KEY" -H "Content-Type: application/json" 
 grep -i "octohue\|traceback" /tmp/octoprint.log | grep -iv "errortracking"
 ```
 
+**Testing on a real OctoPi**
+When installing a branch build on an OctoPi (OctoPi's venv is `/opt/octopi/oprint`):
+- Set a version that sorts *above* the installed release before `pip install`, e.g. `1.1.0rc2.dev1` over `1.1.0rc1`. If the build reports a lower version (devel's `pyproject.toml` may say an older number), OctoPrint's Software Update offers — or a click on its popup performs — a "downgrade" back to the release, silently replacing the build.
+- After installing, check the new code is actually there (`grep` the installed `static/js/OctoHue.js`) and clear `~/.octoprint/generated/webassets` before restarting, or the browser keeps the old packed JS.
+- Don't click "Update now" in the Update Available popup during the test.
+
 **One-time setup for contributors:**
 1. In OctoPrint, go to Settings → Users → your account → Generate API Key
 2. Save it locally: `echo "OCTOPRINT_API_KEY=your-key-here" > ~/.octoprint-dev.env`
