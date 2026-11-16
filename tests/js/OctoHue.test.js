@@ -584,7 +584,6 @@ describe("bridgerelocate", () => {
 
   test.each([
     [{ result: "notfound" }],
-    [{ result: "something-unexpected" }],
   ])("%j is reported as notfound and leaves the address alone", (response) => {
     const vm = makeViewModel({ bridgeaddr: makeObservable("192.168.1.40") });
     vm.getbridgestatus = jest.fn();
@@ -598,12 +597,25 @@ describe("bridgerelocate", () => {
     expect(document.getElementById("huebridge_found").classList.contains("inactiveconfig")).toBe(true);
   });
 
-  test("request failure is reported as notfound and re-enables the button", () => {
+  test("request failure is reported as failed, not notfound, and re-enables the button", () => {
     const vm = makeViewModel();
     OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult({ status: 500 }, true));
     vm.bridgerelocate();
-    expect(vm.relocateResult()).toBe("notfound");
+    expect(vm.relocateResult()).toBe("failed");
     expect(vm.relocating()).toBe(false);
+  });
+
+  test.each([
+    [{ result: "failed" }],
+    [{ result: "something-unexpected" }],
+  ])("%j is reported as failed and leaves the address alone", (response) => {
+    const vm = makeViewModel({ bridgeaddr: makeObservable("192.168.1.40") });
+    vm.getbridgestatus = jest.fn();
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult(response));
+    vm.bridgerelocate();
+    expect(vm.relocateResult()).toBe("failed");
+    expect(vm.ownSettings.bridgeaddr()).toBe("192.168.1.40");
+    expect(vm.getbridgestatus).not.toHaveBeenCalled();
   });
 
   test("a new search clears the previous result", () => {

@@ -97,17 +97,21 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Returns a dict for the API response:
 			{"result": "relocated", "bridgeaddr": addr}    key works at a new address
 			{"result": "needspairing", "bridgeaddr": addr} found, but key missing/rejected
-			{"result": "notfound"}                         nothing discovered
+			{"result": "notfound"}                         discovery ran, no usable bridge
+			{"result": "failed"}                           search couldn't run (wrong
+			                                               provider, discovery error)
 		'''
 		# bridgeaddr is shared with other providers; never repoint a WLED address.
 		if (self._settings.get(['provider']) or 'hue') != 'hue':
 			self._logger.info("Bridge relocate: skipped, active provider is not Hue")
-			return {"result": "notfound"}
+			return {"result": "failed"}
 
 		from octoprint_octohue.providers.hue import HueProvider
 		discovered = HueProvider(self._logger).discover()
 		if not isinstance(discovered, list):
-			discovered = []
+			# Discovery answered with an error object (e.g. rate limited).
+			self._logger.warning(f"Bridge relocate: unexpected discovery response: {discovered!r}")
+			return {"result": "failed"}
 		addresses = [
 			b['internalipaddress'] for b in discovered
 			if isinstance(b, dict) and self._is_private_ip(b.get('internalipaddress'))
@@ -133,13 +137,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 	@staticmethod
 	def _is_private_ip(value):
-		'''True only for a literal private-network IP address string.'''
+		'''
+		True only for a literal private-network IPv4 address (the form Hue
+		discovery returns and the provider's URLs expect). Loopback,
+		link-local and unspecified addresses are rejected.
+		'''
 		if not isinstance(value, str):
 			return False
 		try:
-			return ipaddress.ip_address(value).is_private
+			ip = ipaddress.IPv4Address(value)
 		except ValueError:
 			return False
+		return ip.is_private and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified)
 
 	def build_state(self, **kwargs):
 		'''

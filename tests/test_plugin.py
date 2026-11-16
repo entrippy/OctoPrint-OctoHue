@@ -924,8 +924,6 @@ class TestOnApiCommandBridge:
     @pytest.mark.parametrize("discovered", [
         [],
         [{"id": "no-address"}],
-        {"error": "rate limited"},
-        None,
         ["192.168.1.1"],
         [None],
     ])
@@ -934,6 +932,14 @@ class TestOnApiCommandBridge:
         self._relocate(plugin, discovered, set())
         flask.jsonify.assert_called_once_with(result="notfound")
         assert self._bridgeaddr_sets(plugin) == []
+        plugin._settings.save.assert_not_called()
+
+    @pytest.mark.parametrize("discovered", [{"error": "rate limited"}, None])
+    def test_relocate_failed_when_discovery_response_is_not_a_list(self, plugin, discovered):
+        """An error object from discovery means the search didn't work, not that no bridge exists."""
+        flask = sys.modules["flask"]
+        self._relocate(plugin, discovered, set())
+        flask.jsonify.assert_called_once_with(result="failed")
         plugin._settings.save.assert_not_called()
 
     def test_relocate_refuses_when_saved_provider_is_not_hue(self, plugin):
@@ -945,9 +951,12 @@ class TestOnApiCommandBridge:
         assert self._probed(instances) == []
         assert self._bridgeaddr_sets(plugin) == []
         plugin._settings.save.assert_not_called()
-        flask.jsonify.assert_called_once_with(result="notfound")
+        flask.jsonify.assert_called_once_with(result="failed")
 
-    @pytest.mark.parametrize("bad", ["8.8.8.8", "not-an-ip", "", 12345, "192.168.1.120/../x"])
+    @pytest.mark.parametrize("bad", [
+        "8.8.8.8", "not-an-ip", "", 12345, "192.168.1.120/../x",
+        "127.0.0.1", "0.0.0.0", "169.254.1.1", "fd00::1", "::1",
+    ])
     def test_relocate_ignores_non_private_or_invalid_addresses(self, plugin, bad):
         """Only private-network IP addresses from discovery are probed or offered."""
         flask = sys.modules["flask"]

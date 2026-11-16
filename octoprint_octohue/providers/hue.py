@@ -74,7 +74,7 @@ class HueProvider(LightProvider):
             f"Bridge Address is {bridgeaddr if bridgeaddr else 'Please set Bridge Address in settings'}"
         )
         self._logger.debug(
-            f"Hue Username is {husername if husername else 'Please set Hue Username in settings'}"
+            "Hue application key is set" if husername else "Please set Hue Username in settings"
         )
 
         if bridgeaddr and husername:

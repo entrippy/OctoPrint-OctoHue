@@ -35,6 +35,15 @@ class TestSetup:
         p.setup({"bridgeaddr": "", "husername": "", "lampid": "", "lampisgroup": False, "plugid": ""})
         assert p.is_ready is False
 
+    def test_setup_never_logs_application_key(self):
+        """The key must not reach the log at any level (relocate calls setup per candidate)."""
+        logger = MagicMock()
+        p = HueProvider(logger)
+        p.setup({"bridgeaddr": "192.168.1.100", "husername": "secret-app-key", "lampid": "", "lampisgroup": False, "plugid": ""})
+        logged = [str(c) for m in (logger.debug, logger.info, logger.warning, logger.error) for c in m.call_args_list]
+        assert logged, "setup should still log something useful"
+        assert not any("secret-app-key" in line for line in logged)
+
     def test_pbridge_set_correctly(self, hue_provider):
         assert hue_provider._pbridge == {"addr": "192.168.1.100", "key": "test-api-key"}
 

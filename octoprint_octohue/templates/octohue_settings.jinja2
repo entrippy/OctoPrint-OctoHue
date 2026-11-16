@@ -68,6 +68,9 @@
                             <div class="alert alert-error" data-bind="visible: relocateResult() === 'notfound'" style="display: none; margin-top: 8px;">
                                 No bridge found on your network. Check it's powered on, or enter its address manually.
                             </div>
+                            <div class="alert alert-error" data-bind="visible: relocateResult() === 'failed'" style="display: none; margin-top: 8px;">
+                                The search couldn't complete. Try again in a moment, or enter the bridge address manually.
+                            </div>
                         </div>
                     </div>
 

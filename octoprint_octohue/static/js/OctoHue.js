@@ -35,9 +35,9 @@ $(function() {
         // True when the last bridge status check reported the bridge configured
         // but not answering; drives the warning on the Lights tab.
         self.bridgeUnreachable = ko.observable(false);
-        // State of the "Find My Bridge" search offered when the bridge is unreachable.
+        // State of the "Find Moved Bridge" search offered when the bridge is unreachable.
         self.relocating = ko.observable(false);
-        self.relocateResult = ko.observable("");   // "", relocated, needspairing, notfound
+        self.relocateResult = ko.observable("");   // "", relocated, needspairing, notfound, failed
         self.relocateAddress = ko.observable("");
 
         self.addNewStatus = function () {
@@ -153,12 +153,14 @@ $(function() {
                         bridgeaddr = addr;
                         document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig");
                         document.getElementById("huebridge_found").classList.remove("inactiveconfig");
-                    } else {
+                    } else if (response.result === "notfound") {
                         self.relocateResult("notfound");
+                    } else {
+                        self.relocateResult("failed");
                     }
                 })
                 .fail(function() {
-                    self.relocateResult("notfound");
+                    self.relocateResult("failed");
                 })
                 .always(function() {
                     self.relocating(false);
