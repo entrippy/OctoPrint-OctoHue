@@ -24,10 +24,10 @@ A local OctoPrint instance is available for live testing:
 ## Running tests
 
 ```bash
-# Python (324 tests) — no live OctoPrint install required
+# Python (392 tests) — no live OctoPrint install required
 ~/oprint/bin/python -m pytest
 
-# JavaScript (101 tests)
+# JavaScript (113 tests)
 npx jest
 ```
 
