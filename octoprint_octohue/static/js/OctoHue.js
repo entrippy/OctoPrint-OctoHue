@@ -171,7 +171,7 @@ $(function() {
             var badge = document.getElementById("huebridgestatus");
             badge.style.backgroundColor = "#999";
             badge.innerHTML = "Checking…";
-            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true"}, {}).fail(function() {
+            OctoPrint.simpleApiCommand("octohue", "bridge", {"getstatus": "true", "provider": self.ownSettings.provider()}, {}).fail(function() {
                 self.bridgeUnreachable(false);
                 badge.style.backgroundColor = "#999";
                 badge.innerHTML = "Couldn't check status";
@@ -189,6 +189,18 @@ $(function() {
                     document.getElementById("huebridgestatus").innerHTML = "Unreachable — check the bridge address";
                     document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig");
                     document.getElementById("huebridge_configured").classList.remove("inactiveconfig");
+                } else if (response.bridgestatus === "unsaved") {
+                    // The dropdown differs from the saved provider; the backend
+                    // can't check a controller it isn't configured for yet.
+                    document.getElementById("huebridgestatus").style.backgroundColor = "#999";
+                    document.getElementById("huebridgestatus").innerHTML = "Save settings to check status";
+                    if (self.ownSettings.husername()) {
+                        document.getElementById("huebridge_unconfigured").classList.add("inactiveconfig");
+                        document.getElementById("huebridge_configured").classList.remove("inactiveconfig");
+                    } else {
+                        document.getElementById("huebridge_configured").classList.add("inactiveconfig");
+                        document.getElementById("huebridge_unconfigured").classList.remove("inactiveconfig");
+                    }
                 } else if (response.bridgestatus === "unauthed") {
                     document.getElementById("huebridgestatus").style.backgroundColor = "orange";
                     document.getElementById("huebridgestatus").innerHTML = "Address set, not paired";

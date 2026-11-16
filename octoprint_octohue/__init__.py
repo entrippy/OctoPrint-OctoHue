@@ -327,6 +327,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 			Commands:
 				bridge     (admin) getstatus / discover / relocate / pair sub-commands.
+				           getstatus takes an optional provider; "unsaved" if it
+				           differs from the saved provider.
 				getdevices (admin) Returns lights, optionally filtered by archetype.
 				getgroups  (admin) Returns rooms and zones as named group entries.
 				getstate   (admin) Returns the current on/off state of the configured lamp.
@@ -343,6 +345,11 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 			if "getstatus" in data:
 				provider_name = self._settings.get(['provider']) or 'hue'
+				# The settings dialog sends its (possibly unsaved) provider choice.
+				# If it differs from the saved one, any probe would test the wrong
+				# controller, so report that instead (#83).
+				if 'provider' in data and (data.get('provider') or 'hue') != provider_name:
+					return flask.jsonify(bridgestatus="unsaved")
 				bridge = self._settings.get(['bridgeaddr'])
 				if provider_name == 'wled':
 					if bridge:

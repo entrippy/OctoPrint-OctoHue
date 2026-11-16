@@ -779,6 +779,86 @@ class TestOnApiCommandBridge:
         plugin.on_api_command("bridge", {"getstatus": "true"})
         plugin._provider.check_connection.assert_not_called()
 
+    # ---- #83: dropdown provider differs from the saved one ---------------
+
+    @pytest.mark.parametrize("saved,requested", [
+        ("wled", "hue"),
+        ("hue", "wled"),
+        ("", "wled"),      # empty saved provider counts as Hue
+        (None, "wled"),
+        ("wled", ""),      # empty requested provider counts as Hue too
+        ("wled", None),
+    ])
+    def test_getstatus_unsaved_when_requested_provider_differs(self, plugin, saved, requested):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": saved, "bridgeaddr": "192.168.1.50", "husername": "key"}
+        )
+        live = plugin._provider
+        plugin._init_provider = MagicMock()
+        plugin.on_api_command("bridge", {"getstatus": "true", "provider": requested})
+        flask.jsonify.assert_called_once_with(bridgestatus="unsaved")
+        plugin._provider.check_connection.assert_not_called()
+        # Reporting "unsaved" must not touch settings or the live provider.
+        assert plugin._provider is live
+        plugin._init_provider.assert_not_called()
+        plugin._settings.set.assert_not_called()
+        plugin._settings.save.assert_not_called()
+
+    @pytest.mark.parametrize("saved,requested", [
+        ("hue", "hue"), ("", "hue"), (None, "hue"), ("wled", "wled"),
+        ("hue", ""), ("hue", None),   # empty/None requested provider also counts as Hue
+    ])
+    def test_getstatus_probes_when_requested_provider_matches(self, plugin, saved, requested):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": saved, "bridgeaddr": "192.168.1.50", "husername": "key"}
+        )
+        plugin._provider.check_connection.return_value = True
+        plugin.on_api_command("bridge", {"getstatus": "true", "provider": requested})
+        plugin._provider.check_connection.assert_called_once()
+        flask.jsonify.assert_called_once_with(bridgestatus="configured")
+
+    @pytest.mark.parametrize("provider,addr,key,probe_ok,expected", [
+        ("hue", "192.168.1.50", "", True, "unauthed"),
+        ("hue", "", "", True, "unconfigured"),
+        ("wled", "", "", True, "unconfigured"),
+        ("hue", "192.168.1.50", "key", False, "unreachable"),
+        ("wled", "192.168.1.50", "", False, "unreachable"),
+    ])
+    def test_getstatus_matching_provider_keeps_every_existing_status(self, plugin, provider, addr, key, probe_ok, expected):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": provider, "bridgeaddr": addr, "husername": key}
+        )
+        plugin._provider.check_connection.return_value = probe_ok
+        plugin.on_api_command("bridge", {"getstatus": "true", "provider": provider})
+        flask.jsonify.assert_called_once_with(bridgestatus=expected)
+        if expected in ("unauthed", "unconfigured"):
+            plugin._provider.check_connection.assert_not_called()
+
+    def test_getstatus_without_requested_provider_keeps_old_behaviour(self, plugin):
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(
+            {"provider": "wled", "bridgeaddr": "192.168.1.50", "husername": ""}
+        )
+        plugin._provider.check_connection.return_value = False
+        plugin.on_api_command("bridge", {"getstatus": "true"})
+        flask.jsonify.assert_called_once_with(bridgestatus="unreachable")
+
+    @pytest.mark.parametrize("saved,requested", [
+        ({"provider": "wled", "bridgeaddr": "", "husername": ""}, "hue"),               # WLED unconfigured
+        ({"provider": "hue", "bridgeaddr": "192.168.1.50", "husername": ""}, "wled"),   # Hue unauthed
+        ({"provider": "hue", "bridgeaddr": "", "husername": ""}, "wled"),               # Hue unconfigured
+    ])
+    def test_getstatus_unsaved_takes_precedence(self, plugin, saved, requested):
+        """A provider switch is reported whatever state the saved settings are in."""
+        flask = sys.modules["flask"]
+        plugin._settings.get.side_effect = make_settings_getter(saved)
+        plugin.on_api_command("bridge", {"getstatus": "true", "provider": requested})
+        flask.jsonify.assert_called_once_with(bridgestatus="unsaved")
+        plugin._provider.check_connection.assert_not_called()
+
     def test_discover_uses_hue_provider_directly(self, plugin):
         flask = sys.modules["flask"]
         bridges = [{"internalipaddress": "192.168.1.100", "id": "abc"}]
