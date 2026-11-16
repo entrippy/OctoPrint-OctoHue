@@ -1225,6 +1225,99 @@ class TestOnApiCommandGetDevices:
 # on_api_command  –  getgroups
 # ===========================================================================
 
+class TestDeviceListsUnsavedProvider:
+    """#87: device lists must not offer the saved provider's devices for a different selection."""
+
+    # Saved None relies on make_settings_getter returning override values as-is.
+    _MISMATCH = [("wled", "hue"), ("hue", "wled"), ("", "wled"), (None, "wled"), ("wled", ""), ("wled", None)]
+    _MATCH = [("hue", "hue"), ("", "hue"), (None, "hue"), ("hue", ""), ("hue", None), ("wled", "wled")]
+
+    @staticmethod
+    def _settings(plugin, saved):
+        plugin._settings.get.side_effect = make_settings_getter({"provider": saved})
+
+    @pytest.mark.parametrize("command,key,method", [
+        ("getdevices", "devices", "get_lights"),
+        ("getgroups", "groups", "get_groups"),
+    ])
+    @pytest.mark.parametrize("saved,requested", _MISMATCH)
+    def test_mismatch_returns_empty_unsaved_without_querying(self, plugin, command, key, method, saved, requested):
+        flask = sys.modules["flask"]
+        self._settings(plugin, saved)
+        getattr(plugin._provider, method).return_value = [{"id": "x", "name": "X"}]
+        plugin.on_api_command(command, {"provider": requested})
+        flask.jsonify.assert_called_once_with(**{key: [], "unsaved": True})
+        getattr(plugin._provider, method).assert_not_called()
+        assert plugin._provider.method_calls == []
+        plugin._settings.set.assert_not_called()
+        plugin._settings.save.assert_not_called()
+
+    @pytest.mark.parametrize("command,key", [("getdevices", "devices"), ("getgroups", "groups")])
+    @pytest.mark.parametrize("state", ["not_ready", "no_provider"])
+    def test_mismatch_reported_even_without_usable_provider(self, plugin, command, key, state):
+        flask = sys.modules["flask"]
+        self._settings(plugin, "wled")
+        if state == "not_ready":
+            plugin._provider.is_ready = False
+        else:
+            plugin._provider = None
+        plugin.on_api_command(command, {"provider": "hue"})
+        flask.jsonify.assert_called_once_with(**{key: [], "unsaved": True})
+
+    @pytest.mark.parametrize("command,key", [("getdevices", "devices"), ("getgroups", "groups")])
+    def test_match_with_provider_not_ready_returns_plain_empty_list(self, plugin, command, key):
+        flask = sys.modules["flask"]
+        self._settings(plugin, "hue")
+        plugin._provider.is_ready = False
+        plugin.on_api_command(command, {"provider": "hue"})
+        flask.jsonify.assert_called_once_with(**{key: []})
+
+    @pytest.mark.parametrize("command,key,method", [
+        ("getdevices", "devices", "get_lights"),
+        ("getgroups", "groups", "get_groups"),
+    ])
+    @pytest.mark.parametrize("saved,requested", _MATCH)
+    def test_match_returns_provider_list_unchanged(self, plugin, command, key, method, saved, requested):
+        flask = sys.modules["flask"]
+        self._settings(plugin, saved)
+        items = [{"id": "a", "name": "A", "archetype": "tableShade"}]
+        getattr(plugin._provider, method).return_value = items
+        plugin.on_api_command(command, {"provider": requested})
+        flask.jsonify.assert_called_once_with(**{key: items})
+
+    def test_match_keeps_archetype_filter(self, plugin):
+        flask = sys.modules["flask"]
+        self._settings(plugin, "hue")
+        plugin._provider.get_lights.return_value = [
+            {"id": "a", "name": "Lamp", "archetype": "tableShade"},
+            {"id": "p", "name": "Plug", "archetype": "plug"},
+        ]
+        plugin.on_api_command("getdevices", {"provider": "hue", "archetype": "plug"})
+        flask.jsonify.assert_called_once_with(devices=[{"id": "p", "name": "Plug", "archetype": "plug"}])
+
+    @pytest.mark.parametrize("command,key,method", [
+        ("getdevices", "devices", "get_lights"),
+        ("getgroups", "groups", "get_groups"),
+    ])
+    def test_without_provider_keeps_old_behaviour(self, plugin, command, key, method):
+        flask = sys.modules["flask"]
+        self._settings(plugin, "wled")
+        items = [{"id": "wled", "name": "Strip"}]
+        getattr(plugin._provider, method).return_value = items
+        plugin.on_api_command(command, {})
+        flask.jsonify.assert_called_once_with(**{key: items})
+
+    @pytest.mark.parametrize("command", ["getdevices", "getgroups"])
+    def test_mismatch_still_requires_admin(self, plugin, command):
+        flask = sys.modules["flask"]
+        sys.modules["octoprint.access.permissions"].Permissions.ADMIN.can.return_value = False
+        self._settings(plugin, "wled")
+        plugin.on_api_command(command, {"provider": "hue"})
+        assert flask.make_response.called
+        assert flask.make_response.call_args[0][1] == 403
+        assert all(c.kwargs.get("unsaved") is None for c in flask.jsonify.call_args_list)
+
+
 class TestOnApiCommandGetGroups:
 
     def test_non_admin_returns_403(self, plugin):

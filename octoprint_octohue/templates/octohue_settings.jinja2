@@ -164,6 +164,9 @@
                     Can't reach the bridge at <strong data-bind="text: ownSettings.bridgeaddr"></strong>, so lights can't be listed.
                     Use <em>Find Moved Bridge</em> on the Bridge tab, or correct the address there and save.
                 </div>
+                <div class="alert alert-info" data-bind="visible: devicesUnsaved" style="display: none;">
+                    Save settings to load lights for this controller.
+                </div>
                 <div class="light_options">
                     <label class="control-label" data-bind="text: ownSettings.provider() === 'hue' ? 'Hue Light or Group' : 'WLED Controller'"></label>
                     <div class="controls">
@@ -226,6 +229,9 @@
             </div>
 
             <div id="octohue_settings_power" class="tab-pane">
+                <div class="alert alert-info" data-bind="visible: devicesUnsaved" style="display: none;">
+                    Save settings to load plugs for this controller.
+                </div>
                 <div class="power-options">
                     <label class="checkbox">
                         <input type="checkbox" data-bind="checked: ownSettings.showpowertoggle">Add Power Toggle Icon to Navigation Bar

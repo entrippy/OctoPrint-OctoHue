@@ -76,6 +76,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			}
 		return {}
 
+	def _is_unsaved_provider(self, data):
+		'''
+		True when the settings dialog sent a provider choice that differs from
+		the saved one (empty/None counts as Hue on both sides). Answers built
+		from the live, saved provider would then describe the wrong controller
+		(#83, #87). Requests without ``provider`` are never "unsaved".
+		'''
+		if 'provider' not in data:
+			return False
+		saved = self._settings.get(['provider']) or 'hue'
+		return (data.get('provider') or 'hue') != saved
+
 	def _probe_status(self):
 		'''
 		Returns "configured" if the active provider answers a connection check,
@@ -345,10 +357,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 
 			if "getstatus" in data:
 				provider_name = self._settings.get(['provider']) or 'hue'
-				# The settings dialog sends its (possibly unsaved) provider choice.
-				# If it differs from the saved one, any probe would test the wrong
-				# controller, so report that instead (#83).
-				if 'provider' in data and (data.get('provider') or 'hue') != provider_name:
+				if self._is_unsaved_provider(data):
 					return flask.jsonify(bridgestatus="unsaved")
 				bridge = self._settings.get(['bridgeaddr'])
 				if provider_name == 'wled':
@@ -404,6 +413,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'getdevices':
 			if not Permissions.ADMIN.can():
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
+			if self._is_unsaved_provider(data):
+				return flask.jsonify(devices=[], unsaved=True)
 			if not self._provider or not self._provider.is_ready:
 				return flask.jsonify(devices=[])
 			self._logger.debug("Getting Devices")
@@ -418,6 +429,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'getgroups':
 			if not Permissions.ADMIN.can():
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
+			if self._is_unsaved_provider(data):
+				return flask.jsonify(groups=[], unsaved=True)
 			if not self._provider or not self._provider.is_ready:
 				return flask.jsonify(groups=[])
 			self._logger.debug("Getting Groups")

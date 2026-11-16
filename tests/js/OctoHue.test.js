@@ -964,26 +964,64 @@ describe("getbridgestatus", () => {
 // ===========================================================================
 
 describe("getDevices", () => {
-  test("calls simpleApiCommand with archetype when provided", () => {
-    const vm = makeViewModel();
+  test("calls simpleApiCommand with archetype and the selected provider", () => {
+    const vm = makeViewModel({ provider: makeObservable("wled") });
     vm.getDevices("plug");
-    expect(OctoPrint.simpleApiCommand).toHaveBeenCalledWith(
-      "octohue",
-      "getdevices",
-      { archetype: "plug" },
-      {}
+    expect(OctoPrint.simpleApiCommand).toHaveBeenLastCalledWith(
+      "octohue", "getdevices", { archetype: "plug", provider: "wled" }, {}
     );
   });
 
   test("calls simpleApiCommand without archetype when not provided", () => {
-    const vm = makeViewModel();
+    const vm = makeViewModel({ provider: makeObservable("wled") });
     vm.getDevices(undefined);
-    expect(OctoPrint.simpleApiCommand).toHaveBeenCalledWith(
-      "octohue",
-      "getdevices",
-      { archetype: undefined },
-      {}
-    );
+    const payload = OctoPrint.simpleApiCommand.mock.calls.at(-1)[2];
+    expect(payload).toEqual({ provider: "wled" });
+    expect("archetype" in payload).toBe(false);
+  });
+
+  test("reads the provider at call time", () => {
+    const vm = makeViewModel({ provider: makeObservable("wled") });
+    // Call once before the change so a provider cached on first use fails.
+    vm.getDevices();
+    vm.getGroups();
+    vm.ownSettings.provider("hue");
+    OctoPrint.simpleApiCommand.mockClear();
+    vm.getDevices();
+    vm.getGroups();
+    const calls = OctoPrint.simpleApiCommand.mock.calls;
+    expect(calls.find(c => c[1] === "getdevices")[2]).toStrictEqual({ provider: "hue" });
+    expect(calls.find(c => c[1] === "getgroups")[2]).toStrictEqual({ provider: "hue" });
+  });
+
+  test.each([["getDevices"], ["getGroups"]])(
+    "%s clears devicesUnsaved when the request fails",
+    (method) => {
+      const vm = makeViewModel();
+      vm.devicesUnsaved(true);
+      OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult({ status: 500 }, true));
+      vm[method]();
+      expect(vm.devicesUnsaved()).toBe(false);
+    }
+  );
+
+  test("devicesUnsaved starts false", () => {
+    expect(makeViewModel().devicesUnsaved()).toBe(false);
+  });
+
+  test.each([
+    ["getDevices", { devices: [], unsaved: true }, true],
+    ["getGroups", { groups: [], unsaved: true }, true],
+    ["getDevices", { devices: [{ id: "1", name: "Lamp" }] }, false],
+    ["getGroups", { groups: [{ id: "g", name: "Room" }] }, false],
+  ])("%s sets devicesUnsaved from response %j", (method, response, expected) => {
+    const vm = makeViewModel();
+    vm.devicesUnsaved(!expected);
+    OctoPrint.simpleApiCommand.mockReturnValueOnce(new SyncResult(response));
+    let received;
+    vm[method]().then((items) => { received = items; });
+    expect(vm.devicesUnsaved()).toBe(expected);
+    expect(received).toEqual(response.devices || response.groups);
   });
 
   test("returns the devices array from the response", () => {

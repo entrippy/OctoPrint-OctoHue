@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - The Hue application key is no longer written to the log at debug level.
 - Hue pairing requests now time out after 5 seconds, so pairing against an address that never answers no longer ties up OctoPrint (#84).
 - Switching the Light Controller dropdown without saving no longer shows a status for the previously saved controller; the badge says **Save settings to check status** instead (#83).
+- The Lights tab no longer lists the previously saved controller's devices after an unsaved Light Controller switch (picking one could save an ID the new controller doesn't recognise); it asks you to save first (#87).
 - Changing the Light Controller and saving no longer keeps the previous controller's light or plug selection, which left event lighting silently doing nothing after a WLED → Hue switch; it's cleared unless a new one was picked in the same save (#88).
 
 ### Added
