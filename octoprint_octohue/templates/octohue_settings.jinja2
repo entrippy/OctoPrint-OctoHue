@@ -5,44 +5,82 @@
 			<li class="active"><a data-toggle="tab" href="#octohue_settings_bridge">Bridge</a></li>
 			<li><a data-toggle="tab" href="#octohue_settings_general">General</a></li>
 			<li><a data-toggle="tab" href="#octohue_settings_lights">Lights</a></li>
-			<li><a data-toggle="tab" href="#octohue_settings_power">Power</a></li>
+			<li data-bind="visible: ownSettings.provider() === 'hue'"><a data-toggle="tab" href="#octohue_settings_power">Power</a></li>
 		</ul>
         <div class="tab-content">
             <div id="octohue_settings_bridge" class="tab-pane active">
                 <div class="control-group">
-                    <h4>Hue Configuration</h4>
-                    Hue Bridge Status: <span id="huebridgestatus" class="badge badge-danger" style="background-color: #ff4b4b;">Unconfigured</span>
-                    <div id="huebridge_unconfigured">
-                        <h4 id="pairbridge">Pair with your Hue Bridge</h4>
-                        <button id="huebridge_startsearch" type="button" class="btn" data-bind="click: bridgediscovery"><i class="fa fa-search"></i> Find My Bridge</button>
-                        <br /><br />
-                        <span id="huebridge_searchstatus" class="inactiveconfig"></span>
-                        <br />
-                        <div id="huebridge_found" class="inactiveconfig">
-                            <p>Click on "Start Pairing" button below and push the pairing button on your Bridge</p>
-                            <button id="huebridge_pairingbutton" class="btn" data-bind="click: bridgepair"><i class="fa fa-link"></i> Start Pairing</button>
-                            <span id="huebridge_pairingreties"></span>
+
+                    <!-- Provider selector -->
+                    <div class="control-group" style="margin-bottom: 8px;">
+                        <label class="control-label">{{ _('Light Controller') }}</label>
+                        <div class="controls">
+                            <select class="input-medium" data-bind="value: ownSettings.provider">
+                                <option value="hue">Philips Hue</option>
+                                <option value="wled">WLED</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Hue configuration -->
+                    <div data-bind="visible: ownSettings.provider() === 'hue'">
+                        Hue Bridge Status: <span id="huebridgestatus" class="badge badge-danger" style="background-color: #ff4b4b;">Unconfigured</span>
+                        <div id="huebridge_unconfigured">
+                            <h4 id="pairbridge">Pair with your Hue Bridge</h4>
+                            <button id="huebridge_startsearch" type="button" class="btn" data-bind="click: bridgediscovery"><i class="fa fa-search"></i> Find My Bridge</button>
+                            <br /><br />
+                            <span id="huebridge_searchstatus" class="inactiveconfig"></span>
                             <br />
-                            <img src="plugin/octohue/static/images/huebridge.png" />
-                            <div id="huebridge_paired_actions" class="inactiveconfig" style="margin-top: 12px;">
-                                <button class="btn btn-success" data-bind="click: goToLights"><i class="fa fa-lightbulb-o"></i> Select your light &rarr;</button>
+                            <div id="huebridge_found" class="inactiveconfig">
+                                <p>Click on "Start Pairing" button below and push the pairing button on your Bridge</p>
+                                <button id="huebridge_pairingbutton" class="btn" data-bind="click: bridgepair"><i class="fa fa-link"></i> Start Pairing</button>
+                                <span id="huebridge_pairingreties"></span>
+                                <br />
+                                <img src="plugin/octohue/static/images/huebridge.png" />
+                                <div id="huebridge_paired_actions" class="inactiveconfig" style="margin-top: 12px;">
+                                    <button class="btn btn-success" data-bind="click: goToLights"><i class="fa fa-lightbulb-o"></i> Select your light &rarr;</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="huebridge_configured">
+                            <label class="control-label">{{ _('Hue Bridge Address') }}</label>
+                            <div class="controls">
+                                <input id="bridgeaddress" type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
+                            </div>
+                            <label class="control-label">{{ _('Hue Username') }}</label>
+                            <div class="controls">
+                                <input id="apikey" type="text" class="input-block-level" data-bind="value: ownSettings.husername">
+                            </div>
+                            <div data-bind="visible: bridgeUnreachable" style="display: none; margin-top: 8px;">
+                                <button type="button" class="btn" data-bind="click: bridgerelocate, disable: relocating">
+                                    <i class="fa fa-search"></i>
+                                    <span data-bind="text: relocating() ? 'Searching…' : 'Find Moved Bridge'"></span>
+                                </button>
+                                <span class="help-inline">Looks for your bridge on the network and tries your existing pairing.</span>
+                            </div>
+                            <div class="alert alert-success" data-bind="visible: relocateResult() === 'relocated'" style="display: none; margin-top: 8px;">
+                                Found your bridge at <strong data-bind="text: relocateAddress"></strong> — your existing pairing still works.
+                            </div>
+                            <div class="alert" data-bind="visible: relocateResult() === 'needspairing'" style="display: none; margin-top: 8px;">
+                                Found a bridge at <strong data-bind="text: relocateAddress"></strong> but it didn't accept the saved key. Press the link button on the bridge, then click <em>Start Pairing</em> above.
+                            </div>
+                            <div class="alert alert-error" data-bind="visible: relocateResult() === 'notfound'" style="display: none; margin-top: 8px;">
+                                No bridge found on your network. Check it's powered on, or enter its address manually.
+                            </div>
+                            <div class="alert alert-error" data-bind="visible: relocateResult() === 'failed'" style="display: none; margin-top: 8px;">
+                                The search couldn't complete. Try again in a moment, or enter the bridge address manually.
                             </div>
                         </div>
                     </div>
-                    
-                    <div id="huebridge_configured">
-                        <label class="control-label">{{ _('Hue Bridge Address') }}</label>
+
+                    <!-- WLED configuration -->
+                    <div data-bind="visible: ownSettings.provider() === 'wled'">
+                        <label class="control-label">{{ _('WLED Controller Address') }}</label>
                         <div class="controls">
-                            <input id= "bridgeaddress" type="text" class="input-block-level" data-bind="value: ownSettings.bridgeaddr">
+                            <input type="text" class="input-block-level" placeholder="192.168.1.x" data-bind="value: ownSettings.bridgeaddr">
                         </div>
-                        <label class="control-label">{{ _('Hue Username') }}</label>
-                        <div class="controls">
-                            <input id="apikey" type="text" class="input-block-level" data-bind="value: ownSettings.husername">
-                        </div>
-<!--                       <div>
-                            <button id="huebridge_startsearch" type="button" class="btn" data-bind="click: bridgediscovery"><i class="fa fa-search"></i> Find a New Bridge</button>
-                            <br /><br />
-                        </div>-->
+                        <span class="help-block">Enter the IP address or hostname of your WLED controller.</span>
                     </div>
 
                 </div>
@@ -67,7 +105,7 @@
                         <label class="control-label"></label>
                         <div class="controls">
                             <label class="checkbox">
-                                <input type="checkbox" data-bind="checked: ownSettings.showhuetoggle">Add Hue Toggle Icon to Navigation Bar
+                                <input type="checkbox" data-bind="checked: ownSettings.showhuetoggle">Add Light Toggle Icon to Navigation Bar
                             </label>
                             <div data-bind="visible: ownSettings.showhuetoggle()" style="margin-top: 6px; margin-left: 20px;">
                                 <label class="control-label" style="text-align: left; width: auto;">Toggle-on colour &amp; brightness</label>
@@ -121,8 +159,16 @@
             </div>
 
             <div id="octohue_settings_lights" class="tab-pane">
+                <div class="alert alert-error" data-bind="visible: bridgeUnreachable() && ownSettings.provider() === 'hue'" style="display: none;">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    Can't reach the bridge at <strong data-bind="text: ownSettings.bridgeaddr"></strong>, so lights can't be listed.
+                    Use <em>Find Moved Bridge</em> on the Bridge tab, or correct the address there and save.
+                </div>
+                <div class="alert alert-info" data-bind="visible: devicesUnsaved" style="display: none;">
+                    Save settings to load lights for this controller.
+                </div>
                 <div class="light_options">
-                    <label class="control-label">{{ _('Hue Light or Group') }}</label>
+                    <label class="control-label" data-bind="text: ownSettings.provider() === 'hue' ? 'Hue Light or Group' : 'WLED Controller'"></label>
                     <div class="controls">
                         <select class="input-block-level" data-bind="value: ownSettings.lampid, options: hueLamps, optionsText: 'name', optionsValue: 'id', optionsCaption: 'Select light or group', valueAllowUnset: true"></select>
                     </div>
@@ -147,7 +193,7 @@
                                             <th style="width: 165px">Colour / Temp</th>
                                             <th style="width: 50px"><abbr title="Brightness (1–100%)">Bri%</abbr></th>
                                             <th style="width: 60px"><abbr title="Delay in seconds before the light change fires">Delay (s)</abbr></th>
-                                            <th style="width: 40px; text-align: center"><abbr title="Flash: trigger a 15-second alert cycle">Flash</abbr></th>
+                                            <th style="width: 40px; text-align: center"><abbr data-bind="attr: { title: ownSettings.provider() === 'hue' ? 'Flash: trigger a 15-second alert cycle' : 'Flash: not supported by WLED' }">Flash</abbr></th>
                                             <th style="width: 40px; text-align: center"><abbr title="Switch off after the event">Off</abbr></th>
                                             <th style="width: 40px; text-align: center"><abbr title="Remove this entry">Del</abbr></th>
                                         </tr>
@@ -183,6 +229,9 @@
             </div>
 
             <div id="octohue_settings_power" class="tab-pane">
+                <div class="alert alert-info" data-bind="visible: devicesUnsaved" style="display: none;">
+                    Save settings to load plugs for this controller.
+                </div>
                 <div class="power-options">
                     <label class="checkbox">
                         <input type="checkbox" data-bind="checked: ownSettings.showpowertoggle">Add Power Toggle Icon to Navigation Bar

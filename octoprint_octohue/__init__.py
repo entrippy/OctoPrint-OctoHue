@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import octoprint.plugin
 from datetime import datetime
 import flask
@@ -51,6 +52,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if cls is None:
 			self._logger.error(f"Unknown provider '{name}', falling back to Hue")
 			cls = PROVIDERS['hue']
+			name = 'hue'
 		self._provider = cls(self._logger)
 		self._provider.setup(self._build_provider_settings(name))
 
@@ -67,22 +69,98 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				'lampisgroup': self._settings.get(['lampisgroup']),
 				'plugid': self._settings.get(['plugid']),
 			}
+		if name == 'wled':
+			# bridgeaddr is the generic controller-address field shared across providers
+			return {
+				'bridgeaddr': self._settings.get(['bridgeaddr']),
+			}
 		return {}
 
-	def establishBridge(self, bridgeaddr, husername):
+	def _is_unsaved_provider(self, data):
 		'''
-		Re-initialises the provider using the supplied Hue bridge credentials.
-		Kept as a named method so that on_after_startup and on_settings_save
-		can call it with explicit addr/key arguments, and tests can mock it.
-		Creates the provider instance if it does not yet exist.
+		True when the settings dialog sent a provider choice that differs from
+		the saved one (empty/None counts as Hue on both sides). Answers built
+		from the live, saved provider would then describe the wrong controller
+		(#83, #87). Requests without ``provider`` are never "unsaved".
 		'''
-		if self._provider is None:
-			self._init_provider()
-		assert self._provider is not None
-		name = self._settings.get(['provider']) or 'hue'
-		settings = self._build_provider_settings(name)
-		settings.update({'bridgeaddr': bridgeaddr, 'husername': husername})
-		self._provider.setup(settings)
+		if 'provider' not in data:
+			return False
+		saved = self._settings.get(['provider']) or 'hue'
+		return (data.get('provider') or 'hue') != saved
+
+	def _probe_status(self):
+		'''
+		Returns "configured" if the active provider answers a connection check,
+		otherwise "unreachable". Only called once settings say a controller is
+		configured, so an unconfigured install never makes a network request.
+		'''
+		if self._provider is not None and self._provider.check_connection():
+			return "configured"
+		return "unreachable"
+
+	def _relocate_bridge(self):
+		'''
+		Finds a Hue bridge that has moved to a new address.
+
+		Runs discovery and probes each discovered address with the saved
+		application key, saving the first one that accepts it. Only discovered
+		addresses are ever probed or saved, never one supplied by the client.
+
+		Returns a dict for the API response:
+			{"result": "relocated", "bridgeaddr": addr}    key works at a new address
+			{"result": "needspairing", "bridgeaddr": addr} found, but key missing/rejected
+			{"result": "notfound"}                         discovery ran, no usable bridge
+			{"result": "failed"}                           search couldn't run (wrong
+			                                               provider, discovery error)
+		'''
+		# bridgeaddr is shared with other providers; never repoint a WLED address.
+		if (self._settings.get(['provider']) or 'hue') != 'hue':
+			self._logger.info("Bridge relocate: skipped, active provider is not Hue")
+			return {"result": "failed"}
+
+		from octoprint_octohue.providers.hue import HueProvider
+		discovered = HueProvider(self._logger).discover()
+		if not isinstance(discovered, list):
+			# Discovery answered with an error object (e.g. rate limited).
+			self._logger.warning(f"Bridge relocate: unexpected discovery response: {discovered!r}")
+			return {"result": "failed"}
+		addresses = [
+			b['internalipaddress'] for b in discovered
+			if isinstance(b, dict) and self._is_private_ip(b.get('internalipaddress'))
+		]
+		if not addresses:
+			self._logger.info("Bridge relocate: no bridges discovered")
+			return {"result": "notfound"}
+
+		apikey = self._settings.get(['husername'])
+		if apikey:
+			for addr in addresses:
+				candidate = HueProvider(self._logger)
+				candidate.setup({'bridgeaddr': addr, 'husername': apikey})
+				if candidate.check_connection():
+					self._logger.info(f"Bridge relocate: saved key accepted at {addr}")
+					self._settings.set(['bridgeaddr'], addr)
+					self._settings.save()
+					self._init_provider()
+					return {"result": "relocated", "bridgeaddr": addr}
+
+		self._logger.info(f"Bridge relocate: found {addresses[0]} but it needs pairing")
+		return {"result": "needspairing", "bridgeaddr": addresses[0]}
+
+	@staticmethod
+	def _is_private_ip(value):
+		'''
+		True only for a literal private-network IPv4 address (the form Hue
+		discovery returns and the provider's URLs expect). Loopback,
+		link-local and unspecified addresses are rejected.
+		'''
+		if not isinstance(value, str):
+			return False
+		try:
+			ip = ipaddress.IPv4Address(value)
+		except ValueError:
+			return False
+		return ip.is_private and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified)
 
 	def build_state(self, **kwargs):
 		'''
@@ -151,7 +229,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		if self._provider is not None and self._provider.get_state(deviceid):
 			self.build_state(on=False, deviceid=deviceid)
 		else:
-			if deviceid != self._settings.get(['plugid']):
+			plugid = self._settings.get(['plugid'])
+			is_plug = plugid and deviceid == plugid
+			if not is_plug:
 				ct = int(self._settings.get(['togglect']) or 0)
 				bri = int(self._settings.get(['togglebri']) or self._settings.get(['defaultbri']))
 				if ct:
@@ -179,7 +259,7 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		light state.
 		'''
 		self._logger.info("Octohue is alive!")
-		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+		self._init_provider()
 		if self._settings.get(['ononstartup']):
 			my_statusEvent = next((statusEvent for statusEvent in self._settings.get(['statusDict']) if statusEvent['event'] == self._settings.get(['ononstartupevent'])), None)
 			if my_statusEvent:
@@ -258,7 +338,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		Handles SimpleApi commands dispatched by OctoPrint.
 
 			Commands:
-				bridge     (admin) getstatus / discover / pair sub-commands.
+				bridge     (admin) getstatus / discover / relocate / pair sub-commands.
+				           getstatus takes an optional provider; "unsaved" if it
+				           differs from the saved provider.
 				getdevices (admin) Returns lights, optionally filtered by archetype.
 				getgroups  (admin) Returns rooms and zones as named group entries.
 				getstate   (admin) Returns the current on/off state of the configured lamp.
@@ -274,27 +356,53 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
 
 			if "getstatus" in data:
+				provider_name = self._settings.get(['provider']) or 'hue'
+				if self._is_unsaved_provider(data):
+					return flask.jsonify(bridgestatus="unsaved")
 				bridge = self._settings.get(['bridgeaddr'])
-				apikey = self._settings.get(['husername'])
-				if bridge and apikey:
-					return flask.jsonify(bridgestatus="configured")
-				elif bridge and not apikey:
-					return flask.jsonify(bridgestatus="unauthed")
+				if provider_name == 'wled':
+					if bridge:
+						return flask.jsonify(bridgestatus=self._probe_status())
+					else:
+						return flask.jsonify(bridgestatus="unconfigured")
 				else:
-					return flask.jsonify(bridgestatus="unconfigured")
+					apikey = self._settings.get(['husername'])
+					if bridge and apikey:
+						return flask.jsonify(bridgestatus=self._probe_status())
+					elif bridge and not apikey:
+						return flask.jsonify(bridgestatus="unauthed")
+					else:
+						return flask.jsonify(bridgestatus="unconfigured")
 
 			elif "discover" in data:
-				discovered = self._provider.discover() if self._provider is not None else []
+				from octoprint_octohue.providers.hue import HueProvider
+				discovered = HueProvider(self._logger).discover()
 				self._logger.debug(discovered)
 				return flask.jsonify(discovered)
 
+			elif "relocate" in data:
+				return flask.jsonify(**self._relocate_bridge())
+
 			elif "pair" in data:
-				result = self._provider.pair(bridgeaddr=data['bridgeaddr']) if self._provider is not None else {"response": "error"}
+				from octoprint_octohue.providers.hue import HueProvider
+				result = HueProvider(self._logger).pair(bridgeaddr=data['bridgeaddr'])
 				if result.get('response') == 'success':
+					previous = self._settings.get(['provider']) or 'hue'
+					if previous != 'hue':
+						# Pairing switches provider outside on_settings_save, so drop
+						# the previous provider's selections here too (#88).
+						self._settings.set(['lampid'], "")
+						self._settings.set(['plugid'], "")
+						self._settings.set(['lampisgroup'], False)
+						self._logger.info(
+							f"Light controller changed from {previous} to hue by pairing; "
+							"cleared light/plug selections from the previous controller"
+						)
 					self._settings.set(['husername'], result['husername'])
 					self._settings.set(['bridgeaddr'], result['bridgeaddr'])
+					self._settings.set(['provider'], 'hue')
 					self._settings.save()
-					self.establishBridge(result['bridgeaddr'], result['husername'])
+					self._init_provider()
 					return flask.jsonify([result])
 				else:
 					return flask.jsonify([result])
@@ -305,6 +413,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'getdevices':
 			if not Permissions.ADMIN.can():
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
+			if self._is_unsaved_provider(data):
+				return flask.jsonify(devices=[], unsaved=True)
 			if not self._provider or not self._provider.is_ready:
 				return flask.jsonify(devices=[])
 			self._logger.debug("Getting Devices")
@@ -319,6 +429,8 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 		elif command == 'getgroups':
 			if not Permissions.ADMIN.can():
 				return flask.make_response(flask.jsonify(error="Forbidden"), 403)
+			if self._is_unsaved_provider(data):
+				return flask.jsonify(groups=[], unsaved=True)
 			if not self._provider or not self._provider.is_ready:
 				return flask.jsonify(groups=[])
 			self._logger.debug("Getting Groups")
@@ -371,8 +483,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			turnoff = my_statusEvent['turnoff']
 			ct = int(my_statusEvent.get('ct') or 0)
 
-			if turnoff and flash:
-				# Flash first, then switch off after the alert cycle completes
+			provider_supports_flash = (self._settings.get(['provider']) or 'hue') == 'hue'
+			if turnoff and flash and provider_supports_flash:
+				# Flash first, then switch off after the Hue alert cycle completes (15 s)
 				flash_kwargs = {'on': True, 'bri': int(my_statusEvent['brightness']), 'alert': 'lselect', 'deviceid': deviceid}
 				if ct:
 					flash_kwargs['ct'] = ct
@@ -380,6 +493,9 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 					flash_kwargs['colour'] = my_statusEvent['colour']
 				delayedtask = ResettableTimer(delay, self.build_state, kwargs=flash_kwargs)
 				ResettableTimer(delay + 15, self.build_state, kwargs={'on': False, 'deviceid': deviceid}).start()
+			elif turnoff and flash and not provider_supports_flash:
+				# Provider doesn't support flash — turn off immediately after delay
+				delayedtask = ResettableTimer(delay, self.build_state, kwargs={'on': False, 'deviceid': deviceid})
 			elif not turnoff:
 				brightness = my_statusEvent['brightness']
 				build_kwargs = {'on': True, 'bri': int(brightness), 'deviceid': deviceid}
@@ -568,20 +684,54 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 			"nightmode_end": self._settings.get(["nightmode_end"]),
 			"nightmode_action": self._settings.get(["nightmode_action"]),
 			"nightmode_maxbri": self._settings.get(["nightmode_maxbri"]),
-			# Note: 'provider' is intentionally omitted until the provider-selector UI is added.
+			"provider": self._settings.get(["provider"]),
 		}
 		return my_settings
 
 	def on_settings_save(self, data):
 		'''
-		Persists settings and re-establishes the provider connection with any
-		updated credentials. Strips availableEvents (frontend-only) before
-		passing to the base class.
+		Persists settings and re-initialises the provider with any updated
+		credentials. Strips availableEvents (frontend-only) before passing to
+		the base class, and drops light/plug selections that belong to the
+		previous provider when the provider changes.
 		'''
 		data.pop("availableEvents", None)
-		self._logger.debug(f"Saving: {data} to settings")
+		self._clear_stale_device_ids(data)
+		# Never log the application key, which arrives here after pairing.
+		loggable = {k: ("<redacted>" if k == "husername" else v) for k, v in data.items()}
+		self._logger.debug(f"Saving: {loggable} to settings")
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-		self.establishBridge(self._settings.get(['bridgeaddr']), self._settings.get(['husername']))
+		self._init_provider()
+
+	def _clear_stale_device_ids(self, data):
+		'''
+		When a save switches provider, clears ``lampid`` / ``plugid`` that the
+		user didn't re-pick (missing from the save, or unchanged from the stored
+		value) so the old controller's IDs aren't carried over (#88). A newly
+		picked value is kept. Empty/None provider counts as Hue on both sides.
+		'''
+		if 'provider' not in data:
+			return
+		old = self._settings.get(['provider']) or 'hue'
+		new = data.get('provider') or 'hue'
+		if new == old:
+			return
+
+		cleared = []
+		for key in ('lampid', 'plugid'):
+			stored = self._settings.get([key])
+			if key not in data or data[key] == stored:
+				data[key] = ""
+				if stored:
+					cleared.append(key)
+				if key == 'lampid':
+					data['lampisgroup'] = False
+
+		if cleared:
+			self._logger.info(
+				f"Light controller changed from {old} to {new}; "
+				f"cleared {' and '.join(cleared)} from the previous controller"
+			)
 
 	def get_template_vars(self):
 		'''
@@ -644,18 +794,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				stable_branch=dict(
 					name="Stable",
 					branch="master",
-					comittish=["master"]
+					commitish=["master"]
 				),
 				prerelease_branches=[
 					dict(
 						name="Release Candidate",
 						branch="rc",
-						comittish=["rc", "master"]
+						commitish=["rc", "master"]
 					),
 					dict(
 						name="Development",
 						branch="devel",
-						comittish=["devel", "rc", "master"]
+						commitish=["devel", "rc", "master"]
 					),
 				],
 
