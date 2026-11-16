@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+---
+
+## [1.1.0] - 2026-11-17
+
+### Added
+- **WLED support** — choose **WLED** from the new **Light Controller** dropdown on the Bridge tab and enter the controller's IP address or hostname; no pairing needed. Event colours, colour temperature, brightness and transitions are supported via the WLED JSON API; flash and smart-plug power control remain Hue-only.
+- `octoprint_octohue/providers/wled.py` — `WledProvider` implementing the `LightProvider` interface for WLED controllers
+- **Find Moved Bridge** — when the bridge is unreachable, the Bridge tab offers a search that finds the bridge on the network and tries the existing pairing at its new address, saving it if accepted. If the bridge doesn't accept the saved key, the pairing flow opens pointed at the discovered bridge. Only private-network addresses returned by Hue discovery are tried, and only while Hue is the active provider.
+- Bridge status badge shows **Checking…** while the status request runs, and **Couldn't check status** if it fails, instead of a stale value.
+- `LightProvider.check_connection()` — providers report whether their controller is reachable (Hue probes `/resource/bridge`, WLED probes `/json/info`). `bridge` → `getstatus` returns `unreachable` when a configured controller doesn't answer. New `bridge` → `relocate` API sub-command.
+- `octoprint_octohue/providers/base.py` — `LightProvider` abstract base class defining the interface all providers must implement (`setup`, `is_ready`, `set_light`, `get_state`, `get_lights`, `get_groups`, `get_plugs`, `discover`, `pair`)
+- `octoprint_octohue/providers/hue.py` — `HueProvider` implementing the full Hue v2 CLIP API behaviour
+- `octoprint_octohue/providers/__init__.py` — `PROVIDERS` registry mapping provider name strings to implementation classes; add new providers here
+- `provider` setting (default `'hue'`) — selects the active light provider, chosen with the **Light Controller** dropdown on the Bridge tab
+- `tests/providers/` — dedicated test suite for provider classes in isolation (51 tests)
+- Settings migration v4→v5: seeds `provider = 'hue'` for existing installs
+- `extras/claude/` — project-specific Claude Code commands for reviewer, tester, release manager, issue triager, PR author, and commit author personas
+
+### Changed
+- **Provider pattern refactor** — Hue-specific code extracted from `__init__.py` into a dedicated `HueProvider` class. The plugin now delegates all light operations to a `LightProvider` instance; the plugin itself contains no vendor-specific logic. WLED support is built on this.
+- `_SignifyAdapter`, `_hue_request`, `rgb_to_xy`, and all direct Hue API calls moved to `octoprint_octohue/providers/hue.py`
+- `pbridge` and `_session` instance variables replaced by a single `_provider: LightProvider | None`
+
 ### Fixed
 - Settings no longer show an empty lights list without explanation when the Hue bridge can't be reached (for example after it gets a new IP from DHCP). The Bridge tab now shows an **Unreachable** status and the Lights tab shows a warning naming the address being tried.
 - Hue API requests now time out after 5 seconds instead of waiting indefinitely on a bridge that doesn't answer.
@@ -13,31 +36,6 @@ All notable changes to this project will be documented in this file.
 - The Lights tab no longer lists the previously saved controller's devices after an unsaved Light Controller switch (picking one could save an ID the new controller doesn't recognise); it asks you to save first (#87).
 - Changing the Light Controller and saving no longer keeps the previous controller's light or plug selection, which left event lighting silently doing nothing after a WLED → Hue switch; it's cleared unless a new one was picked in the same save (#88).
 - Release channels now use the `commitish` key OctoPrint actually reads (it was misspelled `comittish`), so Development-channel users are offered release candidates and both pre-release channels pick up pre-releases targeted at `master`. The Stable channel is unaffected.
-
-### Added
-- **Find Moved Bridge** — when the bridge is unreachable, the Bridge tab offers a search that finds the bridge on the network and tries the existing pairing at its new address, saving it if accepted. If the bridge doesn't accept the saved key, the pairing flow opens pointed at the discovered bridge. Only private-network addresses returned by Hue discovery are tried, and only while Hue is the active provider.
-- Bridge status badge shows **Checking…** while the status request runs, and **Couldn't check status** if it fails, instead of a stale value.
-- `LightProvider.check_connection()` — providers report whether their controller is reachable (Hue probes `/resource/bridge`, WLED probes `/json/info`). `bridge` → `getstatus` returns `unreachable` when a configured controller doesn't answer. New `bridge` → `relocate` API sub-command.
-
----
-
-## [1.1.0] - unreleased
-
-### Changed
-- **Provider pattern refactor** — Hue-specific code extracted from `__init__.py` into a dedicated `HueProvider` class. The plugin now delegates all light operations to a `LightProvider` instance; the plugin itself contains no vendor-specific logic. This is the first step toward supporting additional light systems beyond Philips Hue.
-- `_SignifyAdapter`, `_hue_request`, `rgb_to_xy`, and all direct Hue API calls moved to `octoprint_octohue/providers/hue.py`
-- `pbridge` and `_session` instance variables replaced by a single `_provider: LightProvider | None`
-
-### Added
-- `octoprint_octohue/providers/base.py` — `LightProvider` abstract base class defining the interface all providers must implement (`setup`, `is_ready`, `set_light`, `get_state`, `get_lights`, `get_groups`, `get_plugs`, `discover`, `pair`)
-- `octoprint_octohue/providers/hue.py` — `HueProvider` implementing the full Hue v2 CLIP API behaviour
-- `octoprint_octohue/providers/__init__.py` — `PROVIDERS` registry mapping provider name strings to implementation classes; add new providers here
-- `provider` setting (default `'hue'`) — selects the active light provider; future releases will expose this in the UI
-- `tests/providers/` — dedicated test suite for provider classes in isolation (51 tests)
-- Settings migration v4→v5: seeds `provider = 'hue'` for existing installs
-- `extras/claude/` — project-specific Claude Code commands for reviewer, tester, release manager, issue triager, PR author, and commit author personas
-
----
 
 ## [1.0.4] - 2026-04-05
 
