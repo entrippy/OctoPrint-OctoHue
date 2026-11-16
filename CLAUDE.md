@@ -24,7 +24,7 @@ A local OctoPrint instance is available for live testing:
 ## Running tests
 
 ```bash
-# Python (428 tests) — no live OctoPrint install required
+# Python (437 tests) — no live OctoPrint install required
 ~/oprint/bin/python -m pytest
 
 # JavaScript (113 tests)

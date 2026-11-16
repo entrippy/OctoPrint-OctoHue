@@ -794,18 +794,18 @@ class OctohuePlugin(octoprint.plugin.StartupPlugin,
 				stable_branch=dict(
 					name="Stable",
 					branch="master",
-					comittish=["master"]
+					commitish=["master"]
 				),
 				prerelease_branches=[
 					dict(
 						name="Release Candidate",
 						branch="rc",
-						comittish=["rc", "master"]
+						commitish=["rc", "master"]
 					),
 					dict(
 						name="Development",
 						branch="devel",
-						comittish=["devel", "rc", "master"]
+						commitish=["devel", "rc", "master"]
 					),
 				],
 

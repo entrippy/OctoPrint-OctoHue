@@ -2141,27 +2141,66 @@ class TestGetUpdateInformation:
         assert info["repo"] == "OctoPrint-OctoHue"
         assert info["type"] == "github_release"
 
-    def test_pip_url_contains_target_version_placeholder(self, info):
-        assert "{target_version}" in info["pip"]
-        assert "entrippy/OctoPrint-OctoHue" in info["pip"]
+    def test_pip_url(self, info):
+        assert info["pip"] == "https://github.com/entrippy/OctoPrint-OctoHue/archive/{target_version}.zip"
+
+    def test_version_fields(self, info):
+        assert info["current"] == "1.0.2"
+        assert info["displayVersion"] == "1.0.2"
+        assert info["displayName"] == "Octohue Plugin"
+
+    def test_channels_are_named(self, info):
+        """OctoPrint's channel UI reads branch_info["name"] for every entry."""
+        assert info["stable_branch"]["name"] == "Stable"
+        names = {b["branch"]: b["name"] for b in info["prerelease_branches"]}
+        assert names == {"rc": "Release Candidate", "devel": "Development"}
 
     def test_stable_branch_points_to_master(self, info):
         stable = info["stable_branch"]
         assert stable["branch"] == "master"
-        assert stable["comittish"] == ["master"]
+        # OctoPrint doesn't read commitish for the stable branch; kept for
+        # consistency with its own config and the prerelease entries.
+        assert stable["commitish"] == ["master"]
 
-    def test_rc_branch_receives_rc_and_stable(self, info):
-        rc = next(b for b in info["prerelease_branches"] if b["branch"] == "rc")
-        assert "rc" in rc["comittish"]
-        assert "master" in rc["comittish"]
+    def test_prerelease_commitish_lists(self, info):
+        lists = {b["branch"]: b["commitish"] for b in info["prerelease_branches"]}
+        assert len(info["prerelease_branches"]) == 2
+        assert set(lists) == {"rc", "devel"}
+        assert set(lists["rc"]) == {"rc", "master"}
+        assert set(lists["devel"]) == {"devel", "rc", "master"}
 
-    def test_devel_branch_receives_all_channels(self, info):
-        devel = next(b for b in info["prerelease_branches"] if b["branch"] == "devel")
-        assert "devel" in devel["comittish"]
-        assert "rc" in devel["comittish"]
-        assert "master" in devel["comittish"]
+    def test_no_misspelled_comittish_key(self, info):
+        """Guards against reintroducing the dead key OctoPrint never reads."""
+        branches = [info["stable_branch"], *info["prerelease_branches"]]
+        assert all("comittish" not in b for b in branches)
 
-    def test_devel_comittish_is_broader_than_rc(self, info):
-        rc = next(b for b in info["prerelease_branches"] if b["branch"] == "rc")
-        devel = next(b for b in info["prerelease_branches"] if b["branch"] == "devel")
-        assert set(rc["comittish"]).issubset(set(devel["comittish"]))
+    @staticmethod
+    def _offered(info, channel, release):
+        """Local copy of OctoPrint 1.11.8's github_release channel filter
+        (get_latest + _filter_out_latest), for a user who has opted into the
+        given pre-release channel: allowed targets are
+        x.get("commitish", [x["branch"]]); an empty list allows everything; a
+        release passes if it isn't a draft and is either a full release or a
+        pre-release targeting an allowed branch."""
+        commitishes = {x["branch"]: x.get("commitish", [x["branch"]]) for x in info["prerelease_branches"]}
+        allowed = commitishes.get(channel, [channel])
+        if not allowed:
+            return not release["draft"]
+        return not release["draft"] and (not release["prerelease"] or release["target_commitish"] in allowed)
+
+    @pytest.mark.parametrize("channel,target,offered", [
+        ("devel", "devel", True),
+        ("devel", "rc", True),       # the regression: devel users must see rc pre-releases
+        ("devel", "master", True),
+        ("rc", "rc", True),
+        ("rc", "master", True),      # allowed in case a pre-release is cut from master
+        ("rc", "devel", False),      # rc testers don't get development builds
+    ])
+    def test_prerelease_offered_per_channel(self, info, channel, target, offered):
+        release = {"draft": False, "prerelease": True, "target_commitish": target}
+        assert self._offered(info, channel, release) is offered
+
+    @pytest.mark.parametrize("channel", ["rc", "devel"])
+    def test_full_release_always_offered(self, info, channel):
+        release = {"draft": False, "prerelease": False, "target_commitish": "master"}
+        assert self._offered(info, channel, release) is True
