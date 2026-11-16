@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Hue API requests now time out after 5 seconds instead of waiting indefinitely on a bridge that doesn't answer.
 - The Hue application key is no longer written to the log at debug level.
 - Hue pairing requests now time out after 5 seconds, so pairing against an address that never answers no longer ties up OctoPrint (#84).
+- Switching the Light Controller dropdown without saving no longer shows a status for the previously saved controller; the badge says **Save settings to check status** instead (#83).
 
 ### Added
 - **Find Moved Bridge** — when the bridge is unreachable, the Bridge tab offers a search that finds the bridge on the network and tries the existing pairing at its new address, saving it if accepted. If the bridge doesn't accept the saved key, the pairing flow opens pointed at the discovered bridge. Only private-network addresses returned by Hue discovery are tried, and only while Hue is the active provider.

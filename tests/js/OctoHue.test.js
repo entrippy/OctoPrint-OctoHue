@@ -917,15 +917,45 @@ describe("getbridgestatus", () => {
     }
   );
 
-  test("issues the correct API command", () => {
-    const vm = makeViewModel();
+  test("issues the correct API command, sending the provider selected at call time", () => {
+    const vm = makeViewModel({ provider: makeObservable("wled") });
+    vm.getbridgestatus();
+    expect(OctoPrint.simpleApiCommand).toHaveBeenLastCalledWith(
+      "octohue", "bridge", { getstatus: "true", provider: "wled" }, {}
+    );
+    vm.ownSettings.provider("hue");
+    OctoPrint.simpleApiCommand.mockClear();
     vm.getbridgestatus();
     expect(OctoPrint.simpleApiCommand).toHaveBeenCalledWith(
-      "octohue",
-      "bridge",
-      { getstatus: "true" },
-      {}
+      "octohue", "bridge", { getstatus: "true", provider: "hue" }, {}
     );
+  });
+
+  test.each([
+    ["with an app key in the dialog", "key", false, true],
+    ["without an app key", "", true, false],
+    ["with a null app key", null, true, false],
+  ])("unsaved status %s: grey badge, no warning, correct panel", (_label, key, configuredHidden, pairingHidden) => {
+    const vm = makeViewModel({ husername: makeObservable("placeholder") });
+    // Replace the key after construction so it must be read when the response arrives.
+    vm.ownSettings.husername = makeObservable(key);
+    vm.bridgeUnreachable(true);
+    const badge = document.getElementById("huebridgestatus");
+    const configured = document.getElementById("huebridge_configured");
+    const pairing = document.getElementById("huebridge_unconfigured");
+    // Seed the opposite state so only the unsaved handler can satisfy the asserts.
+    if (configuredHidden) { configured.classList.remove("inactiveconfig"); } else { configured.classList.add("inactiveconfig"); }
+    if (pairingHidden) { pairing.classList.remove("inactiveconfig"); } else { pairing.classList.add("inactiveconfig"); }
+    OctoPrint.simpleApiCommand.mockImplementationOnce(() => {
+      badge.innerHTML = "stale"; badge.style.backgroundColor = "green";
+      return new SyncResult({ bridgestatus: "unsaved" });
+    });
+    vm.getbridgestatus();
+    expect(badge.innerHTML).toBe("Save settings to check status");
+    expect(badge.style.backgroundColor).toBe("#999");
+    expect(vm.bridgeUnreachable()).toBe(false);
+    expect(configured.classList.contains("inactiveconfig")).toBe(configuredHidden);
+    expect(pairing.classList.contains("inactiveconfig")).toBe(pairingHidden);
   });
 });
 
